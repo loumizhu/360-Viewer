@@ -25,11 +25,27 @@ const CONFIG_3D = {
     
     // Camera sync
     CAMERA_ASPECT_RATIO: null,      // Will be set to window.innerWidth / window.innerHeight
+    CAMERA_NEAR_CLIP: 0.1,      // Near clipping plane base value (objects closer than this are not rendered)
+    CAMERA_FAR_CLIP: 10000000,      // Far clipping plane (objects farther than this are not rendered)
+    DYNAMIC_CLIPPING: true,         // Automatically adjust clipping planes based on scene size and zoom level
+    NEAR_CLIP_ZOOM_FACTOR: 2.0,     // How aggressively near plane reduces with zoom (1.0 = linear, 2.0 = squared)
+    
+    // Tooltip settings
+    SHOW_TOOLTIP: true,             // Show tooltip with object name on hover
+    TOOLTIP_OFFSET_X: 15,           // Horizontal offset from cursor (pixels)
+    TOOLTIP_OFFSET_Y: 15,           // Vertical offset from cursor (pixels)
+    TOOLTIP_BG_COLOR: 'rgba(0, 0, 0, 0.85)', // Background color
+    TOOLTIP_TEXT_COLOR: '#ffffff',  // Text color
+    TOOLTIP_FONT_SIZE: '14px',      // Font size
+    TOOLTIP_PADDING: '8px 12px',    // Padding
+    TOOLTIP_BORDER_RADIUS: '6px',   // Border radius
+    TOOLTIP_MAX_WIDTH: '250px',     // Maximum width
     
     // Debug
     ENABLE_HOVER_LOGGING: true,     // Log object names when hovering
     ENABLE_CLICK_LOGGING: true,     // Log object names when clicking
-    SHOW_ZOOM_PIVOT: false,          // Show red crosshair at 3D zoom pivot point (for debugging)
+    ENABLE_CLIPPING_LOGGING: false, // Log camera clipping plane adjustments (for debugging clipping issues)
+    SHOW_ZOOM_PIVOT: false,         // Show red crosshair at 3D zoom pivot point (for debugging)
 };
 
 // ============================================
@@ -49,7 +65,47 @@ class Viewer3D {
         this.mouse = new THREE.Vector2();
         this.isHoveringObject = false;
         
+        // Create tooltip element
+        this.createTooltip();
+        
         this.init();
+    }
+    
+    createTooltip() {
+        // Create tooltip element if enabled
+        if (!CONFIG_3D.SHOW_TOOLTIP) return;
+        
+        this.tooltip = document.createElement('div');
+        this.tooltip.id = 'viewer3d-tooltip';
+        this.tooltip.style.position = 'fixed';
+        this.tooltip.style.backgroundColor = CONFIG_3D.TOOLTIP_BG_COLOR;
+        this.tooltip.style.color = CONFIG_3D.TOOLTIP_TEXT_COLOR;
+        this.tooltip.style.fontSize = CONFIG_3D.TOOLTIP_FONT_SIZE;
+        this.tooltip.style.padding = CONFIG_3D.TOOLTIP_PADDING;
+        this.tooltip.style.borderRadius = CONFIG_3D.TOOLTIP_BORDER_RADIUS;
+        this.tooltip.style.maxWidth = CONFIG_3D.TOOLTIP_MAX_WIDTH;
+        this.tooltip.style.pointerEvents = 'none';
+        this.tooltip.style.zIndex = '10000';
+        this.tooltip.style.display = 'none';
+        this.tooltip.style.whiteSpace = 'nowrap';
+        this.tooltip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+        this.tooltip.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+        
+        document.body.appendChild(this.tooltip);
+    }
+    
+    showTooltip(text, x, y) {
+        if (!CONFIG_3D.SHOW_TOOLTIP || !this.tooltip) return;
+        
+        this.tooltip.textContent = text;
+        this.tooltip.style.left = (x + CONFIG_3D.TOOLTIP_OFFSET_X) + 'px';
+        this.tooltip.style.top = (y + CONFIG_3D.TOOLTIP_OFFSET_Y) + 'px';
+        this.tooltip.style.display = 'block';
+    }
+    
+    hideTooltip() {
+        if (!this.tooltip) return;
+        this.tooltip.style.display = 'none';
     }
     
     async init() {
@@ -105,12 +161,23 @@ class Viewer3D {
                         const defaultCamera = new THREE.PerspectiveCamera(
                             75,
                             window.innerWidth / window.innerHeight,
-                            0.1,
-                            1000
+                            CONFIG_3D.CAMERA_NEAR_CLIP,
+                            CONFIG_3D.CAMERA_FAR_CLIP
                         );
                         defaultCamera.position.set(0, 0, 5);
                         this.cameras.push(defaultCamera);
                     }
+                    
+                    // Apply clipping planes to all cameras
+                    this.cameras.forEach(camera => {
+                        if (camera.isPerspectiveCamera) {
+                            camera.near = CONFIG_3D.CAMERA_NEAR_CLIP;
+                            camera.far = CONFIG_3D.CAMERA_FAR_CLIP;
+                            camera.updateProjectionMatrix();
+                        }
+                    });
+                    
+                    console.log(`Applied clipping planes: near=${CONFIG_3D.CAMERA_NEAR_CLIP}, far=${CONFIG_3D.CAMERA_FAR_CLIP}`);
                     
                     // Set initial camera
                     this.currentCamera = this.cameras[0];
@@ -156,6 +223,9 @@ class Viewer3D {
                     const box = new THREE.Box3().setFromObject(this.scene);
                     const size = box.getSize(new THREE.Vector3());
                     const center = box.getCenter(new THREE.Vector3());
+                    
+                    // Store for dynamic clipping calculations
+                    this.sceneBounds = { box, size, center };
                     
                     console.log('Scene bounding box:');
                     console.log('  Size:', size);
@@ -265,6 +335,10 @@ class Viewer3D {
                                     '- Position:', this.hoveredObject.position);
                     }
                 }
+                
+                // Show tooltip with object name
+                const objectName = this.hoveredObject.name || 'Unnamed Object';
+                this.showTooltip(objectName, e.clientX, e.clientY);
             } else {
                 // No intersection - reset hover
                 this.isHoveringObject = false;
@@ -274,6 +348,9 @@ class Viewer3D {
                     this.hoveredObject.material = this.hoveredObject.userData.transparentMaterial;
                     this.hoveredObject = null;
                 }
+                
+                // Hide tooltip
+                this.hideTooltip();
             }
         });
         
@@ -341,6 +418,9 @@ class Viewer3D {
             viewer2DCanvas.dispatchEvent(mouseEvent);
             
             this.dragStartedOn3D = false;
+            
+            // Hide tooltip when mouse leaves canvas
+            this.hideTooltip();
         });
         
         // Click handler for 3D objects
@@ -388,6 +468,10 @@ class Viewer3D {
             this.currentCamera.aspect = window.innerWidth / window.innerHeight;
             this.currentCamera.updateProjectionMatrix();
             
+            // Update clipping planes for this camera (pass current zoom level)
+            const currentZoom = window.productViewer ? window.productViewer.zoom : 1.0;
+            this.updateCameraClipping(currentZoom);
+            
             // Sync zoom and pan with 2D viewer
             if (window.productViewer) {
                 const mouseX = window.productViewer.lastZoomMouseX || window.innerWidth / 2;
@@ -400,6 +484,39 @@ class Viewer3D {
             position: this.currentCamera.position,
             rotation: this.currentCamera.rotation
         });
+    }
+    
+    updateCameraClipping(zoomLevel = 1.0) {
+        if (!this.currentCamera || !this.currentCamera.isPerspectiveCamera) return;
+        if (!CONFIG_3D.DYNAMIC_CLIPPING || !this.sceneBounds) return;
+        
+        // Calculate distance from camera to scene center
+        const cameraToCenter = this.currentCamera.position.distanceTo(this.sceneBounds.center);
+        
+        // Calculate the radius of the scene (half of diagonal)
+        const sceneRadius = this.sceneBounds.size.length() / 2;
+        
+        // Near plane: Must get MUCH smaller as we zoom in
+        // When zoomed in, objects appear closer in perspective, so we need a smaller near plane
+        // Use configurable zoom factor (1.0 = linear, 2.0 = squared, 3.0 = cubed)
+        let nearPlane = CONFIG_3D.CAMERA_NEAR_CLIP / Math.pow(zoomLevel, CONFIG_3D.NEAR_CLIP_ZOOM_FACTOR);
+        
+        // Ensure it's never larger than a fraction of the scene
+        nearPlane = Math.min(nearPlane, sceneRadius * 0.00001);
+        
+        // Also ensure it never gets unreasonably small (avoid depth buffer precision issues)
+        nearPlane = Math.max(nearPlane, 0.000001);
+        
+        // Far plane: ensure we can see the entire scene from this camera position
+        const farPlane = Math.max(CONFIG_3D.CAMERA_FAR_CLIP, cameraToCenter + sceneRadius * 2);
+        
+        this.currentCamera.near = nearPlane;
+        this.currentCamera.far = farPlane;
+        this.currentCamera.updateProjectionMatrix();
+        
+        if (CONFIG_3D.ENABLE_CLIPPING_LOGGING) {
+            console.log(`Camera ${this.currentCameraIndex} clipping (zoom ${zoomLevel.toFixed(2)}x): near=${nearPlane.toFixed(6)}, far=${farPlane.toFixed(0)}`);
+        }
     }
     
     onWindowResize() {
@@ -507,6 +624,10 @@ class Viewer3D {
         // Lower FOV = more zoomed in (like a telephoto lens)
         this.currentCamera.fov = this.originalFOV / zoomLevel;
         this.currentCamera.updateProjectionMatrix();
+        
+        // Update clipping planes to prevent objects from being clipped when zoomed in
+        // Pass zoom level so near plane gets smaller as we zoom in
+        this.updateCameraClipping(zoomLevel);
         
         // PAN: Use CSS transform to shift the canvas
         // This matches how the 2D viewer pans (translate after scale in canvas context)

@@ -21,7 +21,7 @@ class ProductViewer {
         // Zoom and pan controls
         this.zoom = 1.0;
         this.minZoom = 1.0;
-        this.maxZoom = 10.0;
+        this.maxZoom = 5.0;
         this.panX = 0;
         this.panY = 0;
         this.isPanning = false;

@@ -8,7 +8,7 @@ A simple, lightweight web-based 360° product rotation viewer - like those on e-
 - 🔄 **Progressive preloading** - Shows first image instantly, loads others in background
 - 🔍 **Zoom & Pan** - Scroll to zoom (up to 10x), drag to pan when zoomed
 - 🎭 **3D Overlay** - GLB model overlaid on images with camera sync
-- 🎯 **Interactive 3D Objects** - Hover to highlight objects in red
+- 🎯 **Interactive 3D Objects** - Hover to highlight objects in red with tooltip showing object name
 - 📸 Cycles through 90 images smoothly
 - 🖱️ Responsive mouse drag controls
 - 📱 Touch support for mobile devices
@@ -182,17 +182,50 @@ Works on all modern browsers:
 - **Pan**: CSS transforms shift the canvas to match 2D viewer pan
 - This hybrid approach provides close alignment between 2D and 3D viewers
 
+**Camera Settings:**
+- **CAMERA_NEAR_CLIP**: `0.00001` - Near clipping plane base value (objects closer are not rendered)
+  - If objects still clip when zooming in, **decrease this** (try 0.000001)
+  - Lower values = render objects closer to camera
+- **CAMERA_FAR_CLIP**: `10000000` - Far clipping plane (objects farther are not rendered)
+  - If distant objects disappear, **increase this** (try 20000000)
+  - Higher values = render objects farther from camera
+- **DYNAMIC_CLIPPING**: `true` - Automatically adjust clipping planes based on scene and zoom level
+  - **Recommended: keep this enabled**
+  - Dynamically calculates optimal near/far planes to prevent clipping at any zoom level
+  - Near plane gets smaller as you zoom in to prevent clipping
+  - Set to `false` to use fixed CAMERA_NEAR_CLIP and CAMERA_FAR_CLIP values
+- **NEAR_CLIP_ZOOM_FACTOR**: `2.0` - How aggressively near plane reduces with zoom
+  - `1.0` = linear reduction (near ÷ zoom)
+  - `2.0` = squared reduction (near ÷ zoom²) - **default, works well for most scenes**
+  - `3.0` = cubed reduction (near ÷ zoom³) - more aggressive if still clipping
+  - Higher values = more aggressive near plane reduction when zoomed in
+
 **Visual Settings:**
 - **DEFAULT_OPACITY**: `0.0` - Default 3D object transparency (0.0 = invisible)
 - **HOVER_OPACITY**: `0.75` - Opacity when hovering over objects (0.75 = 25% transparent)
 - **HOVER_COLOR**: `0xff0000` - Hover highlight color (red)
 - **AMBIENT_LIGHT_INTENSITY**: `1.5` - Overall scene brightness
 
+**Tooltip Settings:**
+- **SHOW_TOOLTIP**: `true` - Show tooltip with object name on hover
+- **TOOLTIP_OFFSET_X**: `15` - Horizontal offset from cursor (pixels)
+- **TOOLTIP_OFFSET_Y**: `15` - Vertical offset from cursor (pixels)
+- **TOOLTIP_BG_COLOR**: `'rgba(0, 0, 0, 0.85)'` - Background color
+- **TOOLTIP_TEXT_COLOR**: `'#ffffff'` - Text color
+- **TOOLTIP_FONT_SIZE**: `'14px'` - Font size
+- **TOOLTIP_PADDING**: `'8px 12px'` - Padding
+- **TOOLTIP_BORDER_RADIUS**: `'6px'` - Border radius
+- **TOOLTIP_MAX_WIDTH**: `'250px'` - Maximum width
+
 **Debug:**
-- **SHOW_ZOOM_PIVOT**: `true` - Show red crosshair at 3D zoom pivot (for debugging)
+- **SHOW_ZOOM_PIVOT**: `false` - Show red crosshair at 3D zoom pivot (for debugging zoom alignment)
   - Red crosshair appears when zoomed, showing where 3D is zooming toward
   - Compare with 2D zoom ripple (+/−) to check alignment
   - Set to `false` to hide in production
+- **ENABLE_CLIPPING_LOGGING**: `false` - Log camera clipping plane adjustments to console
+  - Shows near/far plane values for each camera when switching or zooming
+  - Useful for debugging clipping issues
+  - Set to `true` to see clipping calculations
 
 ### Light Image Generation (`create-light-images.py`)
 - **Target width**: Change `TARGET_WIDTH = 2000` (pixels)
