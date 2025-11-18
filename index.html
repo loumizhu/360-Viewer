@@ -11,11 +11,47 @@
         <canvas id="viewer"></canvas>
         <canvas id="viewer3d"></canvas>
         
-        <!-- Image selector UI -->
+        <!-- Integrated Control Toolbar -->
         <div id="controls">
-            <button id="prevBtn" class="control-btn">◄ Previous</button>
+            <!-- Navigation Controls -->
+            <button id="prevBtn" class="control-btn">◄</button>
             <span id="imageInfo"></span>
-            <button id="nextBtn" class="control-btn">Next ►</button>
+            <button id="nextBtn" class="control-btn">►</button>
+            
+            <!-- Divider -->
+            <div class="toolbar-divider"></div>
+            
+            <!-- Effect Selector -->
+            <label for="effect-select" class="toolbar-label">Effect:</label>
+            <select id="effect-select" class="effect-dropdown">
+                <option value="solid">Solid</option>
+                <option value="outline">Outline</option>
+                <option value="glow">Glow</option>
+                <option value="scan">Scan</option>
+                <option value="particles">Particles</option>
+            </select>
+            
+            <!-- Effect Controls (dynamically shown based on effect) -->
+            <div id="effect-controls">
+                <!-- Controls will be inserted here by JavaScript -->
+            </div>
+            
+            <!-- Divider -->
+            <div class="toolbar-divider"></div>
+            
+            <!-- Debug Toggle Button -->
+            <button id="debugToggleBtn" class="control-btn" title="Toggle Scene Debug Panel">⚙</button>
+        </div>
+        
+        <!-- Left Debug Panel -->
+        <div id="debug-panel" class="hidden">
+            <div class="debug-panel-header">
+                <h3>Scene Debug</h3>
+                <button id="debugCloseBtn" class="debug-close-btn">×</button>
+            </div>
+            <div class="debug-panel-content">
+                <!-- Content will be populated by JavaScript -->
+            </div>
         </div>
         
         <!-- Loading indicator -->
@@ -25,8 +61,17 @@
     <!-- Three.js library from CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/OutlinePass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="settings.js"></script>
     <script src="viewer.js"></script>
     <script src="viewer3d.js"></script>
+    <script src="ui-interactions.js"></script>
 </body>
 </html>
 

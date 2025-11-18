@@ -1,0 +1,10 @@
+{
+  "ui": {
+    "blurEnabled": true,
+    "blurIntensity": 15,
+    "glowEnabled": true,
+    "glowColor": "rgba(100, 200, 255, 0.8)",
+    "glowDuration": 500
+  }
+}
+

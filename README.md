@@ -8,7 +8,14 @@ A simple, lightweight web-based 360° product rotation viewer - like those on e-
 - 🔄 **Progressive preloading** - Shows first image instantly, loads others in background
 - 🔍 **Zoom & Pan** - Scroll to zoom (up to 10x), drag to pan when zoomed
 - 🎭 **3D Overlay** - GLB model overlaid on images with camera sync
-- 🎯 **Interactive 3D Objects** - Hover to highlight objects in red with tooltip showing object name
+- ✨ **Multiple Highlight Effects** - 5 different ways to highlight 3D objects on hover:
+  - **Solid Color** - Classic colored highlight with transparency
+  - **Outline** - Glowing edge outline with pulse animation
+  - **Glow & Bloom** - Emissive glow with bloom postprocessing
+  - **Scanning Lines** - Animated sci-fi scanning effect
+  - **Particles** - Particle system filling the object
+- 🎯 **Interactive 3D Objects** - Hover to highlight objects with tooltip showing object name
+- 🎚️ **Effect Selector** - Bottom toolbar to switch between highlight effects
 - 📸 Cycles through 90 images smoothly
 - 🖱️ Responsive mouse drag controls
 - 📱 Touch support for mobile devices
@@ -85,11 +92,20 @@ npx http-server -p 8000
 
 4. **3D Overlay Interaction**:
    - **Automatic sync**: 3D camera switches match 2D image rotation
-   - **Hover detection**: Objects turn red when you hover over them
-   - **Transparent rendering**: 3D objects rendered semi-transparent
+   - **Hover detection**: Objects highlight when you hover over them
+   - **Transparent rendering**: 3D objects invisible by default, visible on hover
    - **90 cameras**: Each image has a corresponding 3D viewpoint
+   - **Tooltip**: Shows object name when hovering
 
-5. **How the two-tier system works**:
+5. **Highlight Effects** (switchable via bottom toolbar):
+   - **Solid Color**: Object turns red/colored with configurable transparency
+   - **Outline**: Animated green glowing outline (custom shader with fresnel/rim lighting effect)
+   - **Glow & Bloom**: Object emits light with bloom postprocessing effect
+   - **Scanning Lines**: Cyan animated lines sweep across object (sci-fi style)
+   - **Particles**: Yellow particles rise from bottom to top inside the object
+   - Use dropdown at bottom of screen to switch between effects in real-time
+
+6. **How the two-tier system works**:
    - **While dragging**: Uses fast-loading light images (2000px)
    - **When you stop**: Automatically loads HD version after 300ms
    - You'll see "(HD)" indicator when full-res is shown
@@ -115,8 +131,11 @@ npx http-server -p 8000
 ### Technologies Used
 - **Vanilla JavaScript** - No frameworks for 2D viewer
 - **Three.js (r128)** - WebGL 3D rendering and GLB loading
+- **Three.js Postprocessing** - UnrealBloomPass for bloom effects
+- **Custom GLSL Shaders** - Animated outline with fresnel edge detection
 - **CSS3** - Modern styling with glassmorphism effects
 - **HTML5 Canvas** - Dual canvas setup (2D + 3D layers)
+- **WebGL** - Custom particle systems, scanning effects, and shader materials
 
 ### How It Works
 1. **Instant Start**: Loads and displays first light image immediately
@@ -135,8 +154,10 @@ npx http-server -p 8000
    - Three.js WebGL renderer with transparent background
    - GLB model loader with camera and mesh extraction
    - Raycasting for hover detection
-   - Material switching (transparent ↔ red highlight)
+   - Multiple highlight effects (solid, outline, bloom, scan, particles)
+   - Effect compositor for postprocessing passes
    - Automatic camera sync with image rotation
+   - Real-time particle systems and animated effects
 6. **Smart Switching**: Tracks mouse/touch drag distance
 7. **Zoom System**: 
    - Cursor-relative zooming (zooms toward mouse position)
@@ -206,6 +227,36 @@ Works on all modern browsers:
 - **HOVER_COLOR**: `0xff0000` - Hover highlight color (red)
 - **AMBIENT_LIGHT_INTENSITY**: `1.5` - Overall scene brightness
 
+**Effect Settings:**
+- **EFFECT_TYPE**: `'solid'` - Default highlight effect (`'solid'`, `'outline'`, `'glow'`, `'scan'`, `'particles'`)
+
+**Outline Effect (Custom Shader):**
+- **OUTLINE_THICKNESS**: `15` - Outline edge thickness (1-50, affects vertex displacement)
+- **OUTLINE_COLOR**: `0x00ff00` - Outline color (green = `0x00ff00`)
+- **OUTLINE_PULSE_SPEED**: `2.0` - Pulse animation speed (0-5)
+- Uses custom GLSL shader with fresnel effect for realistic edge detection
+- Animated vertex displacement and color pulsing
+- Completely transparent interior, glowing edges only
+
+**Glow/Bloom Effect:**
+- **BLOOM_STRENGTH**: `2.5` - Bloom intensity (higher = more glow)
+- **BLOOM_RADIUS**: `1.0` - Bloom spread distance
+- **BLOOM_THRESHOLD**: `0.0` - Minimum brightness to bloom (0 = everything blooms)
+
+**Scanning Lines Effect:**
+- **SCAN_SPEED**: `2.0` - Animation speed for pulsing and scanning
+- **SCAN_LINE_COUNT**: `8` - Number of horizontal scan lines (max 8 for performance)
+- **SCAN_COLOR**: `0x00ffff` - Scan color (cyan = `0x00ffff`)
+- **SCAN_OPACITY**: `0.8` - Base opacity for box and planes
+- Uses Three.js BoxHelper for perfect alignment with any object orientation
+
+**Particle Effect:**
+- **PARTICLE_COUNT**: `500` - Number of particles per object
+- **PARTICLE_SIZE**: `0.05` - Particle size (relative to object size, 0.05 = 5%)
+- **PARTICLE_SPEED**: `1.0` - Particle animation speed
+- **PARTICLE_COLOR**: `0xffff00` - Particle color (yellow = `0xffff00`)
+- **PARTICLE_OPACITY**: `0.8` - Particle transparency
+
 **Tooltip Settings:**
 - **SHOW_TOOLTIP**: `true` - Show tooltip with object name on hover
 - **TOOLTIP_OFFSET_X**: `15` - Horizontal offset from cursor (pixels)
@@ -226,6 +277,11 @@ Works on all modern browsers:
   - Shows near/far plane values for each camera when switching or zooming
   - Useful for debugging clipping issues
   - Set to `true` to see clipping calculations
+
+**Scan Effect Settings:**
+- **SCAN_DEBUG_MODE**: `false` - Enable debug console logging for scan effect
+- **SCAN_SHOW_PLANES**: `true` - Show animated scanning planes (disable for box outline only)
+- **SCAN_LOG_GEOMETRY**: `false` - Log geometry bounds to console
 
 ### Light Image Generation (`create-light-images.py`)
 - **Target width**: Change `TARGET_WIDTH = 2000` (pixels)

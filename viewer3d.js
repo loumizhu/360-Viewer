@@ -11,9 +11,9 @@ const CONFIG_3D = {
     DEFAULT_DEPTH_WRITE: false,
     
     // Material settings - Hover (red highlight)
-    HOVER_OPACITY: 0.75,            // 75% opaque (25% transparent)
-    HOVER_COLOR: 0xff0000,          // Red
-    HOVER_EMISSIVE: 0xff0000,       // Red glow
+    HOVER_OPACITY: 0.5,            // 75% opaque (25% transparent)
+    HOVER_COLOR: 0x175ddc,          // blue
+    HOVER_EMISSIVE: 0x175ddc,       // Red glow
     HOVER_EMISSIVE_INTENSITY: 0.6,  // Glow strength
     HOVER_DEPTH_WRITE: true,
     
@@ -28,7 +28,7 @@ const CONFIG_3D = {
     CAMERA_NEAR_CLIP: 0.1,      // Near clipping plane base value (objects closer than this are not rendered)
     CAMERA_FAR_CLIP: 10000000,      // Far clipping plane (objects farther than this are not rendered)
     DYNAMIC_CLIPPING: true,         // Automatically adjust clipping planes based on scene size and zoom level
-    NEAR_CLIP_ZOOM_FACTOR: 2.0,     // How aggressively near plane reduces with zoom (1.0 = linear, 2.0 = squared)
+    NEAR_CLIP_ZOOM_FACTOR: 1.0,     // How aggressively near plane reduces with zoom (1.0 = linear, 2.0 = squared)
     
     // Tooltip settings
     SHOW_TOOLTIP: true,             // Show tooltip with object name on hover
@@ -41,11 +41,51 @@ const CONFIG_3D = {
     TOOLTIP_BORDER_RADIUS: '6px',   // Border radius
     TOOLTIP_MAX_WIDTH: '250px',     // Maximum width
     
+    // Effect settings
+    EFFECT_TYPE: 'solid',           // Default effect: 'solid', 'outline', 'glow', 'scan', 'particles'
+    
+    // Outline effect (BoxHelper)
+    OUTLINE_COLOR: 0x00ff00,        // Outline color (green)
+    OUTLINE_PULSE_SPEED: 8.0,       // Pulse animation speed
+    
+    // Glow/Bloom effect
+    BLOOM_STRENGTH: 2.5,            // Bloom intensity
+    BLOOM_RADIUS: 1.0,              // Bloom spread
+    BLOOM_THRESHOLD: 0.0,           // Bloom threshold
+    
+    // Scanning lines effect
+    SCAN_SPEED: 2.0,                // Scanning animation speed
+    SCAN_LINE_COUNT: 15,            // Number of scanning lines
+    SCAN_COLOR: 0x00ffff,           // Scanning line color (cyan)
+    SCAN_OPACITY: 0.8,              // Scanning line opacity
+    
+    // Particle effect
+    PARTICLE_COUNT: 500,            // Number of particles per object
+    PARTICLE_SIZE: 0.05,            // Particle size (relative to object size)
+    PARTICLE_SPEED: 10.0,            // Particle animation speed
+    PARTICLE_COLOR: 0xffff00,       // Particle color (yellow)
+    PARTICLE_OPACITY: 0.8,          // Particle opacity
+    
     // Debug
     ENABLE_HOVER_LOGGING: true,     // Log object names when hovering
     ENABLE_CLICK_LOGGING: true,     // Log object names when clicking
     ENABLE_CLIPPING_LOGGING: false, // Log camera clipping plane adjustments (for debugging clipping issues)
     SHOW_ZOOM_PIVOT: false,         // Show red crosshair at 3D zoom pivot point (for debugging)
+    
+    // Scan effect debug settings
+    SCAN_DEBUG_MODE: false,         // Enable debug logging and visualization
+    SCAN_LOG_GEOMETRY: false,       // Log geometry bounds to console
+    
+    // Intro Animation settings
+    ENABLE_INTRO_ANIMATION: false,   // Enable/disable intro animation
+    INTRO_DELAY: 1000,              // Delay before animation starts (ms)
+    INTRO_PLANE_SPEED: 2000,        // Speed of plane rising (units per second)
+    INTRO_PLANE_ANGLE: 45,          // Angle of plane in degrees (0 = horizontal, 45 = diagonal)
+    INTRO_OBJECT_OPACITY: 0.5,      // Opacity when plane touches object
+    INTRO_FADE_SPEED: 2.0,          // Speed of fade in/out
+    INTRO_PLANE_COLOR: 0x00ffff,    // Color of the scanning plane (cyan) - only for debug
+    INTRO_PLANE_OPACITY: 0.0,       // Opacity of the scanning plane (0 = invisible)
+    INTRO_SHOW_PLANE: false         // Show the plane during animation (false = invisible)
 };
 
 // ============================================
@@ -65,8 +105,55 @@ class Viewer3D {
         this.mouse = new THREE.Vector2();
         this.isHoveringObject = false;
         
+        // Effect systems
+        this.currentEffect = CONFIG_3D.EFFECT_TYPE;
+        this.composer = null;
+        this.outlinePass = null;
+        this.bloomPass = null;
+        this.scanningLines = null;
+        this.particleSystems = new Map(); // Map object to particle system
+        this.activeEffects = [];
+        
+        // Scene debug helpers
+        this.sceneHelpers = {
+            gridHelper: null,
+            horizonLines: null,
+            vanishingLines: null,
+            axesHelper: null,
+            allBoxHelpers: [],
+            cameraHelper: null
+        };
+        this.debugSettings = {
+            showGrid: false,
+            showHorizon: false,
+            showVanishing: false,
+            showAxes: false,
+            showAllBoxes: false,
+            showCameraHelper: false,
+            gridSize: 10000,
+            gridDivisions: 50
+        };
+        
+        // Intro animation state
+        this.introAnimation = {
+            active: false,
+            plane: null,
+            planeY: 0,
+            startY: 0,
+            endY: 0,
+            startTime: 0,
+            touchedObjects: new Set(),
+            objectOpacities: new Map()
+        };
+        
         // Create tooltip element
         this.createTooltip();
+        
+        // Setup effect selector UI
+        this.setupEffectSelector();
+        
+        // Setup debug panel
+        this.setupDebugPanel();
         
         this.init();
     }
@@ -108,12 +195,380 @@ class Viewer3D {
         this.tooltip.style.display = 'none';
     }
     
+    setupEffectSelector() {
+        const selector = document.getElementById('effect-select');
+        const controlsContainer = document.getElementById('effect-controls');
+        if (!selector || !controlsContainer) return;
+        
+        selector.value = this.currentEffect;
+        
+        // Function to update controls based on effect
+        const updateControls = () => {
+            controlsContainer.innerHTML = '';
+            
+            switch (this.currentEffect) {
+                case 'solid':
+                    this.createSolidControls(controlsContainer);
+                    break;
+                case 'outline':
+                    this.createOutlineControls(controlsContainer);
+                    break;
+                case 'glow':
+                    this.createGlowControls(controlsContainer);
+                    break;
+                case 'scan':
+                    this.createScanControls(controlsContainer);
+                    break;
+                case 'particles':
+                    this.createParticleControls(controlsContainer);
+                    break;
+            }
+        };
+        
+        selector.addEventListener('change', (e) => {
+            this.currentEffect = e.target.value;
+            console.log(`Switched to effect: ${this.currentEffect}`);
+            
+            updateControls();
+            
+            // Clear current hover effect and reapply with new effect
+            if (this.hoveredObject) {
+                this.clearAllEffects(this.hoveredObject);
+                this.applyEffect(this.hoveredObject);
+            }
+        });
+        
+        // Initialize controls
+        updateControls();
+    }
+    
+    createControl(container, label, value, min, max, step, onChange) {
+        const group = document.createElement('div');
+        group.className = 'effect-control-group';
+        
+        const labelEl = document.createElement('span');
+        labelEl.className = 'effect-control-label';
+        labelEl.textContent = label + ':';
+        
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.className = 'effect-slider';
+        slider.min = min;
+        slider.max = max;
+        slider.step = step;
+        slider.value = value;
+        
+        const valueDisplay = document.createElement('span');
+        valueDisplay.className = 'effect-value';
+        valueDisplay.textContent = value;
+        
+        slider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            valueDisplay.textContent = val.toFixed(step < 1 ? 1 : 0);
+            onChange(val);
+            
+            // Reapply effect if hovering
+            if (this.hoveredObject) {
+                this.clearAllEffects(this.hoveredObject);
+                this.applyEffect(this.hoveredObject);
+            }
+        });
+        
+        group.appendChild(labelEl);
+        group.appendChild(slider);
+        group.appendChild(valueDisplay);
+        container.appendChild(group);
+    }
+    
+    createSolidControls(container) {
+        this.createControl(container, 'Opacity', CONFIG_3D.HOVER_OPACITY, 0, 1, 0.05, (val) => {
+            CONFIG_3D.HOVER_OPACITY = val;
+        });
+    }
+    
+    createOutlineControls(container) {
+        this.createControl(container, 'Speed', CONFIG_3D.OUTLINE_PULSE_SPEED, 0, 5, 0.1, (val) => {
+            CONFIG_3D.OUTLINE_PULSE_SPEED = val;
+        });
+    }
+    
+    createGlowControls(container) {
+        this.createControl(container, 'Strength', CONFIG_3D.BLOOM_STRENGTH, 0, 5, 0.1, (val) => {
+            CONFIG_3D.BLOOM_STRENGTH = val;
+            if (this.bloomPass) this.bloomPass.strength = val;
+        });
+        this.createControl(container, 'Radius', CONFIG_3D.BLOOM_RADIUS, 0, 2, 0.1, (val) => {
+            CONFIG_3D.BLOOM_RADIUS = val;
+            if (this.bloomPass) this.bloomPass.radius = val;
+        });
+    }
+    
+    createScanControls(container) {
+        this.createControl(container, 'Speed', CONFIG_3D.SCAN_SPEED, 0.1, 5, 0.1, (val) => {
+            CONFIG_3D.SCAN_SPEED = val;
+        });
+        this.createControl(container, 'Lines', CONFIG_3D.SCAN_LINE_COUNT, 1, 20, 1, (val) => {
+            CONFIG_3D.SCAN_LINE_COUNT = val;
+        });
+        this.createControl(container, 'Opacity', CONFIG_3D.SCAN_OPACITY, 0, 1, 0.05, (val) => {
+            CONFIG_3D.SCAN_OPACITY = val;
+        });
+        
+        // Add debug toggle button
+        const debugBtn = document.createElement('button');
+        debugBtn.textContent = 'Debug';
+        debugBtn.className = 'control-btn';
+        debugBtn.style.marginLeft = '10px';
+        debugBtn.style.padding = '5px 10px';
+        debugBtn.style.background = CONFIG_3D.SCAN_DEBUG_MODE ? '#ff4444' : 'rgba(255, 255, 255, 0.1)';
+        debugBtn.onclick = () => {
+            CONFIG_3D.SCAN_DEBUG_MODE = !CONFIG_3D.SCAN_DEBUG_MODE;
+            debugBtn.style.background = CONFIG_3D.SCAN_DEBUG_MODE ? '#ff4444' : 'rgba(255, 255, 255, 0.1)';
+            console.log('Scan Debug Mode:', CONFIG_3D.SCAN_DEBUG_MODE);
+            
+            // Refresh effect on hovered object if any
+            if (this.hoveredObject) {
+                this.clearAllEffects(this.hoveredObject);
+                this.applyEffect(this.hoveredObject);
+            }
+        };
+        container.appendChild(debugBtn);
+        
+        // Add info text
+        const info = document.createElement('span');
+        info.className = 'toolbar-label';
+        info.style.fontSize = '10px';
+        info.style.marginLeft = '5px';
+        info.style.opacity = '0.7';
+        info.textContent = '(Shows BoxHelper & Axes)';
+        container.appendChild(info);
+    }
+    
+    createParticleControls(container) {
+        this.createControl(container, 'Count', CONFIG_3D.PARTICLE_COUNT, 50, 1000, 50, (val) => {
+            CONFIG_3D.PARTICLE_COUNT = val;
+        });
+        this.createControl(container, 'Size', CONFIG_3D.PARTICLE_SIZE, 0.01, 0.2, 0.01, (val) => {
+            CONFIG_3D.PARTICLE_SIZE = val;
+        });
+        this.createControl(container, 'Speed', CONFIG_3D.PARTICLE_SPEED, 0.1, 3, 0.1, (val) => {
+            CONFIG_3D.PARTICLE_SPEED = val;
+        });
+    }
+    
+    // Setup Debug Panel
+    setupDebugPanel() {
+        try {
+            const panel = document.getElementById('debug-panel');
+            const toggleBtn = document.getElementById('debugToggleBtn');
+            const closeBtn = document.getElementById('debugCloseBtn');
+            const content = document.querySelector('.debug-panel-content');
+            
+            if (!panel || !toggleBtn || !closeBtn || !content) {
+                console.warn('Debug panel elements not found, skipping debug panel setup');
+                return;
+            }
+            
+            // Toggle button click
+            toggleBtn.addEventListener('click', () => {
+                panel.classList.toggle('hidden');
+            });
+            
+            // Close button click
+            closeBtn.addEventListener('click', () => {
+                panel.classList.add('hidden');
+            });
+            
+            // Build debug panel content
+            content.innerHTML = this.buildDebugPanelHTML();
+            
+            // Attach event listeners
+            this.attachDebugEventListeners();
+            
+            console.log('Debug panel initialized');
+        } catch (error) {
+            console.error('Error setting up debug panel:', error);
+        }
+    }
+    
+    buildDebugPanelHTML() {
+        return `
+            <!-- Visual Helpers Section -->
+            <div class="debug-section">
+                <div class="debug-section-title">Visual Helpers</div>
+                
+                <div class="debug-toggle">
+                    <label for="debug-grid">Ground Grid</label>
+                    <label class="debug-switch">
+                        <input type="checkbox" id="debug-grid">
+                        <span class="debug-switch-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="debug-toggle">
+                    <label for="debug-horizon">Horizon Lines</label>
+                    <label class="debug-switch">
+                        <input type="checkbox" id="debug-horizon">
+                        <span class="debug-switch-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="debug-toggle">
+                    <label for="debug-vanishing">Vanishing Lines</label>
+                    <label class="debug-switch">
+                        <input type="checkbox" id="debug-vanishing">
+                        <span class="debug-switch-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="debug-toggle">
+                    <label for="debug-axes">World Axes</label>
+                    <label class="debug-switch">
+                        <input type="checkbox" id="debug-axes">
+                        <span class="debug-switch-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="debug-toggle">
+                    <label for="debug-boxes">All Object Boxes</label>
+                    <label class="debug-switch">
+                        <input type="checkbox" id="debug-boxes">
+                        <span class="debug-switch-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="debug-toggle">
+                    <label for="debug-camera-helper">Camera Frustum</label>
+                    <label class="debug-switch">
+                        <input type="checkbox" id="debug-camera-helper">
+                        <span class="debug-switch-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="debug-slider-control">
+                    <div class="debug-slider-label">
+                        <span>Grid Size</span>
+                        <span class="debug-slider-value" id="grid-size-value">${this.debugSettings.gridSize}</span>
+                    </div>
+                    <input type="range" class="debug-slider" id="grid-size" 
+                           min="1000" max="50000" step="1000" value="${this.debugSettings.gridSize}">
+                </div>
+                
+                <div class="debug-slider-control">
+                    <div class="debug-slider-label">
+                        <span>Grid Divisions</span>
+                        <span class="debug-slider-value" id="grid-divisions-value">${this.debugSettings.gridDivisions}</span>
+                    </div>
+                    <input type="range" class="debug-slider" id="grid-divisions" 
+                           min="10" max="100" step="10" value="${this.debugSettings.gridDivisions}">
+                </div>
+            </div>
+            
+            <!-- Camera Info Section -->
+            <div class="debug-section">
+                <div class="debug-section-title">Camera Info</div>
+                <div class="debug-info" id="camera-position">
+                    <strong>Position:</strong> Not loaded
+                </div>
+                <div class="debug-info" id="camera-rotation">
+                    <strong>Rotation:</strong> Not loaded
+                </div>
+                <div class="debug-info" id="camera-fov">
+                    <strong>FOV:</strong> Not loaded
+                </div>
+                <div class="debug-info" id="camera-zoom">
+                    <strong>Zoom:</strong> ${this.viewer2D?.zoomLevel?.toFixed(0) || 100}%
+                </div>
+                <div class="debug-info" id="camera-index">
+                    <strong>Camera Index:</strong> 0 / 0
+                </div>
+            </div>
+            
+            <!-- Scene Info Section -->
+            <div class="debug-section">
+                <div class="debug-section-title">Scene Info</div>
+                <div class="debug-info" id="mesh-count">
+                    <strong>Meshes:</strong> 0
+                </div>
+                <div class="debug-info" id="camera-count">
+                    <strong>Cameras:</strong> 0
+                </div>
+                <div class="debug-info" id="hovered-object">
+                    <strong>Hovered:</strong> None
+                </div>
+            </div>
+        `;
+    }
+    
+    attachDebugEventListeners() {
+        try {
+            // Grid toggle
+            document.getElementById('debug-grid')?.addEventListener('change', (e) => {
+                this.debugSettings.showGrid = e.target.checked;
+                this.toggleGridHelper();
+            });
+        
+        // Horizon toggle
+        document.getElementById('debug-horizon')?.addEventListener('change', (e) => {
+            this.debugSettings.showHorizon = e.target.checked;
+            this.toggleHorizonLines();
+        });
+        
+        // Vanishing lines toggle
+        document.getElementById('debug-vanishing')?.addEventListener('change', (e) => {
+            this.debugSettings.showVanishing = e.target.checked;
+            this.toggleVanishingLines();
+        });
+        
+        // Axes toggle
+        document.getElementById('debug-axes')?.addEventListener('change', (e) => {
+            this.debugSettings.showAxes = e.target.checked;
+            this.toggleAxesHelper();
+        });
+        
+        // All boxes toggle
+        document.getElementById('debug-boxes')?.addEventListener('change', (e) => {
+            this.debugSettings.showAllBoxes = e.target.checked;
+            this.toggleAllBoxHelpers();
+        });
+        
+        // Camera helper toggle
+        document.getElementById('debug-camera-helper')?.addEventListener('change', (e) => {
+            this.debugSettings.showCameraHelper = e.target.checked;
+            this.toggleCameraHelper();
+        });
+        
+        // Grid size slider
+        document.getElementById('grid-size')?.addEventListener('input', (e) => {
+            this.debugSettings.gridSize = parseInt(e.target.value);
+            document.getElementById('grid-size-value').textContent = e.target.value;
+            if (this.debugSettings.showGrid) {
+                this.toggleGridHelper(); // Recreate grid
+                this.toggleGridHelper();
+            }
+        });
+        
+        // Grid divisions slider
+        document.getElementById('grid-divisions')?.addEventListener('input', (e) => {
+            this.debugSettings.gridDivisions = parseInt(e.target.value);
+            document.getElementById('grid-divisions-value').textContent = e.target.value;
+            if (this.debugSettings.showGrid) {
+                this.toggleGridHelper(); // Recreate grid
+                this.toggleGridHelper();
+            }
+        });
+        } catch (error) {
+            console.error('Error attaching debug event listeners:', error);
+        }
+    }
+    
     async init() {
         // Setup Three.js renderer
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
             alpha: true,
-            antialias: true
+            antialias: true,
+            premultipliedAlpha: false
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(window.devicePixelRatio);
@@ -121,6 +576,9 @@ class Viewer3D {
         
         // Load GLB file
         await this.loadGLB();
+        
+        // Setup postprocessing (for outline and bloom effects)
+        this.setupPostProcessing();
         
         // Setup mouse move for hover detection
         this.setupInteraction();
@@ -132,6 +590,11 @@ class Viewer3D {
         this.animate();
         
         console.log('3D Viewer initialized');
+        
+        // Start intro animation if enabled
+        if (CONFIG_3D.ENABLE_INTRO_ANIMATION) {
+            setTimeout(() => this.startIntroAnimation(), CONFIG_3D.INTRO_DELAY);
+        }
     }
     
     async loadGLB() {
@@ -318,21 +781,21 @@ class Viewer3D {
                 this.isHoveringObject = true;
                 
                 if (this.hoveredObject !== newHovered) {
-                    // Reset previous hovered object to transparent
+                    // Clear previous hovered object's effects
                     if (this.hoveredObject) {
-                        this.hoveredObject.material = this.hoveredObject.userData.transparentMaterial;
+                        this.clearAllEffects(this.hoveredObject);
                     }
                     
-                    // Set new hovered object to red
+                    // Apply effect to new hovered object
                     this.hoveredObject = newHovered;
-                    this.hoveredObject.material = this.hoveredObject.userData.hoverMaterial;
+                    this.applyEffect(this.hoveredObject);
                     
                     // Change cursor to pointer
                     this.canvas.style.cursor = 'pointer';
                     
                     if (CONFIG_3D.ENABLE_HOVER_LOGGING) {
                         console.log('Hovering over:', this.hoveredObject.name || 'Mesh', 
-                                    '- Position:', this.hoveredObject.position);
+                                    '- Effect:', this.currentEffect);
                     }
                 }
                 
@@ -345,7 +808,7 @@ class Viewer3D {
                 this.canvas.style.cursor = 'default';
                 
                 if (this.hoveredObject) {
-                    this.hoveredObject.material = this.hoveredObject.userData.transparentMaterial;
+                    this.clearAllEffects(this.hoveredObject);
                     this.hoveredObject = null;
                 }
                 
@@ -528,13 +991,986 @@ class Viewer3D {
         }
         
         this.renderer.setSize(window.innerWidth, window.innerHeight);
+        
+        // Update composer size if it exists
+        if (this.composer) {
+            this.composer.setSize(window.innerWidth, window.innerHeight);
+        }
+    }
+    
+    // ============================================
+    // POSTPROCESSING SETUP
+    // ============================================
+    setupPostProcessing() {
+        if (!this.scene || !this.currentCamera) return;
+        
+        try {
+            // Check if postprocessing classes are available
+            if (typeof THREE.EffectComposer === 'undefined') {
+                console.warn('EffectComposer not available. Outline and Bloom effects will be disabled.');
+                return;
+            }
+            
+            // Create composer
+            this.composer = new THREE.EffectComposer(this.renderer);
+            
+            // Add render pass (renders the scene)
+            const renderPass = new THREE.RenderPass(this.scene, this.currentCamera);
+            this.composer.addPass(renderPass);
+            
+            // Setup outline pass
+            if (typeof THREE.OutlinePass !== 'undefined') {
+                this.outlinePass = new THREE.OutlinePass(
+                    new THREE.Vector2(window.innerWidth, window.innerHeight),
+                    this.scene,
+                    this.currentCamera
+                );
+                this.outlinePass.edgeStrength = CONFIG_3D.OUTLINE_THICKNESS;
+                this.outlinePass.edgeGlow = CONFIG_3D.OUTLINE_GLOW;
+                this.outlinePass.edgeThickness = 2.0;
+                this.outlinePass.pulsePeriod = 2.0;
+                this.outlinePass.visibleEdgeColor.set(CONFIG_3D.OUTLINE_COLOR);
+                this.outlinePass.hiddenEdgeColor.set(CONFIG_3D.OUTLINE_COLOR);
+                this.outlinePass.enabled = false;
+                this.composer.addPass(this.outlinePass);
+                
+                console.log('OutlinePass initialized with thickness:', CONFIG_3D.OUTLINE_THICKNESS);
+            } else {
+                console.warn('OutlinePass not available. Outline effect will be disabled.');
+            }
+            
+            // Setup bloom pass (check for dependencies)
+            if (typeof THREE.UnrealBloomPass !== 'undefined' && typeof THREE.LuminosityHighPassShader !== 'undefined') {
+                this.bloomPass = new THREE.UnrealBloomPass(
+                    new THREE.Vector2(window.innerWidth, window.innerHeight),
+                    CONFIG_3D.BLOOM_STRENGTH,
+                    CONFIG_3D.BLOOM_RADIUS,
+                    CONFIG_3D.BLOOM_THRESHOLD
+                );
+                this.bloomPass.enabled = false;
+                this.composer.addPass(this.bloomPass);
+            } else {
+                console.warn('UnrealBloomPass or LuminosityHighPassShader not available. Bloom effect will be disabled.');
+                console.warn('To enable bloom, add: <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>');
+            }
+            
+            console.log('Postprocessing initialized successfully');
+        } catch (error) {
+            console.error('Error setting up postprocessing:', error);
+            console.warn('Postprocessing disabled. Falling back to basic rendering.');
+            this.composer = null;
+            this.outlinePass = null;
+            this.bloomPass = null;
+        }
+    }
+    
+    // ============================================
+    // EFFECT METHODS
+    // ============================================
+    
+    applyEffect(object) {
+        if (!object) return;
+        
+        switch (this.currentEffect) {
+            case 'solid':
+                this.applySolidEffect(object);
+                break;
+            case 'outline':
+                this.applyOutlineEffect(object);
+                break;
+            case 'glow':
+                this.applyGlowEffect(object);
+                break;
+            case 'scan':
+                this.applyScanEffect(object);
+                break;
+            case 'particles':
+                this.applyParticleEffect(object);
+                break;
+        }
+    }
+    
+    clearAllEffects(object) {
+        if (!object) return;
+        
+        try {
+            // Clear solid effect and restore transparent material
+            if (object.userData.transparentMaterial) {
+                object.material = object.userData.transparentMaterial;
+            }
+            
+            // Clear outline BoxHelper (custom aligned box - child of object)
+            if (object.userData.outlineBoxHelper) {
+                object.remove(object.userData.outlineBoxHelper); // Remove from object, not scene
+                // Dispose geometry and material
+                if (object.userData.outlineBoxHelper.geometry) {
+                    object.userData.outlineBoxHelper.geometry.dispose();
+                }
+                if (object.userData.outlineBoxHelper.material) {
+                    object.userData.outlineBoxHelper.material.dispose();
+                }
+                object.userData.outlineBoxHelper = null;
+            }
+            
+            // Clear outline (postprocessing - fallback)
+            if (this.outlinePass) {
+                this.outlinePass.selectedObjects = [];
+                this.outlinePass.enabled = false;
+            }
+            
+            // Clear bloom
+            if (this.bloomPass) {
+                this.bloomPass.enabled = false;
+            }
+            if (object.material && object.userData.originalEmissive !== undefined) {
+                object.material.emissive.setHex(object.userData.originalEmissive);
+                object.material.emissiveIntensity = object.userData.originalEmissiveIntensity || 0;
+                object.material.opacity = object.userData.originalOpacity !== undefined ? object.userData.originalOpacity : CONFIG_3D.DEFAULT_OPACITY;
+                object.material.needsUpdate = true;
+            }
+            
+            // Clear scan BoxHelper (custom aligned box - child of object)
+            if (object.userData.scanBoxHelper) {
+                object.remove(object.userData.scanBoxHelper); // Remove from object, not scene
+                // Dispose geometry and material
+                if (object.userData.scanBoxHelper.geometry) {
+                    object.userData.scanBoxHelper.geometry.dispose();
+                }
+                if (object.userData.scanBoxHelper.material) {
+                    object.userData.scanBoxHelper.material.dispose();
+                }
+                object.userData.scanBoxHelper = null;
+            }
+            
+            // Clear scan planes
+            if (object.userData.scanPlanes) {
+                this.scene.remove(object.userData.scanPlanes);
+                object.userData.scanPlanes.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                });
+                object.userData.scanPlanes = null;
+            }
+            
+            // Clear scan material
+            if (object.userData.scanMaterial) {
+                object.userData.scanMaterial = null;
+            }
+            
+            // Clear scan debug helpers (custom aligned box - child of object)
+            if (object.userData.scanDebugBoxHelper) {
+                object.remove(object.userData.scanDebugBoxHelper); // Remove from object, not scene
+                // Dispose geometry and material
+                if (object.userData.scanDebugBoxHelper.geometry) {
+                    object.userData.scanDebugBoxHelper.geometry.dispose();
+                }
+                if (object.userData.scanDebugBoxHelper.material) {
+                    object.userData.scanDebugBoxHelper.material.dispose();
+                }
+                object.userData.scanDebugBoxHelper = null;
+            }
+            
+            // Clear particles
+            if (this.particleSystems.has(object)) {
+                const particleSystem = this.particleSystems.get(object);
+                object.remove(particleSystem);
+                this.particleSystems.delete(object);
+            }
+        } catch (error) {
+            console.error('Error clearing effects:', error);
+        }
+    }
+    
+    // Solid color effect (original)
+    applySolidEffect(object) {
+        if (object.userData.hoverMaterial) {
+            // Update opacity from current config
+            object.userData.hoverMaterial.opacity = CONFIG_3D.HOVER_OPACITY;
+            object.material = object.userData.hoverMaterial;
+        }
+    }
+    
+    // Outline effect - using ALIGNED Box3 helper that respects object rotation
+    applyOutlineEffect(object) {
+        if (!object.geometry) return;
+        
+        // Create properly aligned box using object's local bounding box
+        // Note: createAlignedBoxHelper adds the box as a child of the object
+        const alignedBox = this.createAlignedBoxHelper(object, CONFIG_3D.OUTLINE_COLOR);
+        alignedBox.name = 'OutlineBoxHelper';
+        alignedBox.userData.startTime = Date.now();
+        
+        // Store reference for cleanup and animation
+        object.userData.outlineBoxHelper = alignedBox;
+        
+        console.log('Aligned outline applied to:', object.name);
+    }
+    
+    // Create an aligned box helper that respects object rotation
+    createAlignedBoxHelper(object, color) {
+        // Get local bounding box from geometry
+        object.geometry.computeBoundingBox();
+        const bbox = object.geometry.boundingBox;
+        
+        // Get min and max directly from bounding box
+        const min = bbox.min;
+        const max = bbox.max;
+        
+        // Create edges geometry (12 edges of a box) using actual bbox coordinates
+        const geometry = new THREE.BufferGeometry();
+        const vertices = new Float32Array([
+            // Bottom face (Y = min.y)
+            min.x, min.y, min.z,  max.x, min.y, min.z,
+            max.x, min.y, min.z,  max.x, min.y, max.z,
+            max.x, min.y, max.z,  min.x, min.y, max.z,
+            min.x, min.y, max.z,  min.x, min.y, min.z,
+            // Top face (Y = max.y)
+            min.x, max.y, min.z,  max.x, max.y, min.z,
+            max.x, max.y, min.z,  max.x, max.y, max.z,
+            max.x, max.y, max.z,  min.x, max.y, max.z,
+            min.x, max.y, max.z,  min.x, max.y, min.z,
+            // Vertical edges
+            min.x, min.y, min.z,  min.x, max.y, min.z,
+            max.x, min.y, min.z,  max.x, max.y, min.z,
+            max.x, min.y, max.z,  max.x, max.y, max.z,
+            min.x, min.y, max.z,  min.x, max.y, max.z
+        ]);
+        
+        geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+        
+        const material = new THREE.LineBasicMaterial({ 
+            color: color,
+            transparent: true,
+            opacity: 1.0,
+            linewidth: 2
+        });
+        
+        const boxLines = new THREE.LineSegments(geometry, material);
+        
+        // NO position offset - vertices are already in the correct local space
+        // Just add as child to inherit all transforms
+        object.add(boxLines);
+        
+        // Store object reference for updates
+        boxLines.userData.targetObject = object;
+        
+        return boxLines;
+    }
+    
+    // Glow/Bloom effect
+    applyGlowEffect(object) {
+        // Store original emissive and opacity
+        if (object.userData.originalEmissive === undefined) {
+            object.userData.originalEmissive = object.material.emissive.getHex();
+            object.userData.originalEmissiveIntensity = object.material.emissiveIntensity || 0;
+            object.userData.originalOpacity = object.material.opacity;
+        }
+        
+        // Make object visible at 10% with strong emissive
+        object.material.opacity = 0.3; // More visible than before
+        object.material.transparent = true;
+        object.material.emissive.setHex(CONFIG_3D.HOVER_COLOR); // Red emissive
+        object.material.emissiveIntensity = CONFIG_3D.BLOOM_STRENGTH * 5; // Very strong emission for bloom
+        object.material.needsUpdate = true;
+        
+        // Enable bloom pass
+        if (this.bloomPass) {
+            this.bloomPass.enabled = true;
+            this.bloomPass.strength = CONFIG_3D.BLOOM_STRENGTH;
+            this.bloomPass.threshold = 0; // Capture all emissive
+            this.bloomPass.radius = CONFIG_3D.BLOOM_RADIUS;
+            console.log('Bloom effect applied - strength:', CONFIG_3D.BLOOM_STRENGTH, 'emissiveIntensity:', object.material.emissiveIntensity);
+        } else {
+            // Still show emissive even without bloom
+            console.warn('Bloom effect not available, using emissive only');
+            // Make it even more visible without bloom
+            object.material.opacity = 0.6;
+            object.material.emissiveIntensity = CONFIG_3D.BLOOM_STRENGTH * 3;
+        }
+    }
+    
+    // Scanning lines effect - uses aligned box helper like outline
+    applyScanEffect(object) {
+        if (!object.geometry) return;
+        
+        // Make the object itself visible and pulsing
+        if (object.userData.hoverMaterial) {
+            object.material = object.userData.hoverMaterial.clone();
+            object.material.opacity = 0.1; // Very low opacity
+            object.userData.scanMaterial = object.material;
+        }
+        
+        // Use SAME aligned box as outline (added as child of object)
+        const alignedBox = this.createAlignedBoxHelper(object, CONFIG_3D.SCAN_COLOR);
+        alignedBox.name = 'ScanBoxHelper';
+        alignedBox.userData.startTime = Date.now();
+        
+        // Store reference for cleanup and animation
+        object.userData.scanBoxHelper = alignedBox;
+        
+        // Get world bounding box for scan planes positioning
+        const worldBox = new THREE.Box3().setFromObject(object);
+        const worldSize = new THREE.Vector3();
+        worldBox.getSize(worldSize);
+        const worldCenter = new THREE.Vector3();
+        worldBox.getCenter(worldCenter);
+        
+        // Create animated scan planes group
+        const scanPlanesGroup = new THREE.Group();
+        scanPlanesGroup.name = 'ScanPlanesGroup';
+        scanPlanesGroup.userData.startTime = Date.now();
+        scanPlanesGroup.userData.worldBox = worldBox;
+        scanPlanesGroup.userData.worldSize = worldSize;
+        scanPlanesGroup.userData.worldCenter = worldCenter;
+        scanPlanesGroup.userData.targetObject = object;
+        
+        const lineCount = Math.min(CONFIG_3D.SCAN_LINE_COUNT, 8);
+        
+        for (let i = 0; i < lineCount; i++) {
+            // Create horizontal scan planes
+            const planeGeometry = new THREE.PlaneGeometry(worldSize.x * 1.1, worldSize.z * 1.1);
+            const planeMaterial = new THREE.MeshBasicMaterial({
+                color: CONFIG_3D.SCAN_COLOR,
+                transparent: true,
+                opacity: CONFIG_3D.SCAN_OPACITY * 0.3,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            
+            // Rotate to be horizontal (XZ plane)
+            plane.rotation.x = Math.PI / 2;
+            
+            // Position in world space
+            plane.position.set(
+                worldCenter.x,
+                worldCenter.y - worldSize.y / 2 + (i / lineCount) * worldSize.y,
+                worldCenter.z
+            );
+            
+            plane.userData.scanOffset = i / lineCount;
+            plane.userData.initialY = worldCenter.y - worldSize.y / 2 + (i / lineCount) * worldSize.y;
+            plane.name = `ScanPlane${i}`;
+            
+            scanPlanesGroup.add(plane);
+        }
+        
+        // Add planes group to scene (not object, to avoid double transforms)
+        this.scene.add(scanPlanesGroup);
+        object.userData.scanPlanes = scanPlanesGroup;
+        
+        // Add debug helpers if enabled
+        if (CONFIG_3D.SCAN_DEBUG_MODE) {
+            // Add green aligned BoxHelper for reference
+            const debugBoxHelper = this.createAlignedBoxHelper(object, 0x00ff00);
+            debugBoxHelper.name = 'ScanDebugBoxHelper';
+            debugBoxHelper.material.opacity = 0.5;
+            this.scene.add(debugBoxHelper);
+            object.userData.scanDebugBoxHelper = debugBoxHelper;
+            
+            console.log('Scan debug helpers added:', object.name);
+            console.log('World Box:', worldBox);
+            console.log('World Size:', worldSize);
+            console.log('World Center:', worldCenter);
+        }
+        
+        console.log('Scan effect applied to:', object.name);
+    }
+    
+    // Particle effect
+    applyParticleEffect(object) {
+        // Get local bounding box (not world space)
+        if (!object.geometry) return;
+        
+        object.geometry.computeBoundingBox();
+        const bbox = object.geometry.boundingBox;
+        const size = new THREE.Vector3();
+        bbox.getSize(size);
+        const center = new THREE.Vector3();
+        bbox.getCenter(center);
+        
+        // Create particles
+        const particleCount = CONFIG_3D.PARTICLE_COUNT;
+        const positions = new Float32Array(particleCount * 3);
+        const velocities = new Float32Array(particleCount * 3);
+        
+        for (let i = 0; i < particleCount; i++) {
+            // Start particles at bottom, random X and Z (relative to particle system origin)
+            positions[i * 3] = (Math.random() - 0.5) * size.x;
+            positions[i * 3 + 1] = - size.y / 2; // Start at bottom
+            positions[i * 3 + 2] = (Math.random() - 0.5) * size.z;
+            
+            // Upward velocity with slight random horizontal movement
+            velocities[i * 3] = (Math.random() - 0.5) * 0.05; // Slight X drift
+            velocities[i * 3 + 1] = 0.5 + Math.random() * 0.3; // Upward movement
+            velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.05; // Slight Z drift
+        }
+        
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.userData.velocities = velocities;
+        geometry.userData.bounds = size;
+        geometry.userData.center = new THREE.Vector3(0, 0, 0); // Center relative to particle system
+        
+        const material = new THREE.PointsMaterial({
+            color: CONFIG_3D.PARTICLE_COLOR,
+            size: Math.max(size.x, size.y, size.z) * CONFIG_3D.PARTICLE_SIZE,
+            transparent: true,
+            opacity: CONFIG_3D.PARTICLE_OPACITY,
+            sizeAttenuation: true,
+            depthWrite: false
+        });
+        
+        const particleSystem = new THREE.Points(geometry, material);
+        particleSystem.position.set(center.x, center.y, center.z); // Position at geometry center
+        particleSystem.userData.startTime = Date.now();
+        
+        object.add(particleSystem);
+        this.particleSystems.set(object, particleSystem);
+    }
+    
+    // ============================================
+    // INTRO ANIMATION
+    // ============================================
+    
+    startIntroAnimation() {
+        if (!CONFIG_3D.ENABLE_INTRO_ANIMATION || this.meshes.length === 0) return;
+        
+        console.log('Starting intro animation...');
+        
+        // Calculate scene bounding box
+        const sceneBounds = new THREE.Box3();
+        this.meshes.forEach(mesh => {
+            const meshBounds = new THREE.Box3().setFromObject(mesh);
+            sceneBounds.union(meshBounds);
+        });
+        
+        const sceneSize = new THREE.Vector3();
+        sceneBounds.getSize(sceneSize);
+        const sceneCenter = new THREE.Vector3();
+        sceneBounds.getCenter(sceneCenter);
+        
+        // Set start and end Y positions
+        this.introAnimation.startY = sceneBounds.min.y - sceneSize.y * 0.2;
+        this.introAnimation.endY = sceneBounds.max.y + sceneSize.y * 0.2;
+        this.introAnimation.planeY = this.introAnimation.startY;
+        this.introAnimation.startTime = Date.now();
+        this.introAnimation.active = true;
+        
+        // Store original opacities
+        this.meshes.forEach(mesh => {
+            this.introAnimation.objectOpacities.set(mesh, mesh.material.opacity);
+        });
+        
+        // Create the scanning plane (invisible by default, used for collision detection)
+        const planeSize = Math.max(sceneSize.x, sceneSize.z) * 2;
+        const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
+        const planeMaterial = new THREE.MeshBasicMaterial({
+            color: CONFIG_3D.INTRO_PLANE_COLOR,
+            transparent: true,
+            opacity: CONFIG_3D.INTRO_PLANE_OPACITY, // 0 = invisible
+            side: THREE.DoubleSide,
+            depthWrite: false,
+            visible: CONFIG_3D.INTRO_SHOW_PLANE // Control visibility
+        });
+        
+        this.introAnimation.plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        this.introAnimation.plane.name = 'IntroScanPlane';
+        this.introAnimation.plane.visible = CONFIG_3D.INTRO_SHOW_PLANE;
+        
+        // Rotate plane based on angle (convert to radians)
+        const angleRad = (CONFIG_3D.INTRO_PLANE_ANGLE * Math.PI) / 180;
+        this.introAnimation.plane.rotation.x = Math.PI / 2 - angleRad;
+        
+        // Position at start
+        this.introAnimation.plane.position.set(
+            sceneCenter.x,
+            this.introAnimation.planeY,
+            sceneCenter.z
+        );
+        
+        this.scene.add(this.introAnimation.plane);
+        
+        console.log('Intro animation started - rising from Y:', this.introAnimation.startY, 'to Y:', this.introAnimation.endY);
+    }
+    
+    updateIntroAnimation() {
+        if (!this.introAnimation.active) return;
+        
+        const elapsed = (Date.now() - this.introAnimation.startTime) / 1000;
+        const speed = CONFIG_3D.INTRO_PLANE_SPEED;
+        
+        // Update plane Y position
+        this.introAnimation.planeY = this.introAnimation.startY + (speed * elapsed);
+        
+        // Update plane position
+        if (this.introAnimation.plane) {
+            this.introAnimation.plane.position.y = this.introAnimation.planeY;
+        }
+        
+        // Check intersection with each object
+        this.meshes.forEach(mesh => {
+            const meshBounds = new THREE.Box3().setFromObject(mesh);
+            const planeY = this.introAnimation.planeY;
+            
+            // Check if plane is touching this object
+            const isTouching = planeY >= meshBounds.min.y && planeY <= meshBounds.max.y;
+            
+            if (isTouching) {
+                // Fade in to INTRO_OBJECT_OPACITY
+                if (!this.introAnimation.touchedObjects.has(mesh)) {
+                    this.introAnimation.touchedObjects.add(mesh);
+                }
+                
+                const targetOpacity = CONFIG_3D.INTRO_OBJECT_OPACITY;
+                if (mesh.material.opacity < targetOpacity) {
+                    mesh.material.opacity = Math.min(
+                        targetOpacity,
+                        mesh.material.opacity + CONFIG_3D.INTRO_FADE_SPEED * 0.016
+                    );
+                }
+            } else if (this.introAnimation.touchedObjects.has(mesh)) {
+                // Fade out back to transparent
+                const originalOpacity = this.introAnimation.objectOpacities.get(mesh) || CONFIG_3D.DEFAULT_OPACITY;
+                if (mesh.material.opacity > originalOpacity) {
+                    mesh.material.opacity = Math.max(
+                        originalOpacity,
+                        mesh.material.opacity - CONFIG_3D.INTRO_FADE_SPEED * 0.016
+                    );
+                } else {
+                    mesh.material.opacity = originalOpacity;
+                }
+            }
+        });
+        
+        // Check if animation is complete
+        if (this.introAnimation.planeY >= this.introAnimation.endY) {
+            this.stopIntroAnimation();
+        }
+    }
+    
+    stopIntroAnimation() {
+        if (!this.introAnimation.active) return;
+        
+        console.log('Intro animation complete');
+        this.introAnimation.active = false;
+        
+        // Remove plane
+        if (this.introAnimation.plane) {
+            this.scene.remove(this.introAnimation.plane);
+            this.introAnimation.plane.geometry.dispose();
+            this.introAnimation.plane.material.dispose();
+            this.introAnimation.plane = null;
+        }
+        
+        // Restore original opacities
+        this.meshes.forEach(mesh => {
+            const originalOpacity = this.introAnimation.objectOpacities.get(mesh) || CONFIG_3D.DEFAULT_OPACITY;
+            mesh.material.opacity = originalOpacity;
+        });
+        
+        // Clear state
+        this.introAnimation.touchedObjects.clear();
+        this.introAnimation.objectOpacities.clear();
+    }
+    
+    // Update animated effects
+    updateEffects() {
+        try {
+            const time = Date.now() / 1000;
+            
+            // Update outline BoxHelper
+            this.meshes.forEach(mesh => {
+                if (mesh.userData.outlineBoxHelper) {
+                    const boxHelper = mesh.userData.outlineBoxHelper;
+                    const elapsed = (Date.now() - boxHelper.userData.startTime) / 1000;
+                    
+                    // Pulse the outline
+                    const pulse = Math.sin(elapsed * CONFIG_3D.OUTLINE_PULSE_SPEED * 2) * 0.2 + 0.8;
+                    boxHelper.material.opacity = pulse;
+                    
+                    // No need to update position/rotation - it's a child of the object and inherits transforms automatically
+                }
+            });
+            
+            // Update scanning effect (BoxHelper + animated planes)
+            this.meshes.forEach(mesh => {
+                // Update scan BoxHelper (pulsing animation like outline)
+                if (mesh.userData.scanBoxHelper) {
+                    const boxHelper = mesh.userData.scanBoxHelper;
+                    const elapsed = (Date.now() - boxHelper.userData.startTime) / 1000;
+                    
+                    // Pulse the box opacity
+                    const pulse = Math.sin(elapsed * CONFIG_3D.SCAN_SPEED * 2) * 0.2 + 0.8;
+                    boxHelper.material.opacity = CONFIG_3D.SCAN_OPACITY * pulse;
+                    
+                    // No need to update position/rotation - it's a child of the object and inherits transforms automatically
+                }
+                
+                // Pulse the object material
+                if (mesh.userData.scanMaterial) {
+                    const elapsed = Date.now() / 1000;
+                    const pulse = Math.sin(elapsed * CONFIG_3D.SCAN_SPEED * 2) * 0.05 + 0.15;
+                    mesh.userData.scanMaterial.opacity = pulse;
+                }
+                
+                // Update scan planes animation
+                if (mesh.userData.scanPlanes) {
+                    const scanGroup = mesh.userData.scanPlanes;
+                    const elapsed = (Date.now() - scanGroup.userData.startTime) / 1000;
+                    
+                    // Update world bounding box in case object moved/rotated
+                    const worldBox = new THREE.Box3().setFromObject(mesh);
+                    const worldCenter = new THREE.Vector3();
+                    worldBox.getCenter(worldCenter);
+                    const worldSize = new THREE.Vector3();
+                    worldBox.getSize(worldSize);
+                    
+                    scanGroup.children.forEach((plane, i) => {
+                        if (plane.userData.scanOffset !== undefined) {
+                            // Animate opacity with wave pattern
+                            const offset = plane.userData.scanOffset;
+                            const wave = Math.sin((elapsed * CONFIG_3D.SCAN_SPEED + offset * 2) * Math.PI * 2);
+                            plane.material.opacity = CONFIG_3D.SCAN_OPACITY * 0.3 * (wave * 0.5 + 0.5);
+                            
+                            // Update plane position to follow object (in world space)
+                            plane.position.set(
+                                worldCenter.x,
+                                worldCenter.y - worldSize.y / 2 + (i / scanGroup.children.length) * worldSize.y,
+                                worldCenter.z
+                            );
+                        }
+                    });
+                }
+                
+                // Debug BoxHelper updates automatically as child of object
+            });
+            
+            // Update particles
+            this.particleSystems.forEach((particleSystem, object) => {
+                const positions = particleSystem.geometry.attributes.position.array;
+                const velocities = particleSystem.geometry.userData.velocities;
+                const bounds = particleSystem.geometry.userData.bounds;
+                const center = particleSystem.geometry.userData.center; // This is now (0,0,0)
+                
+                for (let i = 0; i < positions.length / 3; i++) {
+                    // Update position
+                    positions[i * 3] += velocities[i * 3] * CONFIG_3D.PARTICLE_SPEED * 0.1;
+                    positions[i * 3 + 1] += velocities[i * 3 + 1] * CONFIG_3D.PARTICLE_SPEED * 0.1;
+                    positions[i * 3 + 2] += velocities[i * 3 + 2] * CONFIG_3D.PARTICLE_SPEED * 0.1;
+                    
+                    // Reset to bottom if particle goes above top (center.y is 0)
+                    if (positions[i * 3 + 1] > bounds.y / 2) {
+                        positions[i * 3 + 1] = - bounds.y / 2;
+                        // Randomize X and Z when resetting
+                        positions[i * 3] = (Math.random() - 0.5) * bounds.x;
+                        positions[i * 3 + 2] = (Math.random() - 0.5) * bounds.z;
+                    }
+                    
+                    // Keep particles within X bounds
+                    if (Math.abs(positions[i * 3]) > bounds.x / 2) {
+                        positions[i * 3] = (Math.random() - 0.5) * bounds.x;
+                    }
+                    
+                    // Keep particles within Z bounds
+                    if (Math.abs(positions[i * 3 + 2]) > bounds.z / 2) {
+                        positions[i * 3 + 2] = (Math.random() - 0.5) * bounds.z;
+                    }
+                }
+                
+                particleSystem.geometry.attributes.position.needsUpdate = true;
+            });
+            
+            // Update outline pulse (for postprocessing outline if enabled - fallback)
+            if (this.outlinePass && this.outlinePass.enabled) {
+                const pulse = Math.sin(time * CONFIG_3D.OUTLINE_PULSE_SPEED) * 0.5 + 0.5;
+                this.outlinePass.edgeStrength = CONFIG_3D.OUTLINE_THICKNESS * (0.5 + pulse * 0.5);
+            }
+        } catch (error) {
+            console.error('Error updating effects:', error);
+        }
+    }
+    
+    // Debug Helper Toggle Methods
+    toggleGridHelper() {
+        if (this.debugSettings.showGrid) {
+            // Remove old grid if exists
+            if (this.sceneHelpers.gridHelper) {
+                this.scene.remove(this.sceneHelpers.gridHelper);
+                // GridHelper doesn't have dispose, just dispose geometry and material
+                if (this.sceneHelpers.gridHelper.geometry) this.sceneHelpers.gridHelper.geometry.dispose();
+                if (this.sceneHelpers.gridHelper.material) this.sceneHelpers.gridHelper.material.dispose();
+            }
+            
+            // Create new grid
+            const size = this.debugSettings.gridSize;
+            const divisions = this.debugSettings.gridDivisions;
+            this.sceneHelpers.gridHelper = new THREE.GridHelper(size, divisions, 0x888888, 0x444444);
+            this.sceneHelpers.gridHelper.name = 'GridHelper';
+            this.scene.add(this.sceneHelpers.gridHelper);
+            console.log(`Grid Helper added: ${size} x ${divisions}`);
+        } else {
+            if (this.sceneHelpers.gridHelper) {
+                this.scene.remove(this.sceneHelpers.gridHelper);
+                // GridHelper doesn't have dispose, just dispose geometry and material
+                if (this.sceneHelpers.gridHelper.geometry) this.sceneHelpers.gridHelper.geometry.dispose();
+                if (this.sceneHelpers.gridHelper.material) this.sceneHelpers.gridHelper.material.dispose();
+                this.sceneHelpers.gridHelper = null;
+                console.log('Grid Helper removed');
+            }
+        }
+    }
+    
+    toggleHorizonLines() {
+        if (this.debugSettings.showHorizon) {
+            if (this.sceneHelpers.horizonLines) return;
+            
+            const group = new THREE.Group();
+            group.name = 'HorizonLines';
+            
+            // Create horizon line (horizontal line at y=0)
+            const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(-50000, 0, 0),
+                new THREE.Vector3(50000, 0, 0)
+            ]);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff00ff, linewidth: 2 });
+            const horizonLine = new THREE.Line(lineGeometry, lineMaterial);
+            group.add(horizonLine);
+            
+            // Add cross line (Z-axis)
+            const crossGeometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, -50000),
+                new THREE.Vector3(0, 0, 50000)
+            ]);
+            const crossLine = new THREE.Line(crossGeometry, lineMaterial);
+            group.add(crossLine);
+            
+            this.sceneHelpers.horizonLines = group;
+            this.scene.add(group);
+            console.log('Horizon Lines added');
+        } else {
+            if (this.sceneHelpers.horizonLines) {
+                this.scene.remove(this.sceneHelpers.horizonLines);
+                this.sceneHelpers.horizonLines.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                });
+                this.sceneHelpers.horizonLines = null;
+                console.log('Horizon Lines removed');
+            }
+        }
+    }
+    
+    toggleVanishingLines() {
+        if (this.debugSettings.showVanishing) {
+            if (this.sceneHelpers.vanishingLines) return;
+            
+            const group = new THREE.Group();
+            group.name = 'VanishingLines';
+            
+            if (this.currentCamera) {
+                const cameraPos = this.currentCamera.position;
+                const distance = 20000;
+                
+                // Create vanishing lines from camera to horizon points
+                const vanishPoints = [
+                    new THREE.Vector3(distance, 0, 0),
+                    new THREE.Vector3(-distance, 0, 0),
+                    new THREE.Vector3(0, 0, distance),
+                    new THREE.Vector3(0, 0, -distance)
+                ];
+                
+                const lineMaterial = new THREE.LineBasicMaterial({ 
+                    color: 0x00ffff, 
+                    linewidth: 1,
+                    transparent: true,
+                    opacity: 0.4
+                });
+                
+                vanishPoints.forEach(point => {
+                    const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                        cameraPos.clone(),
+                        point
+                    ]);
+                    const line = new THREE.Line(lineGeometry, lineMaterial);
+                    group.add(line);
+                });
+            }
+            
+            this.sceneHelpers.vanishingLines = group;
+            this.scene.add(group);
+            console.log('Vanishing Lines added');
+        } else {
+            if (this.sceneHelpers.vanishingLines) {
+                this.scene.remove(this.sceneHelpers.vanishingLines);
+                this.sceneHelpers.vanishingLines.traverse(child => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) child.material.dispose();
+                });
+                this.sceneHelpers.vanishingLines = null;
+                console.log('Vanishing Lines removed');
+            }
+        }
+    }
+    
+    toggleAxesHelper() {
+        if (this.debugSettings.showAxes) {
+            if (this.sceneHelpers.axesHelper) return;
+            
+            // Create axes helper at world origin
+            const size = 5000;
+            this.sceneHelpers.axesHelper = new THREE.AxesHelper(size);
+            this.sceneHelpers.axesHelper.name = 'AxesHelper';
+            this.scene.add(this.sceneHelpers.axesHelper);
+            console.log('Axes Helper added');
+        } else {
+            if (this.sceneHelpers.axesHelper) {
+                this.scene.remove(this.sceneHelpers.axesHelper);
+                // AxesHelper doesn't have dispose method
+                if (this.sceneHelpers.axesHelper.geometry) this.sceneHelpers.axesHelper.geometry.dispose();
+                if (this.sceneHelpers.axesHelper.material) {
+                    if (Array.isArray(this.sceneHelpers.axesHelper.material)) {
+                        this.sceneHelpers.axesHelper.material.forEach(m => m.dispose());
+                    } else {
+                        this.sceneHelpers.axesHelper.material.dispose();
+                    }
+                }
+                this.sceneHelpers.axesHelper = null;
+                console.log('Axes Helper removed');
+            }
+        }
+    }
+    
+    toggleAllBoxHelpers() {
+        if (this.debugSettings.showAllBoxes) {
+            // Create box helpers for all meshes
+            this.meshes.forEach((mesh, index) => {
+                const boxHelper = new THREE.BoxHelper(mesh, 0xffff00);
+                boxHelper.name = `BoxHelper_${index}`;
+                this.sceneHelpers.allBoxHelpers.push(boxHelper);
+                this.scene.add(boxHelper);
+            });
+            console.log(`Added ${this.sceneHelpers.allBoxHelpers.length} box helpers`);
+        } else {
+            // Remove all box helpers
+            this.sceneHelpers.allBoxHelpers.forEach(boxHelper => {
+                this.scene.remove(boxHelper);
+                // BoxHelper has proper dispose method
+                if (boxHelper.dispose) boxHelper.dispose();
+            });
+            this.sceneHelpers.allBoxHelpers = [];
+            console.log('All box helpers removed');
+        }
+    }
+    
+    toggleCameraHelper() {
+        if (this.debugSettings.showCameraHelper) {
+            if (this.sceneHelpers.cameraHelper) return;
+            
+            if (this.currentCamera) {
+                this.sceneHelpers.cameraHelper = new THREE.CameraHelper(this.currentCamera);
+                this.sceneHelpers.cameraHelper.name = 'CameraHelper';
+                this.scene.add(this.sceneHelpers.cameraHelper);
+                console.log('Camera Helper added');
+            }
+        } else {
+            if (this.sceneHelpers.cameraHelper) {
+                this.scene.remove(this.sceneHelpers.cameraHelper);
+                // CameraHelper has proper dispose method
+                if (this.sceneHelpers.cameraHelper.dispose) this.sceneHelpers.cameraHelper.dispose();
+                this.sceneHelpers.cameraHelper = null;
+                console.log('Camera Helper removed');
+            }
+        }
+    }
+    
+    updateDebugInfo() {
+        try {
+            if (!this.currentCamera) return;
+        
+            // Update camera position
+            const pos = this.currentCamera.position;
+            const posEl = document.getElementById('camera-position');
+            if (posEl) posEl.innerHTML = `<strong>Position:</strong> X:${pos.x.toFixed(1)} Y:${pos.y.toFixed(1)} Z:${pos.z.toFixed(1)}`;
+            
+            // Update camera rotation
+            const rot = this.currentCamera.rotation;
+            const rotEl = document.getElementById('camera-rotation');
+            if (rotEl) rotEl.innerHTML = `<strong>Rotation:</strong> X:${(rot.x * 180 / Math.PI).toFixed(1)}° Y:${(rot.y * 180 / Math.PI).toFixed(1)}° Z:${(rot.z * 180 / Math.PI).toFixed(1)}°`;
+            
+            // Update FOV
+            const fovEl = document.getElementById('camera-fov');
+            if (fovEl) fovEl.innerHTML = `<strong>FOV:</strong> ${this.currentCamera.fov?.toFixed(1) || 'N/A'}°`;
+            
+            // Update zoom
+            const zoomEl = document.getElementById('camera-zoom');
+            if (zoomEl) zoomEl.innerHTML = `<strong>Zoom:</strong> ${this.viewer2D?.zoomLevel?.toFixed(0) || 100}%`;
+            
+            // Update camera index
+            const indexEl = document.getElementById('camera-index');
+            if (indexEl) indexEl.innerHTML = `<strong>Camera Index:</strong> ${this.currentCameraIndex + 1} / ${this.cameras.length}`;
+            
+            // Update mesh count
+            const meshEl = document.getElementById('mesh-count');
+            if (meshEl) meshEl.innerHTML = `<strong>Meshes:</strong> ${this.meshes.length}`;
+            
+            // Update camera count
+            const camCountEl = document.getElementById('camera-count');
+            if (camCountEl) camCountEl.innerHTML = `<strong>Cameras:</strong> ${this.cameras.length}`;
+            
+            // Update hovered object
+            const hoveredEl = document.getElementById('hovered-object');
+            if (hoveredEl) hoveredEl.innerHTML = `<strong>Hovered:</strong> ${this.hoveredObject?.name || 'None'}`;
+            
+            // Update camera helper if it exists
+            if (this.sceneHelpers.cameraHelper && this.currentCamera) {
+                this.sceneHelpers.cameraHelper.update();
+            }
+            
+            // Update vanishing lines if they exist (to follow camera)
+            if (this.sceneHelpers.vanishingLines && this.currentCamera) {
+                this.toggleVanishingLines(); // Remove
+                this.toggleVanishingLines(); // Recreate
+            }
+            
+            // Update all box helpers
+            if (this.debugSettings.showAllBoxes) {
+                this.sceneHelpers.allBoxHelpers.forEach(boxHelper => {
+                    boxHelper.update();
+                });
+            }
+        } catch (error) {
+            // Silently fail debug info updates to avoid breaking the viewer
+        }
     }
     
     animate() {
         requestAnimationFrame(() => this.animate());
         
+        // Update intro animation
+        this.updateIntroAnimation();
+        
+        // Update animated effects
+        this.updateEffects();
+        
+        // Update debug info
+        this.updateDebugInfo();
+        
         if (this.scene && this.currentCamera) {
-            this.renderer.render(this.scene, this.currentCamera);
+            // Use composer if outline or bloom is active
+            if (this.composer && (this.outlinePass?.enabled || this.bloomPass?.enabled)) {
+                // Update composer's camera reference if it changed
+                if (this.composer.passes[0]) {
+                    this.composer.passes[0].camera = this.currentCamera;
+                }
+                if (this.outlinePass) {
+                    this.outlinePass.renderCamera = this.currentCamera;
+                }
+                this.composer.render();
+            } else {
+                // Normal rendering
+                this.renderer.render(this.scene, this.currentCamera);
+            }
         }
     }
     
