@@ -1047,19 +1047,11 @@ class Viewer3D {
             // Always forward if in scrubbing mode (zoom <= 1.0), or if not hovering 3D object
             if (isScrubbingMode || !this.isHoveringObject) {
                 this.dragStartedOn3D = false;
-                // Pass through to 2D viewer
-                const viewer2DCanvas = document.getElementById('viewer');
-                if (viewer2DCanvas) {
-                    // Stop propagation to prevent double handling
+                // Pass through to 2D viewer by directly calling the handler
+                const viewer2D = window.productViewer || window.viewer;
+                if (viewer2D && viewer2D.onMouseDown) {
                     e.stopPropagation();
-                    const mouseEvent = new MouseEvent('mousedown', {
-                        clientX: e.clientX,
-                        clientY: e.clientY,
-                        buttons: e.buttons,
-                        bubbles: true,
-                        cancelable: true
-                    });
-                    viewer2DCanvas.dispatchEvent(mouseEvent);
+                    viewer2D.onMouseDown(e);
                 }
             } else {
                 this.dragStartedOn3D = true;
@@ -1069,18 +1061,11 @@ class Viewer3D {
         // Mouse move - always pass to 2D viewer if drag didn't start on 3D
         this.canvas.addEventListener('mousemove', (e) => {
             if (!this.dragStartedOn3D) {
-                const viewer2DCanvas = document.getElementById('viewer');
-                if (viewer2DCanvas) {
-                    // Stop propagation to prevent double handling
+                // Pass through to 2D viewer by directly calling the handler
+                const viewer2D = window.productViewer || window.viewer;
+                if (viewer2D && viewer2D.onMouseMove) {
                     e.stopPropagation();
-                    const mouseEvent = new MouseEvent('mousemove', {
-                        clientX: e.clientX,
-                        clientY: e.clientY,
-                        buttons: e.buttons,
-                        bubbles: true,
-                        cancelable: true
-                    });
-                    viewer2DCanvas.dispatchEvent(mouseEvent);
+                    viewer2D.onMouseMove(e);
                 }
             }
         });
