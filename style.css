@@ -768,6 +768,137 @@ body {
 }
 
 /* ============================================
+   PLAN IMAGE PANEL
+   ============================================ */
+#plan-image-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    overflow: hidden;
+}
+
+#plan-image-panel.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+#plan-image-panel.hidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.plan-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--ui-spacing-lg) var(--ui-spacing-xl);
+    background: var(--ui-bg-card);
+    border-bottom: 1px solid var(--ui-border-color);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.plan-panel-header h3 {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-xl);
+    font-weight: var(--ui-font-weight-bold);
+    margin: 0;
+    font-family: var(--ui-font-family);
+}
+
+.plan-close-btn {
+    background: var(--ui-bg-card);
+    border: none;
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-2xl);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    line-height: 1;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.plan-close-btn:hover {
+    background: var(--ui-danger);
+    transform: rotate(90deg);
+    box-shadow: var(--ui-shadow-md);
+}
+
+.plan-close-btn:active {
+    box-shadow: 0 0 20px var(--ui-danger), 0 0 40px var(--ui-danger);
+    background: var(--ui-danger);
+}
+
+.plan-panel-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--ui-spacing-xl);
+    overflow: auto;
+}
+
+#plan-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: var(--ui-border-radius-md);
+    box-shadow: var(--ui-shadow-xl);
+    animation: planImageFadeIn 0.4s ease-out;
+}
+
+@keyframes planImageFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Mobile adjustments for plan panel */
+@media (max-width: 768px) {
+    .plan-panel-header {
+        padding: 12px 15px;
+    }
+    
+    .plan-panel-header h3 {
+        font-size: 16px;
+    }
+    
+    .plan-close-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 24px;
+    }
+    
+    .plan-panel-content {
+        padding: 15px;
+    }
+}
+
+/* ============================================
    UI SETTINGS PANEL
    ============================================ */
 #ui-settings-panel {

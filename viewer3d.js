@@ -1119,13 +1119,13 @@ class Viewer3D {
         // The 2D canvas handles all touch interactions (scrubbing/panning/pinch zoom)
         // We use pointer-events CSS to allow touches to pass through on mobile
         
-        // Click handler for 3D objects
+        // Click handler for 3D objects - show plan image
         this.canvas.addEventListener('click', (e) => {
             if (this.hoveredObject) {
-                if (CONFIG_3D.ENABLE_CLICK_LOGGING) {
-                    console.log('Clicked on 3D object:', this.hoveredObject.name || 'Unnamed object');
+                const objectName = this.hoveredObject.name;
+                if (objectName) {
+                    this.showPlanImage(objectName);
                 }
-                // Add your click logic here (e.g., show info panel, navigate to unit details, etc.)
             }
         });
         
