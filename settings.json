@@ -4,7 +4,109 @@
     "blurIntensity": 15,
     "glowEnabled": true,
     "glowColor": "rgba(100, 200, 255, 0.8)",
-    "glowDuration": 500
+    "glowDuration": 500,
+    "theme": {
+      "mode": "dark",
+      "primary": {
+        "50": "#E6F1FE",
+        "100": "#CCE3FD",
+        "200": "#99C7FB",
+        "300": "#66AAF9",
+        "400": "#338EF7",
+        "500": "#006FEE",
+        "600": "#005BC4",
+        "700": "#004493",
+        "800": "#002E62",
+        "900": "#001731"
+      },
+      "secondary": {
+        "50": "#F5F5F5",
+        "100": "#E0E0E0",
+        "200": "#BDBDBD",
+        "300": "#9E9E9E",
+        "400": "#757575",
+        "500": "#616161",
+        "600": "#424242",
+        "700": "#303030",
+        "800": "#212121",
+        "900": "#121212"
+      },
+      "success": "#00C851",
+      "warning": "#FFBB33",
+      "danger": "#FF4444",
+      "background": {
+        "default": "rgba(0, 0, 0, 0.85)",
+        "panel": "rgba(20, 20, 20, 0.95)",
+        "card": "rgba(30, 30, 30, 0.9)",
+        "hover": "rgba(40, 40, 40, 0.9)"
+      },
+      "text": {
+        "primary": "#FFFFFF",
+        "secondary": "rgba(255, 255, 255, 0.7)",
+        "disabled": "rgba(255, 255, 255, 0.4)"
+      },
+      "border": {
+        "color": "rgba(255, 255, 255, 0.2)",
+        "radius": {
+          "small": "8px",
+          "medium": "12px",
+          "large": "16px"
+        },
+        "width": "2px"
+      },
+      "spacing": {
+        "xs": "4px",
+        "sm": "8px",
+        "md": "12px",
+        "lg": "16px",
+        "xl": "24px",
+        "2xl": "32px"
+      },
+      "shadow": {
+        "sm": "0 2px 4px rgba(0, 0, 0, 0.2)",
+        "md": "0 4px 8px rgba(0, 0, 0, 0.3)",
+        "lg": "0 8px 16px rgba(0, 0, 0, 0.4)",
+        "xl": "0 12px 24px rgba(0, 0, 0, 0.5)"
+      },
+      "font": {
+        "family": "system-ui, -apple-system, sans-serif",
+        "size": {
+          "xs": "12px",
+          "sm": "13px",
+          "md": "14px",
+          "lg": "16px",
+          "xl": "18px",
+          "2xl": "24px"
+        },
+        "weight": {
+          "normal": "400",
+          "medium": "500",
+          "semibold": "600",
+          "bold": "700"
+        }
+      }
+    }
+  },
+  "effects": {
+    "effectType": "solid",
+    "solidPulseSpeed": 1.0,
+    "hoverOpacity": 0.5,
+    "hoverColor": 1499356,
+    "glowColor": 1499356,
+    "outlineColor": 65280,
+    "outlinePulseSpeed": 8.0,
+    "bloomStrength": 2.5,
+    "bloomRadius": 1.0,
+    "bloomThreshold": 0.6,
+    "scanSpeed": 2.0,
+    "scanLineCount": 15,
+    "scanColor": 65535,
+    "scanOpacity": 0.8,
+    "particleCount": 500,
+    "particleSize": 0.05,
+    "particleSpeed": 10.0,
+    "particleColor": 16776960,
+    "particleOpacity": 0.8
   }
 }
 

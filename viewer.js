@@ -1,8 +1,22 @@
+// Utility function to get client ID from query string
+function getClientID() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const clientID = urlParams.get('clientID');
+    return clientID || null;
+}
+
 // 360° Product Viewer - Drag to rotate through images
 class ProductViewer {
     constructor() {
+        // Get client ID from URL and set base path
+        this.clientID = getClientID();
+        this.basePath = this.clientID ? `${this.clientID}/` : '';
+        
+        console.log('[ProductViewer] Client ID:', this.clientID || 'none (using root paths)');
+        console.log('[ProductViewer] Base path:', this.basePath || 'root');
+        
         this.currentImageIndex = 0;
-        this.totalImages = 90;
+        this.totalImages = 0; // Will be set after discovering images
         
         // Two-tier image system
         this.lightImages = [];  // Fast loading, lower res for dragging
@@ -33,13 +47,212 @@ class ProductViewer {
         this.useFullRes = false; // Start with light images
         this.fullResLoadTimeout = null;
         
-        // Generate image paths
-        for (let i = 1; i <= this.totalImages; i++) {
-            this.lightImages.push(`3D-Images/light/modif_animated (${i}).jpg`);
-            this.fullImages.push(`3D-Images/modif_animated (${i}).jpg`);
+        // Discover images first, then init
+        this.discoverImages().then(() => {
+            this.init();
+        });
+    }
+    
+    async discoverImages() {
+        // Ensure paths have leading slash for absolute paths
+        const fullImagesPath = `/${this.basePath}3D-Images`.replace(/\/+/g, '/'); // Remove duplicate slashes
+        const lightImagesPath = `/${this.basePath}3D-Images/light`.replace(/\/+/g, '/');
+        
+        console.log('[Viewer] Discovering images in:', fullImagesPath, 'and', lightImagesPath);
+        
+        // Try to load a manifest file first (if it exists)
+        try {
+            const manifestPath = this.basePath ? `/${this.basePath}image-manifest.json`.replace(/\/+/g, '/') : '/image-manifest.json';
+            console.log('[Viewer] Trying manifest:', manifestPath);
+            const manifestResponse = await fetch(manifestPath);
+            if (manifestResponse.ok) {
+                const manifest = await manifestResponse.json();
+                this.lightImages = manifest.light || [];
+                this.fullImages = manifest.full || [];
+                this.totalImages = Math.max(this.lightImages.length, this.fullImages.length);
+                console.log(`[Viewer] Loaded ${this.totalImages} images from manifest`);
+                return;
+            }
+        } catch (e) {
+            console.log('[Viewer] No manifest file found:', e.message);
         }
         
-        this.init();
+        // Auto-discover images by trying to fetch directory listing or using fallback
+        // Since we can't list directories directly, we'll try common patterns
+        // and also attempt to fetch a server-generated listing
+        
+        try {
+            // Try to get directory listing from server (if supported)
+            const fullDirUrl = `${fullImagesPath}/?json=1`;
+            const lightDirUrl = `${lightImagesPath}/?json=1`;
+            console.log('[Viewer] Fetching directory listings:', fullDirUrl, lightDirUrl);
+            const fullDirResponse = await fetch(fullDirUrl);
+            const lightDirResponse = await fetch(lightDirUrl);
+            
+            console.log('[Viewer] Directory listing responses:', {
+                full: { ok: fullDirResponse.ok, status: fullDirResponse.status },
+                light: { ok: lightDirResponse.ok, status: lightDirResponse.status }
+            });
+            
+            if (fullDirResponse.ok && lightDirResponse.ok) {
+                const fullFiles = await fullDirResponse.json();
+                const lightFiles = await lightDirResponse.json();
+                
+                // Filter and sort image files
+                const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.JPG', '.JPEG', '.PNG', '.WEBP'];
+                const fullImages = fullFiles
+                    .filter(f => imageExtensions.some(ext => f.name.endsWith(ext)))
+                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
+                    .map(f => `${fullImagesPath}/${f.name}`.replace(/\/+/g, '/'));
+                
+                const lightImages = lightFiles
+                    .filter(f => imageExtensions.some(ext => f.name.endsWith(ext)))
+                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
+                    .map(f => `${lightImagesPath}/${f.name}`.replace(/\/+/g, '/'));
+                
+                // Match light and full images by base name (without extension)
+                this.matchImagePairs(fullImages, lightImages);
+                return;
+            }
+        } catch (e) {
+            console.log('[Viewer] Directory listing not available, using fallback discovery...', e.message);
+        }
+        
+        // Fallback: Try to discover by attempting to load images
+        await this.discoverImagesByTrying();
+    }
+    
+    async discoverImagesByTrying() {
+        console.log('Attempting to discover images by testing common patterns...');
+        // Try common image extensions
+        const extensions = ['.webp', '.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG', '.WEBP'];
+        const maxAttempts = 200; // Try up to 200 images
+        const discoveredFull = new Set();
+        const discoveredLight = new Set();
+        
+        // Try sequential numbering patterns (most common)
+        for (let i = 1; i <= maxAttempts; i++) {
+            let foundAny = false;
+            
+            // Try different naming patterns
+            const patterns = [
+                `modif_animated (${i})`,
+                `image_${i}`,
+                `img_${i}`,
+                `frame_${i}`,
+                `${i}`,
+                `image${String(i).padStart(3, '0')}`,
+                `img${String(i).padStart(3, '0')}`,
+                `frame${String(i).padStart(3, '0')}`
+            ];
+            
+            for (const pattern of patterns) {
+                for (const ext of extensions) {
+                    // Use absolute paths with leading slash
+                    const fullPath = `/${this.basePath}3D-Images/${pattern}${ext}`.replace(/\/+/g, '/');
+                    const lightPath = `/${this.basePath}3D-Images/light/${pattern}${ext}`.replace(/\/+/g, '/');
+                    
+                    const [fullExists, lightExists] = await Promise.all([
+                        this.testImageExists(fullPath),
+                        this.testImageExists(lightPath)
+                    ]);
+                    
+                    if (fullExists) {
+                        discoveredFull.add(fullPath);
+                        foundAny = true;
+                    }
+                    if (lightExists) {
+                        discoveredLight.add(lightPath);
+                        foundAny = true;
+                    }
+                    
+                    // If we found a match, no need to try other extensions for this pattern
+                    if (fullExists || lightExists) break;
+                }
+            }
+            
+            // If we haven't found anything for 20 consecutive attempts, stop
+            if (!foundAny && i > 20 && discoveredFull.size === 0 && discoveredLight.size === 0) {
+                break;
+            }
+            // If we found some but then nothing for 10 attempts, also stop
+            if (!foundAny && i > 10 && (discoveredFull.size > 0 || discoveredLight.size > 0)) {
+                // Check if we should continue
+                let recentFound = false;
+                for (let j = Math.max(1, i - 10); j < i; j++) {
+                    // Quick check if we found anything recently
+                }
+                if (!recentFound && i > 20) break;
+            }
+        }
+        
+        // Convert sets to arrays and match
+        this.matchImagePairs(Array.from(discoveredFull), Array.from(discoveredLight));
+    }
+    
+    async testImageExists(path) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = path;
+            // Timeout after 1 second
+            setTimeout(() => resolve(false), 1000);
+        });
+    }
+    
+    matchImagePairs(fullImages, lightImages) {
+        // Extract base names (without extension) for matching
+        const getBaseName = (path) => {
+            const name = path.split('/').pop();
+            return name.replace(/\.(jpg|jpeg|png|webp|JPG|JPEG|PNG|WEBP)$/i, '');
+        };
+        
+        // Create maps for quick lookup
+        const fullMap = new Map();
+        fullImages.forEach(path => {
+            const base = getBaseName(path);
+            if (!fullMap.has(base)) {
+                fullMap.set(base, path);
+            }
+        });
+        
+        const lightMap = new Map();
+        lightImages.forEach(path => {
+            const base = getBaseName(path);
+            if (!lightMap.has(base)) {
+                lightMap.set(base, path);
+            }
+        });
+        
+        // Get all unique base names and sort them
+        const allBases = [...new Set([...fullMap.keys(), ...lightMap.keys()])];
+        allBases.sort((a, b) => {
+            // Natural sort (handles numbers correctly)
+            return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        
+        // Create matched pairs
+        this.fullImages = [];
+        this.lightImages = [];
+        
+        allBases.forEach(base => {
+            const full = fullMap.get(base);
+            const light = lightMap.get(base);
+            
+            // Use light version if available, otherwise full
+            // Use full version if available, otherwise light
+            this.fullImages.push(full || light);
+            this.lightImages.push(light || full);
+        });
+        
+        this.totalImages = allBases.length;
+        console.log(`Discovered ${this.totalImages} image pairs`);
+        
+        if (this.totalImages === 0) {
+            const pathInfo = this.clientID ? `client folder ${this.clientID}/` : 'root';
+            console.error(`No images found! Please ensure images are in ${pathInfo}3D-Images/ and ${pathInfo}3D-Images/light/ folders`);
+        }
     }
     
     async init() {
@@ -51,10 +264,13 @@ class ProductViewer {
         this.resizeCanvas();
         
         // Load and show first image immediately
-        this.loadingEl.textContent = 'Loading...';
+        this.loadingEl.classList.add('loading');
         await this.loadSingleImage(0, 'light');
         this.showImage(0, 'light');
-        this.loadingEl.classList.add('hidden');
+        setTimeout(() => {
+            this.loadingEl.classList.remove('loading');
+            this.loadingEl.classList.add('hidden');
+        }, 300);
         
         // Setup controls (user can start interacting immediately)
         this.setupControls();
@@ -158,7 +374,7 @@ class ProductViewer {
         // Priority 1: Load nearby images first (spiral out from current)
         const priorityIndices = this.getSpiralOrder(this.currentImageIndex, 10);
         
-        this.updateLoadingProgress('Loading nearby images...', priorityIndices.length, this.totalImages);
+            this.updateLoadingProgress('Loading nearby images...', 0, this.totalImages);
         
         for (let i = 0; i < priorityIndices.length; i++) {
             const index = priorityIndices[i];
@@ -213,65 +429,21 @@ class ProductViewer {
     }
     
     updateLoadingProgress(message, current, total) {
-        let progressEl = document.getElementById('loadingProgress');
+        const loadingEl = document.getElementById('loading');
+        if (!loadingEl) return;
         
-        if (!progressEl) {
-            // Create progress indicator
-            progressEl = document.createElement('div');
-            progressEl.id = 'loadingProgress';
-            progressEl.style.position = 'fixed';
-            progressEl.style.top = '20px';
-            progressEl.style.left = '50%';
-            progressEl.style.transform = 'translateX(-50%)';
-            progressEl.style.background = 'rgba(0, 0, 0, 0.8)';
-            progressEl.style.color = 'white';
-            progressEl.style.padding = '15px 30px';
-            progressEl.style.borderRadius = '30px';
-            progressEl.style.fontSize = '14px';
-            progressEl.style.fontWeight = 'bold';
-            progressEl.style.zIndex = '1000';
-            progressEl.style.backdropFilter = 'blur(10px)';
-            progressEl.style.transition = 'opacity 0.5s';
-            progressEl.style.display = 'flex';
-            progressEl.style.flexDirection = 'column';
-            progressEl.style.alignItems = 'center';
-            progressEl.style.gap = '10px';
-            progressEl.style.minWidth = '250px';
-            
-            // Progress bar
-            const progressBar = document.createElement('div');
-            progressBar.id = 'progressBar';
-            progressBar.style.width = '100%';
-            progressBar.style.height = '4px';
-            progressBar.style.background = 'rgba(255, 255, 255, 0.2)';
-            progressBar.style.borderRadius = '2px';
-            progressBar.style.overflow = 'hidden';
-            
-            const progressFill = document.createElement('div');
-            progressFill.id = 'progressFill';
-            progressFill.style.height = '100%';
-            progressFill.style.background = 'linear-gradient(90deg, #4CAF50, #8BC34A)';
-            progressFill.style.width = '0%';
-            progressFill.style.transition = 'width 0.3s ease';
-            
-            progressBar.appendChild(progressFill);
-            progressEl.appendChild(progressBar);
-            
-            const messageEl = document.createElement('div');
-            messageEl.id = 'progressMessage';
-            progressEl.appendChild(messageEl);
-            
-            document.body.appendChild(progressEl);
-        }
+        const percentage = (current / total * 100).toFixed(0);
+        loadingEl.style.width = percentage + '%';
         
-        // Update message and progress bar
-        const messageEl = progressEl.querySelector('#progressMessage');
-        const progressFill = progressEl.querySelector('#progressFill');
-        
-        if (messageEl) messageEl.textContent = message;
-        if (progressFill) {
-            const percentage = (current / total * 100).toFixed(0);
-            progressFill.style.width = percentage + '%';
+        if (current < total) {
+            loadingEl.classList.remove('hidden');
+            loadingEl.classList.add('loading');
+        } else {
+            // All loaded, fade out
+            setTimeout(() => {
+                loadingEl.classList.remove('loading');
+                loadingEl.classList.add('hidden');
+            }, 500);
         }
     }
     
@@ -316,6 +488,21 @@ class ProductViewer {
         document.getElementById('prevBtn').addEventListener('click', () => this.previousImage());
         document.getElementById('nextBtn').addEventListener('click', () => this.nextImage());
         
+        // Zoom slider
+        const zoomSlider = document.getElementById('zoom-slider');
+        const zoomIndicator = document.getElementById('zoom-indicator');
+        if (zoomSlider && zoomIndicator) {
+            // Set initial value based on current zoom
+            zoomSlider.value = Math.round(this.zoom * 100);
+            zoomIndicator.textContent = Math.round(this.zoom * 100) + '%';
+            
+            zoomSlider.addEventListener('input', (e) => {
+                const zoomValue = parseInt(e.target.value) / 100;
+                this.setZoom(zoomValue);
+                zoomIndicator.textContent = e.target.value + '%';
+            });
+        }
+        
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowLeft') this.previousImage();
@@ -334,7 +521,7 @@ class ProductViewer {
             this.isPanning = true;
             this.lastPanX = x;
             this.lastPanY = y;
-            this.canvas.style.cursor = 'grabbing';
+            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grabbing';
         } else {
             // If not zoomed, enable rotation
             this.isRotating = true;
@@ -342,7 +529,7 @@ class ProductViewer {
             this.startX = e.clientX;
             this.currentX = e.clientX;
             this.dragDistance = 0;
-            this.canvas.style.cursor = 'grabbing';
+            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grabbing';
             
             // Use light images while rotating for performance
             this.useFullRes = false;
@@ -396,14 +583,14 @@ class ProductViewer {
     onMouseUp(e) {
         if (this.isPanning) {
             this.isPanning = false;
-            this.canvas.style.cursor = this.zoom > 1.0 ? 'grab' : 'grab';
+            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
         }
         
         if (this.isRotating) {
             this.isRotating = false;
             this.isDragging = false;
             this.dragDistance = 0;
-            this.canvas.style.cursor = 'grab';
+            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
             
             // Load full-res version after a short delay (300ms)
             this.fullResLoadTimeout = setTimeout(() => {
@@ -612,7 +799,21 @@ class ProductViewer {
         }
     }
     
+    setZoom(zoomValue) {
+        this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, zoomValue));
+        this.redrawCurrentImage();
+        this.updateZoomIndicator();
+    }
+    
     updateZoomIndicator() {
+        const zoomIndicator = document.getElementById('zoom-indicator');
+        const zoomSlider = document.getElementById('zoom-slider');
+        if (zoomIndicator) {
+            zoomIndicator.textContent = Math.round(this.zoom * 100) + '%';
+        }
+        if (zoomSlider) {
+            zoomSlider.value = Math.round(this.zoom * 100);
+        }
         let zoomEl = document.getElementById('zoomIndicator');
         
         if (!zoomEl) {
@@ -668,7 +869,8 @@ class ProductViewer {
         
         // Update info
         const quality = useTier === 'full' ? ' (HD)' : '';
-        document.getElementById('imageInfo').textContent = 
+        // Image info removed from toolbar
+        // document.getElementById('imageInfo').textContent = 
             `${this.currentImageIndex + 1} / ${this.totalImages}${quality}`;
     }
     

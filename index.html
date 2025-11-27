@@ -15,33 +15,30 @@
         <div id="controls">
             <!-- Navigation Controls -->
             <button id="prevBtn" class="control-btn">◄</button>
-            <span id="imageInfo"></span>
             <button id="nextBtn" class="control-btn">►</button>
             
             <!-- Divider -->
             <div class="toolbar-divider"></div>
             
-            <!-- Effect Selector -->
-            <label for="effect-select" class="toolbar-label">Effect:</label>
-            <select id="effect-select" class="effect-dropdown">
-                <option value="solid">Solid</option>
-                <option value="outline">Outline</option>
-                <option value="glow">Glow</option>
-                <option value="scan">Scan</option>
-                <option value="particles">Particles</option>
-            </select>
-            
-            <!-- Effect Controls (dynamically shown based on effect) -->
-            <div id="effect-controls">
-                <!-- Controls will be inserted here by JavaScript -->
-            </div>
+            <!-- Zoom Controls -->
+            <span id="zoom-indicator" class="toolbar-label">100%</span>
+            <input type="range" id="zoom-slider" class="zoom-slider" min="100" max="500" value="100" step="5">
             
             <!-- Divider -->
             <div class="toolbar-divider"></div>
             
-            <!-- Debug Toggle Button -->
-            <button id="debugToggleBtn" class="control-btn" title="Toggle Scene Debug Panel">⚙</button>
+            <!-- Settings Buttons Group -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button id="debugToggleBtn" class="control-btn" title="Toggle Scene Debug Panel">⚙</button>
+                <button id="uiSettingsToggleBtn" class="control-btn" title="Toggle UI Settings Panel">🎨</button>
+            </div>
+            
+            <!-- Collapse/Expand Button -->
+            <button id="toolbar-collapse-btn" class="control-btn" title="Collapse/Expand Toolbar">▼</button>
         </div>
+        
+        <!-- Restore Button (shown when toolbar is minimized) -->
+        <button id="toolbar-restore-btn" class="control-btn" title="Restore Toolbar">▲</button>
         
         <!-- Left Debug Panel -->
         <div id="debug-panel" class="hidden">
@@ -54,8 +51,37 @@
             </div>
         </div>
         
+        <!-- Right UI Settings Panel -->
+        <div id="ui-settings-panel" class="hidden">
+            <div class="ui-settings-header">
+                <h3>UI Settings</h3>
+                <button id="uiSettingsCloseBtn" class="ui-settings-close-btn">×</button>
+            </div>
+            <div class="ui-settings-content">
+                <!-- Effect Settings Section -->
+                <div id="effect-settings-section" class="ui-settings-section">
+                    <h4 class="ui-settings-section-title">3D Effect Settings</h4>
+                    <div class="ui-settings-group">
+                        <label for="effect-select" class="ui-settings-label">Effect Type:</label>
+                        <select id="effect-select" class="effect-dropdown">
+                            <option value="solid">Solid</option>
+                            <option value="outline">Outline</option>
+                            <option value="glow">Glow</option>
+                            <option value="scan">Scan</option>
+                            <option value="particles">Particles</option>
+                        </select>
+                    </div>
+                    <!-- Effect Controls (dynamically shown based on effect) -->
+                    <div id="effect-controls">
+                        <!-- Controls will be inserted here by JavaScript -->
+                    </div>
+                </div>
+                <!-- Other settings will be populated by JavaScript -->
+            </div>
+        </div>
+        
         <!-- Loading indicator -->
-        <div id="loading">Loading...</div>
+        <div id="loading"></div>
     </div>
 
     <!-- Three.js library from CDN -->
@@ -72,6 +98,7 @@
     <script src="viewer.js"></script>
     <script src="viewer3d.js"></script>
     <script src="ui-interactions.js"></script>
+    <script src="ui-settings.js"></script>
 </body>
 </html>
 

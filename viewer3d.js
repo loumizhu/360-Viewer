@@ -1,9 +1,23 @@
+// Utility function to get client ID from query string
+function getClientID() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const clientID = urlParams.get('clientID');
+    return clientID || null;
+}
+
+// Get client ID and build base path
+const CLIENT_ID = getClientID();
+const CLIENT_BASE_PATH = CLIENT_ID ? `${CLIENT_ID}/` : '';
+
+console.log('[Viewer3D] Client ID:', CLIENT_ID || 'none (using default paths)');
+console.log('[Viewer3D] Base path:', CLIENT_BASE_PATH || 'root');
+
 // ============================================
 // 3D VIEWER CONFIGURATION
 // ============================================
 const CONFIG_3D = {
-    // Model settings
-    MODEL_PATH: '3D/Serenia Zenata Orbiting Mockup Units Boxes.glb',
+    // Model settings - will use client path if clientID is in query string
+    MODEL_PATH: `/${CLIENT_BASE_PATH}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/'),
     
     // Material settings - Default (invisible)
     DEFAULT_OPACITY: 0.0,           // 0.0 = invisible, 1.0 = solid
@@ -44,6 +58,9 @@ const CONFIG_3D = {
     // Effect settings
     EFFECT_TYPE: 'solid',           // Default effect: 'solid', 'outline', 'glow', 'scan', 'particles'
     
+    // Solid effect
+    SOLID_PULSE_SPEED: 1.0,         // Slow pulse animation speed for solid effect
+    
     // Outline effect (BoxHelper)
     OUTLINE_COLOR: 0x00ff00,        // Outline color (green)
     OUTLINE_PULSE_SPEED: 8.0,       // Pulse animation speed
@@ -51,7 +68,8 @@ const CONFIG_3D = {
     // Glow/Bloom effect
     BLOOM_STRENGTH: 2.5,            // Bloom intensity
     BLOOM_RADIUS: 1.0,              // Bloom spread
-    BLOOM_THRESHOLD: 0.0,           // Bloom threshold
+    BLOOM_THRESHOLD: 0.6,           // Bloom threshold (higher = only bright objects glow, prevents black screen)
+    GLOW_COLOR: 0x175ddc,           // Glow color (separate from hover color)
     
     // Scanning lines effect
     SCAN_SPEED: 2.0,                // Scanning animation speed
@@ -149,13 +167,15 @@ class Viewer3D {
         // Create tooltip element
         this.createTooltip();
         
-        // Setup effect selector UI
-        this.setupEffectSelector();
-        
         // Setup debug panel
         this.setupDebugPanel();
         
         this.init();
+        
+        // Setup effect selector UI after DOM is ready and UI settings panel is initialized
+        setTimeout(() => {
+            this.setupEffectSelector();
+        }, 500);
     }
     
     createTooltip() {
@@ -198,38 +218,81 @@ class Viewer3D {
     setupEffectSelector() {
         const selector = document.getElementById('effect-select');
         const controlsContainer = document.getElementById('effect-controls');
-        if (!selector || !controlsContainer) return;
         
+        if (!selector) {
+            console.warn('Effect selector not found, retrying...');
+            setTimeout(() => this.setupEffectSelector(), 200);
+            return;
+        }
+        
+        if (!controlsContainer) {
+            console.warn('Effect controls container not found, retrying...');
+            setTimeout(() => this.setupEffectSelector(), 200);
+            return;
+        }
+        
+        console.log('Setting up effect selector, container found:', controlsContainer);
+        
+        // Load saved effect type if available
+        if (window.uiSettings && window.uiSettings.getSetting('effects', 'effectType')) {
+            this.currentEffect = window.uiSettings.getSetting('effects', 'effectType');
+            CONFIG_3D.EFFECT_TYPE = this.currentEffect;
+        }
         selector.value = this.currentEffect;
         
-        // Function to update controls based on effect
-        const updateControls = () => {
+        // Function to show all effect controls at once
+        const showAllControls = () => {
             controlsContainer.innerHTML = '';
             
-            switch (this.currentEffect) {
-                case 'solid':
-                    this.createSolidControls(controlsContainer);
-                    break;
-                case 'outline':
-                    this.createOutlineControls(controlsContainer);
-                    break;
-                case 'glow':
-                    this.createGlowControls(controlsContainer);
-                    break;
-                case 'scan':
-                    this.createScanControls(controlsContainer);
-                    break;
-                case 'particles':
-                    this.createParticleControls(controlsContainer);
-                    break;
-            }
+            // Create section for each effect
+            const effects = [
+                { name: 'solid', label: 'Solid Effect', createFn: (container) => this.createSolidControls(container) },
+                { name: 'outline', label: 'Outline Effect', createFn: (container) => this.createOutlineControls(container) },
+                { name: 'glow', label: 'Glow Effect', createFn: (container) => this.createGlowControls(container) },
+                { name: 'scan', label: 'Scan Effect', createFn: (container) => this.createScanControls(container) },
+                { name: 'particles', label: 'Particles Effect', createFn: (container) => this.createParticleControls(container) }
+            ];
+            
+            effects.forEach((effect, index) => {
+                // Create section
+                const section = document.createElement('div');
+                section.className = 'effect-control-section';
+                section.style.marginBottom = 'var(--ui-spacing-lg)';
+                section.style.paddingBottom = 'var(--ui-spacing-md)';
+                section.style.borderBottom = index < effects.length - 1 ? '1px solid var(--ui-border-color)' : 'none';
+                
+                // Create section header
+                const header = document.createElement('h5');
+                header.className = 'effect-section-header';
+                header.textContent = effect.label;
+                header.style.color = 'var(--ui-text-primary)';
+                header.style.fontSize = 'var(--ui-font-size-sm)';
+                header.style.fontWeight = 'var(--ui-font-weight-semibold)';
+                header.style.marginBottom = 'var(--ui-spacing-sm)';
+                section.appendChild(header);
+                
+                // Create container for this effect's controls
+                const effectContainer = document.createElement('div');
+                effectContainer.className = 'effect-controls-group';
+                effectContainer.dataset.effect = effect.name;
+                
+                // Create controls for this effect in the container
+                effect.createFn(effectContainer);
+                
+                section.appendChild(effectContainer);
+                controlsContainer.appendChild(section);
+            });
         };
         
         selector.addEventListener('change', (e) => {
             this.currentEffect = e.target.value;
+            CONFIG_3D.EFFECT_TYPE = this.currentEffect;
             console.log(`Switched to effect: ${this.currentEffect}`);
             
-            updateControls();
+            // Save effect settings
+            if (window.uiSettings) {
+                window.uiSettings.saveEffectSettings();
+            }
             
             // Clear current hover effect and reapply with new effect
             if (this.hoveredObject) {
@@ -238,8 +301,10 @@ class Viewer3D {
             }
         });
         
-        // Initialize controls
-        updateControls();
+        // Initialize controls - show all at once
+        showAllControls();
+        
+        console.log('Effect controls created, container now has', controlsContainer.children.length, 'children');
     }
     
     createControl(container, label, value, min, max, step, onChange) {
@@ -267,6 +332,11 @@ class Viewer3D {
             valueDisplay.textContent = val.toFixed(step < 1 ? 1 : 0);
             onChange(val);
             
+            // Save effect settings
+            if (window.uiSettings) {
+                window.uiSettings.saveEffectSettings();
+            }
+            
             // Reapply effect if hovering
             if (this.hoveredObject) {
                 this.clearAllEffects(this.hoveredObject);
@@ -284,6 +354,60 @@ class Viewer3D {
         this.createControl(container, 'Opacity', CONFIG_3D.HOVER_OPACITY, 0, 1, 0.05, (val) => {
             CONFIG_3D.HOVER_OPACITY = val;
         });
+        
+        // Color picker for cube color
+        const colorGroup = document.createElement('div');
+        colorGroup.className = 'effect-control-group';
+        
+        const colorLabel = document.createElement('span');
+        colorLabel.className = 'effect-control-label';
+        colorLabel.textContent = 'Color:';
+        
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.className = 'effect-color-picker';
+        // Ensure color is properly formatted (always 6 hex digits)
+        const hoverColor = CONFIG_3D.HOVER_COLOR || 0x175ddc;
+        colorInput.value = '#' + hoverColor.toString(16).padStart(6, '0').toUpperCase();
+        colorInput.addEventListener('input', (e) => {
+            const colorHex = parseInt(e.target.value.replace('#', ''), 16);
+            CONFIG_3D.HOVER_COLOR = colorHex;
+            // Update hover material for all meshes (including emissive for consistency)
+            if (this.meshes) {
+                this.meshes.forEach(mesh => {
+                    if (mesh.userData.hoverMaterial) {
+                        mesh.userData.hoverMaterial.color.setHex(colorHex);
+                        // Also update emissive to match for solid effect consistency
+                        mesh.userData.hoverMaterial.emissive.setHex(colorHex);
+                        mesh.userData.hoverMaterial.needsUpdate = true;
+                    }
+                });
+            }
+            // Reapply effect if hovering (for immediate visual feedback)
+            if (this.hoveredObject) {
+                const currentEffect = this.currentEffect;
+                this.clearAllEffects(this.hoveredObject);
+                if (currentEffect === 'solid') {
+                    this.applySolidEffect(this.hoveredObject);
+                } else if (currentEffect === 'glow') {
+                    this.applyGlowEffect(this.hoveredObject);
+                } else {
+                    this.applyEffect(this.hoveredObject);
+                }
+            }
+        });
+        
+        // Save on change (after user finishes picking color)
+        colorInput.addEventListener('change', (e) => {
+            // Save settings after color is fully changed
+            if (window.uiSettings) {
+                window.uiSettings.saveEffectSettings();
+            }
+        });
+        
+        colorGroup.appendChild(colorLabel);
+        colorGroup.appendChild(colorInput);
+        container.appendChild(colorGroup);
     }
     
     createOutlineControls(container) {
@@ -296,11 +420,52 @@ class Viewer3D {
         this.createControl(container, 'Strength', CONFIG_3D.BLOOM_STRENGTH, 0, 5, 0.1, (val) => {
             CONFIG_3D.BLOOM_STRENGTH = val;
             if (this.bloomPass) this.bloomPass.strength = val;
+            // Reapply effect if hovering
+            if (this.hoveredObject) {
+                this.clearAllEffects(this.hoveredObject);
+                this.applyEffect(this.hoveredObject);
+            }
         });
         this.createControl(container, 'Radius', CONFIG_3D.BLOOM_RADIUS, 0, 2, 0.1, (val) => {
             CONFIG_3D.BLOOM_RADIUS = val;
             if (this.bloomPass) this.bloomPass.radius = val;
         });
+        
+        // Color picker for glow color
+        const glowColorGroup = document.createElement('div');
+        glowColorGroup.className = 'effect-control-group';
+        
+        const glowColorLabel = document.createElement('span');
+        glowColorLabel.className = 'effect-control-label';
+        glowColorLabel.textContent = 'Glow Color:';
+        
+        const glowColorInput = document.createElement('input');
+        glowColorInput.type = 'color';
+        glowColorInput.className = 'effect-color-picker';
+        // Ensure glow color is properly formatted (always 6 hex digits)
+        const glowColor = CONFIG_3D.GLOW_COLOR !== undefined ? CONFIG_3D.GLOW_COLOR : (CONFIG_3D.HOVER_COLOR || 0x175ddc);
+        glowColorInput.value = '#' + glowColor.toString(16).padStart(6, '0').toUpperCase();
+        glowColorInput.addEventListener('input', (e) => {
+            const colorHex = parseInt(e.target.value.replace('#', ''), 16);
+            CONFIG_3D.GLOW_COLOR = colorHex;
+            // Reapply glow effect if hovering (for immediate visual feedback)
+            if (this.hoveredObject && this.currentEffect === 'glow') {
+                this.clearAllEffects(this.hoveredObject);
+                this.applyGlowEffect(this.hoveredObject);
+            }
+        });
+        
+        // Save on change (after user finishes picking color)
+        glowColorInput.addEventListener('change', (e) => {
+            // Save settings after color is fully changed
+            if (window.uiSettings) {
+                window.uiSettings.saveEffectSettings();
+            }
+        });
+        
+        glowColorGroup.appendChild(glowColorLabel);
+        glowColorGroup.appendChild(glowColorInput);
+        container.appendChild(glowColorGroup);
     }
     
     createScanControls(container) {
@@ -583,6 +748,9 @@ class Viewer3D {
         // Setup mouse move for hover detection
         this.setupInteraction();
         
+        // Initialize cursor to 360 icon (default state - not hovering 3D objects)
+        this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
+        
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
         
@@ -601,10 +769,16 @@ class Viewer3D {
         return new Promise((resolve, reject) => {
             const loader = new THREE.GLTFLoader();
             
-            console.log('Loading 3D model...');
+            // Get client ID and build model path
+            const clientID = getClientID();
+            const basePath = clientID ? `${clientID}/` : '';
+            const modelPath = `/${basePath}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/');
+            
+            console.log('[Viewer3D] Loading 3D model from:', modelPath);
+            console.log('[Viewer3D] Client ID:', clientID || 'none');
             
             loader.load(
-                CONFIG_3D.MODEL_PATH,
+                modelPath,
                 (gltf) => {
                     this.scene = gltf.scene;
                     
@@ -666,7 +840,7 @@ class Viewer3D {
                             child.material = transparentMaterial;
                             child.userData.transparentMaterial = transparentMaterial;
                             
-                            // Create hover material (red highlight)
+                            // Create hover material (uses current HOVER_COLOR from config)
                             child.userData.hoverMaterial = new THREE.MeshStandardMaterial({
                                 color: CONFIG_3D.HOVER_COLOR,
                                 transparent: true,
@@ -674,8 +848,8 @@ class Viewer3D {
                                 side: THREE.DoubleSide,
                                 depthWrite: CONFIG_3D.HOVER_DEPTH_WRITE,
                                 depthTest: true,
-                                emissive: CONFIG_3D.HOVER_EMISSIVE,
-                                emissiveIntensity: CONFIG_3D.HOVER_EMISSIVE_INTENSITY
+                                emissive: CONFIG_3D.HOVER_COLOR, // Use same color for emissive in solid effect
+                                emissiveIntensity: 0.0 // No emissive for solid effect
                             });
                         }
                     });
@@ -790,7 +964,7 @@ class Viewer3D {
                     this.hoveredObject = newHovered;
                     this.applyEffect(this.hoveredObject);
                     
-                    // Change cursor to pointer
+                    // Change cursor to pointer when hovering over 3D objects
                     this.canvas.style.cursor = 'pointer';
                     
                     if (CONFIG_3D.ENABLE_HOVER_LOGGING) {
@@ -803,9 +977,10 @@ class Viewer3D {
                 const objectName = this.hoveredObject.name || 'Unnamed Object';
                 this.showTooltip(objectName, e.clientX, e.clientY);
             } else {
-                // No intersection - reset hover
+                // No intersection - reset hover and set 360 cursor on 3D canvas (which is on top)
                 this.isHoveringObject = false;
-                this.canvas.style.cursor = 'default';
+                // Set custom 360 cursor when hovering over image (not 3D objects)
+                this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
                 
                 if (this.hoveredObject) {
                     this.clearAllEffects(this.hoveredObject);
@@ -881,6 +1056,16 @@ class Viewer3D {
             viewer2DCanvas.dispatchEvent(mouseEvent);
             
             this.dragStartedOn3D = false;
+            
+            // Reset hover state and cursor back to 360 icon
+            this.isHoveringObject = false;
+            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
+            
+            // Clear effects if hovering object
+            if (this.hoveredObject) {
+                this.clearAllEffects(this.hoveredObject);
+                this.hoveredObject = null;
+            }
             
             // Hide tooltip when mouse leaves canvas
             this.hideTooltip();
@@ -1011,11 +1196,14 @@ class Viewer3D {
                 return;
             }
             
-            // Create composer
+            // Create composer with transparent render target
             this.composer = new THREE.EffectComposer(this.renderer);
             
-            // Add render pass (renders the scene)
+            // Add render pass (renders the scene) with transparent clearing
             const renderPass = new THREE.RenderPass(this.scene, this.currentCamera);
+            renderPass.clear = true;
+            renderPass.clearColor = 0x000000;
+            renderPass.clearAlpha = 0; // Transparent background - this is the key!
             this.composer.addPass(renderPass);
             
             // Setup outline pass
@@ -1041,13 +1229,22 @@ class Viewer3D {
             
             // Setup bloom pass (check for dependencies)
             if (typeof THREE.UnrealBloomPass !== 'undefined' && typeof THREE.LuminosityHighPassShader !== 'undefined') {
+                // Use VERY high threshold (0.95) so bloom ONLY captures bright emissive objects
+                // This prevents any dimming or overlay on the background image
+                const bloomThreshold = 0.95; // Very high - only captures bright emissive glow
                 this.bloomPass = new THREE.UnrealBloomPass(
                     new THREE.Vector2(window.innerWidth, window.innerHeight),
                     CONFIG_3D.BLOOM_STRENGTH,
                     CONFIG_3D.BLOOM_RADIUS,
-                    CONFIG_3D.BLOOM_THRESHOLD
+                    bloomThreshold
                 );
                 this.bloomPass.enabled = false;
+                // Make sure bloom render targets are transparent
+                if (this.bloomPass.renderTargetBright) {
+                    this.bloomPass.renderTargetBright.texture.format = THREE.RGBAFormat;
+                }
+                // Ensure bloom only adds glow, doesn't dim the scene
+                // The high threshold ensures only bright emissive objects are processed
                 this.composer.addPass(this.bloomPass);
             } else {
                 console.warn('UnrealBloomPass or LuminosityHighPassShader not available. Bloom effect will be disabled.');
@@ -1098,6 +1295,10 @@ class Viewer3D {
             if (object.userData.transparentMaterial) {
                 object.material = object.userData.transparentMaterial;
             }
+            // Clear solid effect timing
+            if (object.userData.solidEffectStartTime) {
+                object.userData.solidEffectStartTime = null;
+            }
             
             // Clear outline BoxHelper (custom aligned box - child of object)
             if (object.userData.outlineBoxHelper) {
@@ -1118,10 +1319,11 @@ class Viewer3D {
                 this.outlinePass.enabled = false;
             }
             
-            // Clear bloom
+            // Clear bloom - disable bloom pass when no object is glowing
             if (this.bloomPass) {
                 this.bloomPass.enabled = false;
             }
+            // Restore original material properties
             if (object.material && object.userData.originalEmissive !== undefined) {
                 object.material.emissive.setHex(object.userData.originalEmissive);
                 object.material.emissiveIntensity = object.userData.originalEmissiveIntensity || 0;
@@ -1142,9 +1344,9 @@ class Viewer3D {
                 object.userData.scanBoxHelper = null;
             }
             
-            // Clear scan planes
+            // Clear scan planes (now child of object, not scene)
             if (object.userData.scanPlanes) {
-                this.scene.remove(object.userData.scanPlanes);
+                object.remove(object.userData.scanPlanes); // Remove from object, not scene
                 object.userData.scanPlanes.traverse(child => {
                     if (child.geometry) child.geometry.dispose();
                     if (child.material) child.material.dispose();
@@ -1181,11 +1383,18 @@ class Viewer3D {
         }
     }
     
-    // Solid color effect (original)
+    // Solid color effect (original) with slow pulse
     applySolidEffect(object) {
         if (object.userData.hoverMaterial) {
-            // Update opacity from current config
+            // Store start time for pulsing animation
+            if (!object.userData.solidEffectStartTime) {
+                object.userData.solidEffectStartTime = Date.now();
+            }
+            // Update material color from current config
+            object.userData.hoverMaterial.color.setHex(CONFIG_3D.HOVER_COLOR);
+            // Update opacity from current config (will be animated in updateEffects)
             object.userData.hoverMaterial.opacity = CONFIG_3D.HOVER_OPACITY;
+            object.userData.hoverMaterial.needsUpdate = true;
             object.material = object.userData.hoverMaterial;
         }
     }
@@ -1208,15 +1417,17 @@ class Viewer3D {
     
     // Create an aligned box helper that respects object rotation
     createAlignedBoxHelper(object, color) {
-        // Get local bounding box from geometry
+        // Ensure geometry bounding box is computed
         object.geometry.computeBoundingBox();
         const bbox = object.geometry.boundingBox;
         
-        // Get min and max directly from bounding box
-        const min = bbox.min;
-        const max = bbox.max;
+        // Get min and max directly from geometry's local bounding box
+        // This is already in the object's local coordinate system
+        const min = bbox.min.clone();
+        const max = bbox.max.clone();
         
-        // Create edges geometry (12 edges of a box) using actual bbox coordinates
+        // Create edges geometry (12 edges of a box) using bbox coordinates
+        // These coordinates are in the geometry's local space, which is the object's local space
         const geometry = new THREE.BufferGeometry();
         const vertices = new Float32Array([
             // Bottom face (Y = min.y)
@@ -1247,9 +1458,20 @@ class Viewer3D {
         
         const boxLines = new THREE.LineSegments(geometry, material);
         
-        // NO position offset - vertices are already in the correct local space
-        // Just add as child to inherit all transforms
+        // CRITICAL: Set box helper to identity transform in object's local space
+        // Position at origin, no rotation, no scale - this ensures perfect alignment
+        // The geometry vertices are already in the correct local space
+        boxLines.position.set(0, 0, 0);
+        boxLines.rotation.set(0, 0, 0);
+        boxLines.scale.set(1, 1, 1);
+        
+        // Add as child of object - it will inherit object's transforms (rotation, position, scale)
+        // Since the box vertices are in the object's local space, it will align perfectly
         object.add(boxLines);
+        
+        // Update matrices to ensure proper alignment
+        boxLines.updateMatrix();
+        boxLines.updateMatrixWorld(true);
         
         // Store object reference for updates
         boxLines.userData.targetObject = object;
@@ -1257,7 +1479,7 @@ class Viewer3D {
         return boxLines;
     }
     
-    // Glow/Bloom effect
+    // Glow effect - use pure emissive glow WITHOUT bloom pass to avoid scene dimming
     applyGlowEffect(object) {
         // Store original emissive and opacity
         if (object.userData.originalEmissive === undefined) {
@@ -1266,27 +1488,28 @@ class Viewer3D {
             object.userData.originalOpacity = object.material.opacity;
         }
         
-        // Make object visible at 10% with strong emissive
-        object.material.opacity = 0.3; // More visible than before
+        // Make object visible - cube should be visible
+        object.material.opacity = CONFIG_3D.HOVER_OPACITY;
         object.material.transparent = true;
-        object.material.emissive.setHex(CONFIG_3D.HOVER_COLOR); // Red emissive
-        object.material.emissiveIntensity = CONFIG_3D.BLOOM_STRENGTH * 5; // Very strong emission for bloom
+        
+        // Use separate glow color if defined, otherwise use hover color
+        const glowColor = CONFIG_3D.GLOW_COLOR !== undefined ? CONFIG_3D.GLOW_COLOR : CONFIG_3D.HOVER_COLOR;
+        object.material.color.setHex(glowColor); // Set base color
+        object.material.emissive.setHex(glowColor); // Set emissive to same color for glow
+        
+        // Use VERY strong emissive intensity for visible glow effect
+        // This creates a natural glow without postprocessing (which causes dimming)
+        // Strength setting controls the intensity: multiply by 3-5 for visible glow
+        object.material.emissiveIntensity = Math.max(3.0, CONFIG_3D.BLOOM_STRENGTH * 3);
         object.material.needsUpdate = true;
         
-        // Enable bloom pass
+        // CRITICAL: Disable bloom pass entirely - it processes the whole scene and causes dimming
+        // Pure emissive glow doesn't affect the background image at all
         if (this.bloomPass) {
-            this.bloomPass.enabled = true;
-            this.bloomPass.strength = CONFIG_3D.BLOOM_STRENGTH;
-            this.bloomPass.threshold = 0; // Capture all emissive
-            this.bloomPass.radius = CONFIG_3D.BLOOM_RADIUS;
-            console.log('Bloom effect applied - strength:', CONFIG_3D.BLOOM_STRENGTH, 'emissiveIntensity:', object.material.emissiveIntensity);
-        } else {
-            // Still show emissive even without bloom
-            console.warn('Bloom effect not available, using emissive only');
-            // Make it even more visible without bloom
-            object.material.opacity = 0.6;
-            object.material.emissiveIntensity = CONFIG_3D.BLOOM_STRENGTH * 3;
+            this.bloomPass.enabled = false; // Disabled to prevent ANY scene dimming or overlay
         }
+        
+        console.log('Glow effect applied - pure emissive glow (no bloom), color:', glowColor.toString(16), 'intensity:', object.material.emissiveIntensity, 'opacity:', object.material.opacity);
     }
     
     // Scanning lines effect - uses aligned box helper like outline
@@ -1308,27 +1531,40 @@ class Viewer3D {
         // Store reference for cleanup and animation
         object.userData.scanBoxHelper = alignedBox;
         
-        // Get world bounding box for scan planes positioning
-        const worldBox = new THREE.Box3().setFromObject(object);
-        const worldSize = new THREE.Vector3();
-        worldBox.getSize(worldSize);
-        const worldCenter = new THREE.Vector3();
-        worldBox.getCenter(worldCenter);
+        // Get geometry's local bounding box for accurate sizing and positioning
+        object.geometry.computeBoundingBox();
+        const localBBox = object.geometry.boundingBox;
+        const localSize = new THREE.Vector3();
+        localBBox.getSize(localSize);
+        const localMin = localBBox.min.clone();
+        const localMax = localBBox.max.clone();
+        const localCenter = new THREE.Vector3();
+        localBBox.getCenter(localCenter);
         
-        // Create animated scan planes group
+        // Create animated scan planes group - add as child of object so it follows transforms
         const scanPlanesGroup = new THREE.Group();
         scanPlanesGroup.name = 'ScanPlanesGroup';
         scanPlanesGroup.userData.startTime = Date.now();
-        scanPlanesGroup.userData.worldBox = worldBox;
-        scanPlanesGroup.userData.worldSize = worldSize;
-        scanPlanesGroup.userData.worldCenter = worldCenter;
+        scanPlanesGroup.userData.localSize = localSize;
+        scanPlanesGroup.userData.localMin = localMin;
+        scanPlanesGroup.userData.localMax = localMax;
+        scanPlanesGroup.userData.localCenter = localCenter;
         scanPlanesGroup.userData.targetObject = object;
+        
+        // Set group position to geometry's bounding box center (in object's local space)
+        // This ensures planes are centered on the geometry, not the object origin
+        scanPlanesGroup.position.copy(localCenter);
+        scanPlanesGroup.rotation.set(0, 0, 0);
+        scanPlanesGroup.scale.set(1, 1, 1);
         
         const lineCount = Math.min(CONFIG_3D.SCAN_LINE_COUNT, 8);
         
         for (let i = 0; i < lineCount; i++) {
-            // Create horizontal scan planes
-            const planeGeometry = new THREE.PlaneGeometry(worldSize.x * 1.1, worldSize.z * 1.1);
+            // Create horizontal scan planes - size based on LOCAL geometry size
+            // Use the larger of X/Z dimensions to ensure planes cover the object
+            // Add small margin (10%) for visual effect
+            const planeSize = Math.max(localSize.x, localSize.z) * 1.1;
+            const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
             const planeMaterial = new THREE.MeshBasicMaterial({
                 color: CONFIG_3D.SCAN_COLOR,
                 transparent: true,
@@ -1341,31 +1577,34 @@ class Viewer3D {
             // Rotate to be horizontal (XZ plane)
             plane.rotation.x = Math.PI / 2;
             
-            // Position in world space
-            plane.position.set(
-                worldCenter.x,
-                worldCenter.y - worldSize.y / 2 + (i / lineCount) * worldSize.y,
-                worldCenter.z
-            );
+            // Position relative to group center (which is at geometry's bounding box center)
+            // Calculate Y position from min to max of bounding box
+            const yPos = localMin.y + (i / lineCount) * localSize.y;
+            // Offset from group center (which is at localCenter.y)
+            const yOffset = yPos - localCenter.y;
+            plane.position.set(0, yOffset, 0);
             
             plane.userData.scanOffset = i / lineCount;
-            plane.userData.initialY = worldCenter.y - worldSize.y / 2 + (i / lineCount) * worldSize.y;
+            plane.userData.localMinY = localMin.y;
+            plane.userData.localMaxY = localMax.y;
+            plane.userData.localSizeY = localSize.y;
+            plane.userData.planeSize = planeSize;
             plane.name = `ScanPlane${i}`;
             
             scanPlanesGroup.add(plane);
         }
         
-        // Add planes group to scene (not object, to avoid double transforms)
-        this.scene.add(scanPlanesGroup);
+        // Add planes group as child of object so it follows object's transforms
+        object.add(scanPlanesGroup);
         object.userData.scanPlanes = scanPlanesGroup;
         
         // Add debug helpers if enabled
         if (CONFIG_3D.SCAN_DEBUG_MODE) {
-            // Add green aligned BoxHelper for reference
+            // Add green aligned BoxHelper for reference (already added as child by createAlignedBoxHelper)
             const debugBoxHelper = this.createAlignedBoxHelper(object, 0x00ff00);
             debugBoxHelper.name = 'ScanDebugBoxHelper';
             debugBoxHelper.material.opacity = 0.5;
-            this.scene.add(debugBoxHelper);
+            // Note: debugBoxHelper is already added as child of object by createAlignedBoxHelper
             object.userData.scanDebugBoxHelper = debugBoxHelper;
             
             console.log('Scan debug helpers added:', object.name);
@@ -1579,6 +1818,17 @@ class Viewer3D {
         try {
             const time = Date.now() / 1000;
             
+            // Update solid effect pulse (slow pulsing)
+            this.meshes.forEach(mesh => {
+                if (mesh.userData.solidEffectStartTime && mesh.material === mesh.userData.hoverMaterial) {
+                    const elapsed = (Date.now() - mesh.userData.solidEffectStartTime) / 1000;
+                    // Slow pulse: sine wave with amplitude 0.3 (30% opacity variation)
+                    // Range: 0.2 to 0.8 of HOVER_OPACITY
+                    const pulse = Math.sin(elapsed * CONFIG_3D.SOLID_PULSE_SPEED * Math.PI * 2) * 0.3 + 0.5;
+                    mesh.material.opacity = CONFIG_3D.HOVER_OPACITY * pulse;
+                }
+            });
+            
             // Update outline BoxHelper
             this.meshes.forEach(mesh => {
                 if (mesh.userData.outlineBoxHelper) {
@@ -1619,12 +1869,18 @@ class Viewer3D {
                     const scanGroup = mesh.userData.scanPlanes;
                     const elapsed = (Date.now() - scanGroup.userData.startTime) / 1000;
                     
-                    // Update world bounding box in case object moved/rotated
-                    const worldBox = new THREE.Box3().setFromObject(mesh);
-                    const worldCenter = new THREE.Vector3();
-                    worldBox.getCenter(worldCenter);
-                    const worldSize = new THREE.Vector3();
-                    worldBox.getSize(worldSize);
+                    // Recompute local bounding box in case geometry changed
+                    mesh.geometry.computeBoundingBox();
+                    const localBBox = mesh.geometry.boundingBox;
+                    const localSize = new THREE.Vector3();
+                    localBBox.getSize(localSize);
+                    const localMin = localBBox.min.clone();
+                    const localMax = localBBox.max.clone();
+                    const localCenter = new THREE.Vector3();
+                    localBBox.getCenter(localCenter);
+                    
+                    // Update group position to geometry's bounding box center
+                    scanGroup.position.copy(localCenter);
                     
                     scanGroup.children.forEach((plane, i) => {
                         if (plane.userData.scanOffset !== undefined) {
@@ -1633,12 +1889,18 @@ class Viewer3D {
                             const wave = Math.sin((elapsed * CONFIG_3D.SCAN_SPEED + offset * 2) * Math.PI * 2);
                             plane.material.opacity = CONFIG_3D.SCAN_OPACITY * 0.3 * (wave * 0.5 + 0.5);
                             
-                            // Update plane position to follow object (in world space)
-                            plane.position.set(
-                                worldCenter.x,
-                                worldCenter.y - worldSize.y / 2 + (i / scanGroup.children.length) * worldSize.y,
-                                worldCenter.z
-                            );
+                            // Update plane Y position relative to group center
+                            const yPos = localMin.y + (i / scanGroup.children.length) * localSize.y;
+                            const yOffset = yPos - localCenter.y;
+                            plane.position.y = yOffset;
+                            
+                            // Update plane size based on local size (not world size)
+                            const planeSize = Math.max(localSize.x, localSize.z) * 1.1;
+                            if (!plane.userData.planeSize || Math.abs(plane.userData.planeSize - planeSize) > 0.01) {
+                                plane.geometry.dispose();
+                                plane.geometry = new THREE.PlaneGeometry(planeSize, planeSize);
+                                plane.userData.planeSize = planeSize;
+                            }
                         }
                     });
                 }
@@ -1957,18 +2219,35 @@ class Viewer3D {
         this.updateDebugInfo();
         
         if (this.scene && this.currentCamera) {
-            // Use composer if outline or bloom is active
-            if (this.composer && (this.outlinePass?.enabled || this.bloomPass?.enabled)) {
+            // NEVER use bloom pass - it causes scene dimming/overlay
+            // Only use composer for outline effect
+            if (this.composer && this.outlinePass?.enabled) {
                 // Update composer's camera reference if it changed
                 if (this.composer.passes[0]) {
                     this.composer.passes[0].camera = this.currentCamera;
+                    // Ensure render pass clears with transparency - CRITICAL to prevent black overlay
+                    if (this.composer.passes[0].clearAlpha !== undefined) {
+                        this.composer.passes[0].clearAlpha = 0; // Fully transparent background
+                    }
                 }
                 if (this.outlinePass) {
                     this.outlinePass.renderCamera = this.currentCamera;
                 }
+                // Ensure bloom is always disabled - it causes scene dimming
+                if (this.bloomPass) {
+                    this.bloomPass.enabled = false;
+                }
+                // Clear renderer with fully transparent background
+                this.renderer.setClearColor(0x000000, 0);
                 this.composer.render();
             } else {
-                // Normal rendering
+                // Normal rendering with fully transparent background (no postprocessing)
+                // This ensures the background image is NEVER affected
+                this.renderer.setClearColor(0x000000, 0);
+                // Always disable bloom to prevent any scene effects
+                if (this.bloomPass) {
+                    this.bloomPass.enabled = false;
+                }
                 this.renderer.render(this.scene, this.currentCamera);
             }
         }

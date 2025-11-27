@@ -26,7 +26,8 @@ except ImportError:
 SOURCE_DIR = "3D-Images"
 OUTPUT_DIR = "3D-Images/light"
 TARGET_WIDTH = 2000  # Maximum width for light images
-QUALITY = 85  # JPEG quality (1-100)
+QUALITY = 85  # Image quality (1-100) - used for JPEG/WebP
+WEBP_QUALITY = 85  # WebP quality (1-100)
 
 def create_light_images():
     """Create resized light versions of all images"""
@@ -39,7 +40,7 @@ def create_light_images():
     
     # Get all image files (excluding the light folder itself)
     image_files = []
-    for ext in ['*.jpg', '*.jpeg', '*.png', '*.JPG', '*.JPEG', '*.PNG']:
+    for ext in ['*.jpg', '*.jpeg', '*.png', '*.webp', '*.JPG', '*.JPEG', '*.PNG', '*.WEBP']:
         for file in source_path.glob(ext):
             # Skip if file is in the light subfolder
             if 'light' not in file.parts:
@@ -86,13 +87,18 @@ def create_light_images():
                 else:
                     resized = img
                 
-                # Convert RGBA to RGB if necessary (for JPEG)
+                # Always save as WebP format for optimal compression
+                # Convert RGBA to RGB if necessary (WebP supports both)
                 if resized.mode == 'RGBA':
+                    # Keep RGBA for WebP (supports transparency)
+                    pass
+                elif resized.mode not in ['RGB', 'RGBA']:
+                    # Convert other modes to RGB
                     resized = resized.convert('RGB')
                 
-                # Save optimized image
-                output_file = output_path / img_file.name
-                resized.save(output_file, 'JPEG', quality=QUALITY, optimize=True)
+                # Save as WebP with optimized quality
+                output_file = output_path / (img_file.stem + '.webp')
+                resized.save(output_file, 'WEBP', quality=WEBP_QUALITY, method=6)
                 
                 # Calculate file sizes
                 orig_size = img_file.stat().st_size / 1024  # KB

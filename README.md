@@ -50,7 +50,7 @@ This will create a `3D-Images/light/` folder with resized 2000px wide images (~8
 
 #### Method 1: Using the Provided Script (Easiest)
 1. **Double-click** `start-server.bat` (Windows)
-2. Your browser will automatically open, or manually go to: `http://localhost:8000`
+2. The server will automatically find an available random port (8000-8999) and open your browser
 
 #### Method 2: Using Python (if installed)
 Open a terminal in this folder and run:
@@ -58,12 +58,13 @@ Open a terminal in this folder and run:
 # Python 3
 python server.py
 ```
-Then open `http://localhost:8000` in your browser.
+The server will find an available random port and display the URL. Your browser will open automatically after 2 seconds.
 
 #### Method 3: Using Node.js/npx (if installed)
 ```bash
-npx http-server -p 8000
+npx http-server -p 0
 ```
+The `-p 0` flag tells http-server to use a random available port. Check the console output for the actual port number.
 
 #### Method 4: Using VS Code
 1. Install the "Live Server" extension

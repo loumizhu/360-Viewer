@@ -170,3 +170,102 @@ window.addEventListener('DOMContentLoaded', () => {
     }, 100);
 });
 
+// ============================================
+// TOOLBAR COLLAPSE/EXPAND CONTROLS
+// ============================================
+class ToolbarControls {
+    constructor() {
+        this.toolbar = null;
+        this.collapseBtn = null;
+        this.isCollapsed = false;
+        this.init();
+    }
+
+    init() {
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.setupControls());
+        } else {
+            this.setupControls();
+        }
+    }
+
+    setupControls() {
+        this.toolbar = document.getElementById('controls');
+        this.collapseBtn = document.getElementById('toolbar-collapse-btn');
+
+        if (!this.toolbar || !this.collapseBtn) {
+            console.warn('Toolbar controls elements not found');
+            return;
+        }
+
+        // Load saved state from localStorage
+        const savedState = localStorage.getItem('toolbarCollapsed');
+        if (savedState === 'true') {
+            this.collapse();
+        }
+
+        // Setup event listener for collapse button
+        this.collapseBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggle();
+            if (window.uiInteractionHandler) {
+                window.uiInteractionHandler.addGlow(this.collapseBtn);
+            }
+        });
+
+        // Setup hover/click to expand when collapsed
+        this.toolbar.addEventListener('mouseenter', () => {
+            if (this.isCollapsed) {
+                // Don't auto-expand on hover, let CSS handle it
+            }
+        });
+
+        this.toolbar.addEventListener('click', (e) => {
+            if (this.isCollapsed && e.target === this.toolbar) {
+                // Clicking on the collapsed toolbar (not the button) expands it
+                this.expand();
+            }
+        });
+
+        console.log('Toolbar controls initialized');
+    }
+
+    toggle() {
+        if (this.isCollapsed) {
+            this.expand();
+        } else {
+            this.collapse();
+        }
+    }
+
+    collapse() {
+        if (!this.toolbar || !this.collapseBtn) return;
+
+        this.toolbar.classList.add('collapsed');
+        this.collapseBtn.classList.add('collapsed');
+        this.collapseBtn.textContent = '▲';
+        this.isCollapsed = true;
+
+        // Save state to localStorage
+        localStorage.setItem('toolbarCollapsed', 'true');
+    }
+
+    expand() {
+        if (!this.toolbar || !this.collapseBtn) return;
+
+        this.toolbar.classList.remove('collapsed');
+        this.collapseBtn.classList.remove('collapsed');
+        this.collapseBtn.textContent = '▼';
+        this.isCollapsed = false;
+
+        // Save state to localStorage
+        localStorage.setItem('toolbarCollapsed', 'false');
+    }
+}
+
+// Initialize toolbar controls
+window.addEventListener('DOMContentLoaded', () => {
+    window.toolbarControls = new ToolbarControls();
+});
+
