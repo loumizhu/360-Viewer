@@ -1139,6 +1139,9 @@ class ProductViewer {
     }
     
     async loadAndShowFullRes() {
+        // Skip in light mode
+        if (this.lightMode) return;
+        
         const index = this.currentImageIndex;
         
         // Load full-res if not already loaded

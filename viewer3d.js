@@ -323,6 +323,11 @@ class Viewer3D {
         };
         
         selector.addEventListener('change', (e) => {
+            // Ignore changes in light mode
+            if (LIGHT_MODE) {
+                e.target.value = 'solid';
+                return;
+            }
             this.currentEffect = e.target.value;
             CONFIG_3D.EFFECT_TYPE = this.currentEffect;
             console.log(`Switched to effect: ${this.currentEffect}`);
