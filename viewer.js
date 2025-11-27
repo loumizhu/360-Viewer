@@ -138,6 +138,9 @@ class ProductViewer {
                     // Start progressive preloading in background
                     this.progressivePreload();
                     
+                    // Set initial cursor (zoom is 1.0, so use 360icon)
+                    this.updateCursor(false);
+                    
                     // Show zoom hint after a moment
                     setTimeout(() => {
                         this.updateZoomIndicator();
@@ -449,6 +452,9 @@ class ProductViewer {
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
         
+        // Set initial cursor (zoom is 1.0, so use 360icon)
+        this.updateCursor(false);
+        
         // Show zoom hint after a moment
         setTimeout(() => {
             this.updateZoomIndicator();
@@ -456,6 +462,21 @@ class ProductViewer {
         
         // Start progressive preloading in background
         this.progressivePreload();
+    }
+    
+    updateCursor(isGrabbing = false) {
+        // Update cursor based on zoom level and interaction state
+        if (this.zoom > 1.0) {
+            // Zoomed in - use drag cursor (pan mode)
+            const cursorIcon = isGrabbing ? 'drag.svg' : 'drag.svg';
+            const cursorState = isGrabbing ? 'grabbing' : 'grab';
+            this.canvas.style.cursor = `url("${this.repoBasePath}img/${cursorIcon}") 15 15, ${cursorState}`;
+        } else {
+            // Not zoomed - use 360 icon cursor (rotate mode)
+            const cursorIcon = '360icon.svg';
+            const cursorState = isGrabbing ? 'grabbing' : 'grab';
+            this.canvas.style.cursor = `url("${this.repoBasePath}img/${cursorIcon}") 15 15, ${cursorState}`;
+        }
     }
     
     resizeCanvas() {
@@ -692,7 +713,7 @@ class ProductViewer {
             this.isPanning = true;
             this.lastPanX = x;
             this.lastPanY = y;
-            this.canvas.style.cursor = `url("${this.repoBasePath}img/360icon.svg") 15 15, grabbing`;
+            this.updateCursor(true); // Grabbing state
         } else {
             // If not zoomed, enable rotation
             this.isRotating = true;
@@ -700,7 +721,7 @@ class ProductViewer {
             this.startX = e.clientX;
             this.currentX = e.clientX;
             this.dragDistance = 0;
-            this.canvas.style.cursor = `url("${this.repoBasePath}img/360icon.svg") 15 15, grabbing`;
+            this.updateCursor(true); // Grabbing state
             
             // Use light images while rotating for performance
             this.useFullRes = false;
@@ -754,14 +775,14 @@ class ProductViewer {
     onMouseUp(e) {
         if (this.isPanning) {
             this.isPanning = false;
-            this.canvas.style.cursor = `url("${this.repoBasePath}img/360icon.svg") 15 15, grab`;
+            this.updateCursor(false); // Not grabbing
         }
         
         if (this.isRotating) {
             this.isRotating = false;
             this.isDragging = false;
             this.dragDistance = 0;
-            this.canvas.style.cursor = `url("${this.repoBasePath}img/360icon.svg") 15 15, grab`;
+            this.updateCursor(false); // Not grabbing
             
             // Load full-res version after a short delay (300ms)
             this.fullResLoadTimeout = setTimeout(() => {
@@ -816,8 +837,8 @@ class ProductViewer {
             // Show zoom ripple effect
             this.showZoomRipple(mouseX, mouseY, e.deltaY < 0);
             
-            // Update cursor
-            this.canvas.style.cursor = this.zoom > 1.0 ? 'grab' : 'grab';
+            // Update cursor based on zoom level
+            this.updateCursor(false);
             
             // Redraw with new zoom
             this.redrawCurrentImage();
@@ -955,7 +976,7 @@ class ProductViewer {
         this.zoom = 1.0;
         this.panX = 0;
         this.panY = 0;
-        this.canvas.style.cursor = 'grab';
+        this.updateCursor(false); // Update cursor to 360icon (zoom is now 1.0)
         this.redrawCurrentImage();
         this.updateZoomIndicator();
     }
@@ -972,6 +993,7 @@ class ProductViewer {
     
     setZoom(zoomValue) {
         this.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, zoomValue));
+        this.updateCursor(false); // Update cursor based on new zoom level
         this.redrawCurrentImage();
         this.updateZoomIndicator();
     }
