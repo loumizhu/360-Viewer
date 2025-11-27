@@ -55,6 +55,11 @@ class ProductViewer {
         this.dragDistance = 0;
         this.sensitivity = 15; // Pixels to drag before switching image
         
+        // Touch/pinch zoom controls
+        this.touchStartDistance = 0;
+        this.touchStartZoom = 1.0;
+        this.lastPinchCenter = { x: 0, y: 0 };
+        
         // Zoom and pan controls
         this.zoom = 1.0;
         this.minZoom = 1.0;
@@ -989,22 +994,70 @@ class ProductViewer {
         e.preventDefault();
         
         if (e.touches.length === 1) {
+            // Single touch - scrubbing or panning
             const touch = e.touches[0];
             const rect = this.canvas.getBoundingClientRect();
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
             
-            if (this.zoom >= 1.01) {
+            if (this.zoom > 1.0) {
+                // Zoomed in - panning mode
                 this.isPanning = true;
                 this.lastPanX = x;
                 this.lastPanY = y;
             } else {
+                // Not zoomed - scrubbing mode
+                // Check if we have images loaded before allowing scrubbing
+                if (this.totalImages === 0) {
+                    return;
+                }
+                
+                // In light mode, check if at least current image is loaded
+                if (this.lightMode && !this.lightImageElements[this.currentImageIndex]) {
+                    return;
+                }
+                
+                // In normal mode, check if current image is loaded
+                if (!this.lightMode && !this.lightImageElements[this.currentImageIndex]) {
+                    // Try to load it quickly, but don't block scrubbing
+                    this.loadSingleImage(this.currentImageIndex, 'light').catch(() => {});
+                }
+                
                 this.isRotating = true;
                 this.isDragging = true;
                 this.startX = touch.clientX;
                 this.currentX = touch.clientX;
                 this.dragDistance = 0;
+                
+                // Use light images while rotating for performance
+                this.useFullRes = false;
+                
+                // Cancel any pending full-res load
+                if (this.fullResLoadTimeout) {
+                    clearTimeout(this.fullResLoadTimeout);
+                    this.fullResLoadTimeout = null;
+                }
             }
+        } else if (e.touches.length === 2) {
+            // Two touches - pinch zoom
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Calculate distance between touches
+            const dx = touch2.clientX - touch1.clientX;
+            const dy = touch2.clientY - touch1.clientY;
+            this.touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+            this.touchStartZoom = this.zoom;
+            
+            // Calculate center point for zoom
+            const rect = this.canvas.getBoundingClientRect();
+            this.lastPinchCenter.x = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
+            this.lastPinchCenter.y = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
+            
+            // Cancel any active panning or scrubbing
+            this.isPanning = false;
+            this.isRotating = false;
+            this.isDragging = false;
         }
     }
     
@@ -1012,12 +1065,14 @@ class ProductViewer {
         e.preventDefault();
         
         if (e.touches.length === 1) {
+            // Single touch - scrubbing or panning
             const touch = e.touches[0];
             const rect = this.canvas.getBoundingClientRect();
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
             
             if (this.isPanning) {
+                // Panning mode
                 const deltaX = x - this.lastPanX;
                 const deltaY = y - this.lastPanY;
                 
@@ -1029,32 +1084,100 @@ class ProductViewer {
                 
                 this.redrawCurrentImage();
             } else if (this.isRotating && this.isDragging) {
+                // Scrubbing mode
                 const deltaX = touch.clientX - this.currentX;
                 this.dragDistance += deltaX;
                 this.currentX = touch.clientX;
                 
                 if (Math.abs(this.dragDistance) >= this.sensitivity) {
                     if (this.dragDistance > 0) {
+                        // Dragging right - go to previous image
                         this.previousImage(false).catch(err => console.warn('[Scrubbing] Error loading previous image:', err));
                     } else {
+                        // Dragging left - go to next image
                         this.nextImage(false).catch(err => console.warn('[Scrubbing] Error loading next image:', err));
                     }
                     this.dragDistance = 0;
                 }
             }
+        } else if (e.touches.length === 2) {
+            // Two touches - pinch zoom
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Calculate current distance between touches
+            const dx = touch2.clientX - touch1.clientX;
+            const dy = touch2.clientY - touch1.clientY;
+            const currentDistance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Calculate zoom factor based on distance change
+            if (this.touchStartDistance > 0) {
+                const scale = currentDistance / this.touchStartDistance;
+                const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.touchStartZoom * scale));
+                
+                // Only update if zoom actually changed (avoid unnecessary redraws)
+                if (Math.abs(newZoom - this.zoom) > 0.01) {
+                    this.zoom = newZoom;
+                    
+                    // Adjust pan to zoom toward pinch center
+                    const rect = this.canvas.getBoundingClientRect();
+                    const centerX = ((touch1.clientX + touch2.clientX) / 2) - rect.left;
+                    const centerY = ((touch1.clientY + touch2.clientY) / 2) - rect.top;
+                    
+                    // Calculate zoom center relative to image
+                    const zoomFactor = newZoom / this.touchStartZoom;
+                    const deltaX = centerX - this.lastPinchCenter.x;
+                    const deltaY = centerY - this.lastPinchCenter.y;
+                    
+                    // Adjust pan to keep zoom center stable
+                    this.panX = this.panX * zoomFactor + deltaX * (1 - zoomFactor);
+                    this.panY = this.panY * zoomFactor + deltaY * (1 - zoomFactor);
+                    
+                    this.updateCursor(false);
+                    this.redrawCurrentImage();
+                    this.updateZoomIndicator();
+                }
+            }
         }
     }
     
-    onTouchEnd() {
+    onTouchEnd(e) {
+        // Reset touch state
         this.isPanning = false;
         this.isRotating = false;
         this.isDragging = false;
         this.dragDistance = 0;
+        this.touchStartDistance = 0;
+        this.touchStartZoom = 1.0;
         
-        if (!this.isPanning && !this.isRotating && !this.lightMode) {
-            this.fullResLoadTimeout = setTimeout(() => {
-                this.loadAndShowFullRes();
-            }, 300);
+        // If still touching with one finger, continue that gesture
+        if (e.touches && e.touches.length === 1) {
+            const touch = e.touches[0];
+            const rect = this.canvas.getBoundingClientRect();
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            
+            if (this.zoom > 1.0) {
+                // Continue panning
+                this.isPanning = true;
+                this.lastPanX = x;
+                this.lastPanY = y;
+            } else {
+                // Continue scrubbing
+                if (this.totalImages > 0) {
+                    this.isRotating = true;
+                    this.isDragging = true;
+                    this.currentX = touch.clientX;
+                    this.dragDistance = 0;
+                }
+            }
+        } else {
+            // No touches left - load full-res if in normal mode
+            if (!this.lightMode) {
+                this.fullResLoadTimeout = setTimeout(() => {
+                    this.loadAndShowFullRes();
+                }, 300);
+            }
         }
     }
     
