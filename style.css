@@ -406,15 +406,16 @@ body {
 /* Mobile responsive */
 @media (max-width: 768px) {
     #controls {
-        bottom: 15px;
-        padding: 10px 15px;
-        gap: 10px;
+        bottom: 80px; /* Higher to avoid mobile browser UI cropping */
+        padding: 4px 8px;
+        gap: 6px;
         max-width: 95vw;
+        font-size: 0.9em;
     }
     
     .control-btn {
-        padding: 6px 12px;
-        font-size: 11px;
+        padding: 6px 10px;
+        font-size: 0.85em;
     }
     
     #imageInfo {
@@ -423,7 +424,17 @@ body {
     }
     
     .toolbar-label {
-        font-size: 11px;
+        font-size: 0.85em;
+        padding: 4px 8px;
+    }
+    
+    .zoom-slider {
+        width: 80px;
+    }
+    
+    .toolbar-divider {
+        width: 1px;
+        height: 20px;
     }
     
     .effect-dropdown {
@@ -437,10 +448,6 @@ body {
     
     .effect-control-label {
         font-size: 10px;
-    }
-    
-    .toolbar-divider {
-        height: 25px;
     }
 }
 
