@@ -1114,7 +1114,10 @@ class ProductViewer {
             
             // Calculate zoom factor based on distance change
             if (this.touchStartDistance > 0) {
-                const scale = currentDistance / this.touchStartDistance;
+                // Reduce sensitivity on mobile - use logarithmic scaling for smoother zoom
+                const distanceRatio = currentDistance / this.touchStartDistance;
+                // Apply logarithmic scaling to make zoom less sensitive
+                const scale = 1 + (distanceRatio - 1) * 0.5; // 50% sensitivity reduction
                 const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.touchStartZoom * scale));
                 
                 // Only update if zoom actually changed (avoid unnecessary redraws)
@@ -1151,6 +1154,11 @@ class ProductViewer {
         this.dragDistance = 0;
         this.touchStartDistance = 0;
         this.touchStartZoom = 1.0;
+        
+        // Reset pan to center if zoomed out
+        if (this.zoom <= 1.0) {
+            this.resetPanIfNeeded();
+        }
         
         // If still touching with one finger, continue that gesture
         if (e.touches && e.touches.length === 1) {

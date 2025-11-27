@@ -719,22 +719,46 @@ body {
 /* Mobile responsive for debug panel */
 @media (max-width: 768px) {
     #debug-panel {
-        width: 280px;
-        left: 10px;
-        top: 10px;
+        width: 240px;
+        left: 0;
+        top: 0;
         max-height: calc(100vh - 20px);
+        border-radius: 0 var(--ui-border-radius-lg) var(--ui-border-radius-lg) 0;
     }
     
     .debug-panel-header {
-        padding: 12px 15px;
+        padding: 10px 12px;
     }
     
     .debug-panel-header h3 {
-        font-size: 16px;
+        font-size: 14px;
     }
     
     .debug-panel-content {
-        padding: 15px;
+        padding: 12px;
+        font-size: 0.85em;
+    }
+    
+    /* UI Settings Panel - smaller and stick to right */
+    #ui-settings-panel {
+        width: 260px;
+        right: 0;
+        top: 0;
+        max-height: calc(100vh - 20px);
+        border-radius: var(--ui-border-radius-lg) 0 0 var(--ui-border-radius-lg);
+    }
+    
+    .ui-settings-header {
+        padding: 10px 12px;
+    }
+    
+    .ui-settings-header h3 {
+        font-size: 14px;
+    }
+    
+    .ui-settings-content {
+        padding: 12px;
+        font-size: 0.85em;
     }
 }
 
