@@ -150,31 +150,65 @@ class ProductViewer {
     
     async discoverImagesByTrying() {
         console.log('Attempting to discover images by testing common patterns...');
-        // Try common image extensions
-        const extensions = ['.webp', '.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG', '.WEBP'];
+        // Try common image extensions (prioritize .jpg since that's what we have)
+        const extensions = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.webp', '.WEBP', '.png', '.PNG'];
         const maxAttempts = 200; // Try up to 200 images
         const discoveredFull = new Set();
         const discoveredLight = new Set();
         
-        // Try sequential numbering patterns (most common)
-        for (let i = 1; i <= maxAttempts; i++) {
-            let foundAny = false;
-            
-            // Try different naming patterns
-            const patterns = [
-                `modif_animated (${i})`,
-                `image_${i}`,
-                `img_${i}`,
-                `frame_${i}`,
-                `${i}`,
-                `image${String(i).padStart(3, '0')}`,
-                `img${String(i).padStart(3, '0')}`,
-                `frame${String(i).padStart(3, '0')}`
-            ];
-            
-            for (const pattern of patterns) {
+        // Try different naming patterns - prioritize modif_animated first
+        const patterns = [
+            (i) => `modif_animated (${i})`,  // Most likely pattern
+            (i) => `image_${i}`,
+            (i) => `img_${i}`,
+            (i) => `frame_${i}`,
+            (i) => `${i}`,
+            (i) => `image${String(i).padStart(3, '0')}`,
+            (i) => `img${String(i).padStart(3, '0')}`,
+            (i) => `frame${String(i).padStart(3, '0')}`
+        ];
+        
+        let workingPattern = null;
+        let consecutiveFailures = 0;
+        const maxConsecutiveFailures = 5; // Stop after 5 consecutive failures
+        
+        // First, try to find which pattern works
+        for (const patternFn of patterns) {
+            let foundPattern = false;
+            for (let i = 1; i <= 10; i++) { // Test first 10 images
+                const pattern = patternFn(i);
                 for (const ext of extensions) {
-                    // Use paths with repository base path for GitHub Pages compatibility
+                    const fullPath = `${this.repoBasePath}${this.basePath}3D-Images/${pattern}${ext}`.replace(/\/+/g, '/');
+                    const lightPath = `${this.repoBasePath}${this.basePath}3D-Images/light/${pattern}${ext}`.replace(/\/+/g, '/');
+                    
+                    const [fullExists, lightExists] = await Promise.all([
+                        this.testImageExists(fullPath),
+                        this.testImageExists(lightPath)
+                    ]);
+                    
+                    if (fullExists || lightExists) {
+                        workingPattern = patternFn;
+                        foundPattern = true;
+                        if (fullExists) discoveredFull.add(fullPath);
+                        if (lightExists) discoveredLight.add(lightPath);
+                        break;
+                    }
+                }
+                if (foundPattern) break;
+            }
+            if (foundPattern) {
+                console.log(`[Viewer] Found working pattern: ${patternFn(1)}`);
+                break;
+            }
+        }
+        
+        // If we found a working pattern, continue with that pattern only
+        if (workingPattern) {
+            for (let i = 1; i <= maxAttempts; i++) {
+                const pattern = workingPattern(i);
+                let foundAny = false;
+                
+                for (const ext of extensions) {
                     const fullPath = `${this.repoBasePath}${this.basePath}3D-Images/${pattern}${ext}`.replace(/\/+/g, '/');
                     const lightPath = `${this.repoBasePath}${this.basePath}3D-Images/light/${pattern}${ext}`.replace(/\/+/g, '/');
                     
@@ -192,25 +226,22 @@ class ProductViewer {
                         foundAny = true;
                     }
                     
-                    // If we found a match, no need to try other extensions for this pattern
-                    if (fullExists || lightExists) break;
+                    if (fullExists || lightExists) break; // Found with this extension, no need to try others
                 }
-            }
-            
-            // If we haven't found anything for 20 consecutive attempts, stop
-            if (!foundAny && i > 20 && discoveredFull.size === 0 && discoveredLight.size === 0) {
-                break;
-            }
-            // If we found some but then nothing for 10 attempts, also stop
-            if (!foundAny && i > 10 && (discoveredFull.size > 0 || discoveredLight.size > 0)) {
-                // Check if we should continue
-                let recentFound = false;
-                for (let j = Math.max(1, i - 10); j < i; j++) {
-                    // Quick check if we found anything recently
+                
+                if (foundAny) {
+                    consecutiveFailures = 0;
+                } else {
+                    consecutiveFailures++;
+                    if (consecutiveFailures >= maxConsecutiveFailures) {
+                        console.log(`[Viewer] Stopping discovery after ${consecutiveFailures} consecutive failures`);
+                        break;
+                    }
                 }
-                if (!recentFound && i > 20) break;
             }
         }
+        
+        console.log(`[Viewer] Discovered ${discoveredFull.size} full images and ${discoveredLight.size} light images`);
         
         // Convert sets to arrays and match
         this.matchImagePairs(Array.from(discoveredFull), Array.from(discoveredLight));
@@ -219,11 +250,31 @@ class ProductViewer {
     async testImageExists(path) {
         return new Promise((resolve) => {
             const img = new Image();
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(false);
+            let resolved = false;
+            
+            img.onload = () => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve(true);
+                }
+            };
+            
+            img.onerror = () => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve(false);
+                }
+            };
+            
             img.src = path;
-            // Timeout after 1 second
-            setTimeout(() => resolve(false), 1000);
+            
+            // Timeout after 2 seconds (longer for GitHub Pages)
+            setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    resolve(false);
+                }
+            }, 2000);
         });
     }
     
@@ -295,7 +346,7 @@ class ProductViewer {
         this.showImage(0, 'light');
         setTimeout(() => {
             this.loadingEl.classList.remove('loading');
-            this.loadingEl.classList.add('hidden');
+        this.loadingEl.classList.add('hidden');
         }, 300);
         
         // Setup controls (user can start interacting immediately)
