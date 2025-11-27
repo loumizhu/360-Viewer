@@ -1041,9 +1041,13 @@ class Viewer3D {
         // Track if user started dragging on 3D object
         this.dragStartedOn3D = false;
         
-        // Mouse down - pass to 2D viewer if not hovering 3D object
+        // Mouse down - pass to 2D viewer if not hovering 3D object OR if zoomed out (scrubbing mode)
         this.canvas.addEventListener('mousedown', (e) => {
-            if (!this.isHoveringObject) {
+            // Check zoom level - if <= 1.0, always forward to 2D viewer for scrubbing
+            const viewer2D = window.viewer;
+            const isScrubbingMode = viewer2D && viewer2D.zoom <= 1.0;
+            
+            if (!this.isHoveringObject || isScrubbingMode) {
                 this.dragStartedOn3D = false;
                 // Pass through to 2D viewer
                 const viewer2DCanvas = document.getElementById('viewer');
@@ -1060,9 +1064,13 @@ class Viewer3D {
             }
         });
         
-        // Mouse move - always pass to 2D viewer if drag started there
+        // Mouse move - always pass to 2D viewer if drag started there OR if in scrubbing mode
         this.canvas.addEventListener('mousemove', (e) => {
-            if (!this.dragStartedOn3D) {
+            // Check zoom level - if <= 1.0, always forward to 2D viewer for scrubbing
+            const viewer2D = window.viewer;
+            const isScrubbingMode = viewer2D && viewer2D.zoom <= 1.0;
+            
+            if (!this.dragStartedOn3D || isScrubbingMode) {
                 const viewer2DCanvas = document.getElementById('viewer');
                 const mouseEvent = new MouseEvent('mousemove', {
                     clientX: e.clientX,
