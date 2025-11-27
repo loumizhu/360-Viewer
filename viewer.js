@@ -774,9 +774,15 @@ class ProductViewer {
             }
             
             // In normal mode, check if current image is loaded (use light images for scrubbing performance)
+            // If light image not available, try to load it quickly, but don't block scrubbing
             if (!this.lightMode && !this.lightImageElements[this.currentImageIndex]) {
-                console.warn('[Scrubbing] Cannot scrub - current image not loaded yet. Index:', this.currentImageIndex);
-                return;
+                console.warn('[Scrubbing] Current light image not loaded, attempting quick load. Index:', this.currentImageIndex);
+                // Try to load it, but don't wait - allow scrubbing to proceed
+                this.loadSingleImage(this.currentImageIndex, 'light').catch(err => {
+                    console.warn('[Scrubbing] Failed to quickly load light image:', err);
+                });
+                // Don't return - allow scrubbing to start even if image isn't loaded yet
+                // The showImage function will handle loading on demand
             }
             
             this.isRotating = true;
