@@ -1887,12 +1887,26 @@ class Viewer3D {
             return;
         }
         
+        // Reset image and wait for load
+        planImage.style.display = 'none';
+        
         // Set image source
-        planImage.src = planImagePath;
+        planImage.onload = () => {
+            planImage.style.display = 'block';
+            console.log(`Plan image loaded: ${planImagePath}`);
+        };
+        
         planImage.onerror = () => {
             console.warn(`Plan image not found: ${planImagePath}`);
-            // Optionally show error message or hide panel
+            planImage.style.display = 'none';
+            // Show error message
+            const errorMsg = document.createElement('div');
+            errorMsg.style.cssText = 'color: var(--ui-text-primary); text-align: center; padding: 20px; font-size: 18px;';
+            errorMsg.textContent = `Plan image not found: ${objectName}.png`;
+            planImage.parentElement.appendChild(errorMsg);
         };
+        
+        planImage.src = planImagePath;
         
         // Show panel with animation
         panel.classList.remove('hidden');
