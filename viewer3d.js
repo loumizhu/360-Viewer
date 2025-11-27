@@ -1126,40 +1126,9 @@ class Viewer3D {
             this.hideTooltip();
         });
         
-        // Touch events - forward all touch events to 2D viewer
-        // Touch events are always handled by 2D viewer (scrubbing/panning/pinch zoom)
-        // We need to stop propagation and prevent default to avoid conflicts
-        this.canvas.addEventListener('touchstart', (e) => {
-            e.stopPropagation();
-            const viewer2D = window.productViewer || window.viewer;
-            if (viewer2D && viewer2D.onTouchStart) {
-                viewer2D.onTouchStart(e);
-            }
-        }, { passive: false });
-        
-        this.canvas.addEventListener('touchmove', (e) => {
-            e.stopPropagation();
-            const viewer2D = window.productViewer || window.viewer;
-            if (viewer2D && viewer2D.onTouchMove) {
-                viewer2D.onTouchMove(e);
-            }
-        }, { passive: false });
-        
-        this.canvas.addEventListener('touchend', (e) => {
-            e.stopPropagation();
-            const viewer2D = window.productViewer || window.viewer;
-            if (viewer2D && viewer2D.onTouchEnd) {
-                viewer2D.onTouchEnd(e);
-            }
-        }, { passive: false });
-        
-        this.canvas.addEventListener('touchcancel', (e) => {
-            e.stopPropagation();
-            const viewer2D = window.productViewer || window.viewer;
-            if (viewer2D && viewer2D.onTouchEnd) {
-                viewer2D.onTouchEnd(e);
-            }
-        }, { passive: false });
+        // Touch events - don't handle on 3D canvas, let them pass through to 2D canvas
+        // The 2D canvas handles all touch interactions (scrubbing/panning/pinch zoom)
+        // We use pointer-events CSS to allow touches to pass through on mobile
         
         // Click handler for 3D objects
         this.canvas.addEventListener('click', (e) => {
