@@ -1044,7 +1044,8 @@ class Viewer3D {
             const viewer2D = window.productViewer || window.viewer;
             const isScrubbingMode = viewer2D && viewer2D.zoom <= 1.0;
             
-            if (!this.isHoveringObject || isScrubbingMode) {
+            // Always forward if in scrubbing mode (zoom <= 1.0), or if not hovering 3D object
+            if (isScrubbingMode || !this.isHoveringObject) {
                 this.dragStartedOn3D = false;
                 // Pass through to 2D viewer
                 const viewer2DCanvas = document.getElementById('viewer');
@@ -1063,14 +1064,9 @@ class Viewer3D {
             }
         });
         
-        // Mouse move - always pass to 2D viewer if drag started there OR if scrubbing is active
+        // Mouse move - always pass to 2D viewer if drag didn't start on 3D
         this.canvas.addEventListener('mousemove', (e) => {
-            const viewer2D = window.productViewer || window.viewer;
-            // Check if scrubbing is active (zoom <= 1.0 AND isRotating)
-            const isScrubbingActive = viewer2D && viewer2D.zoom <= 1.0 && viewer2D.isRotating;
-            
-            // Forward if: drag didn't start on 3D, OR scrubbing is active
-            if (!this.dragStartedOn3D || isScrubbingActive) {
+            if (!this.dragStartedOn3D) {
                 const viewer2DCanvas = document.getElementById('viewer');
                 if (viewer2DCanvas) {
                     const mouseEvent = new MouseEvent('mousemove', {
