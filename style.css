@@ -118,11 +118,17 @@ body {
     cursor: url('img/360icon.svg') 15 15, grab; /* Default to 360 icon cursor */
 }
 
-/* On mobile, allow touch events to pass through when not hovering 3D objects */
+/* On mobile, allow touch events to pass through to 2D canvas */
 @media (max-width: 768px) {
     #viewer3d {
-        /* Touch events will be handled by JavaScript forwarding */
+        /* Allow touch events to pass through to 2D canvas below */
+        pointer-events: none;
         touch-action: none; /* Prevent default touch behaviors like scrolling */
+    }
+    
+    /* Re-enable pointer events only for the canvas itself (for rendering) */
+    #viewer3d canvas {
+        pointer-events: auto;
     }
 }
 
