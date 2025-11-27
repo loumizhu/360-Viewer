@@ -1126,6 +1126,37 @@ class Viewer3D {
             this.hideTooltip();
         });
         
+        // Touch events - forward all touch events to 2D viewer
+        // Touch events are always handled by 2D viewer (scrubbing/panning/pinch zoom)
+        this.canvas.addEventListener('touchstart', (e) => {
+            const viewer2DCanvas = document.getElementById('viewer');
+            if (viewer2DCanvas) {
+                // Forward to 2D canvas - it will handle the touch event
+                viewer2DCanvas.dispatchEvent(e);
+            }
+        }, { passive: false });
+        
+        this.canvas.addEventListener('touchmove', (e) => {
+            const viewer2DCanvas = document.getElementById('viewer');
+            if (viewer2DCanvas) {
+                viewer2DCanvas.dispatchEvent(e);
+            }
+        }, { passive: false });
+        
+        this.canvas.addEventListener('touchend', (e) => {
+            const viewer2DCanvas = document.getElementById('viewer');
+            if (viewer2DCanvas) {
+                viewer2DCanvas.dispatchEvent(e);
+            }
+        }, { passive: false });
+        
+        this.canvas.addEventListener('touchcancel', (e) => {
+            const viewer2DCanvas = document.getElementById('viewer');
+            if (viewer2DCanvas) {
+                viewer2DCanvas.dispatchEvent(e);
+            }
+        }, { passive: false });
+        
         // Click handler for 3D objects
         this.canvas.addEventListener('click', (e) => {
             if (this.hoveredObject) {
