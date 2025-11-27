@@ -447,12 +447,14 @@ class ProductViewer {
             // Zoomed in - use drag cursor (pan mode)
             const cursorIcon = 'drag.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
+            // Use repo base path for GitHub Pages compatibility
             const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
         } else {
             // Not zoomed - use 360 icon cursor (rotate mode)
             const cursorIcon = '360icon.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
+            // Use repo base path for GitHub Pages compatibility
             const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
         }
@@ -699,6 +701,12 @@ class ProductViewer {
             this.updateCursor(true); // Grabbing state
         } else {
             // If not zoomed, enable rotation (scrubbing)
+            // Check if we have images loaded before allowing scrubbing
+            if (this.totalImages === 0 || !this.lightImageElements[0]) {
+                console.warn('[Scrubbing] Cannot scrub - images not loaded yet. Total images:', this.totalImages);
+                return;
+            }
+            
             this.isRotating = true;
             this.isDragging = true;
             this.startX = e.clientX;
@@ -706,7 +714,7 @@ class ProductViewer {
             this.dragDistance = 0;
             this.updateCursor(true); // Grabbing state
             
-            console.log('[Scrubbing] Started - isRotating:', this.isRotating, 'isDragging:', this.isDragging);
+            console.log('[Scrubbing] Started - isRotating:', this.isRotating, 'isDragging:', this.isDragging, 'totalImages:', this.totalImages);
             
             // Use light images while rotating for performance
             this.useFullRes = false;
