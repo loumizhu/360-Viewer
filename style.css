@@ -103,12 +103,8 @@ body {
     display: block;
     width: 100%;
     height: 100%;
-    cursor: url('img/360icon.svg') 15 15, grab;
+    /* Cursor is set dynamically by JavaScript based on zoom level */
     background: #000;
-}
-
-#viewer:active {
-    cursor: url('img/360icon.svg') 15 15, grabbing;
 }
 
 #viewer3d {

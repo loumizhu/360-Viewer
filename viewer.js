@@ -443,23 +443,25 @@ class ProductViewer {
         // Update cursor based on zoom level and interaction state
         if (!this.canvas) return; // Canvas not ready yet
         
-        // Use >= 1.01 to account for floating point precision (any zoom above 100%)
-        if (this.zoom >= 1.01) {
+        // Use > 1.0 to detect any zoom above 100% (even 1.001)
+        const isZoomed = this.zoom > 1.0;
+        
+        if (isZoomed) {
             // Zoomed in - use drag cursor (pan mode)
             const cursorIcon = 'drag.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
             // Use repo base path for GitHub Pages compatibility
             const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
-            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
-            // Force cursor update by setting it again (some browsers need this)
-            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
+            // Use !important to override any CSS
+            this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
         } else {
             // Not zoomed (at or below 100%) - use 360 icon cursor (rotate mode)
             const cursorIcon = '360icon.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
             // Use repo base path for GitHub Pages compatibility
             const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
-            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
+            // Use !important to override any CSS
+            this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
         }
     }
     
@@ -652,9 +654,17 @@ class ProductViewer {
     setupControls() {
         // Mouse events for desktop
         this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
         this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
         this.canvas.addEventListener('mouseleave', () => this.onMouseUp());
+        
+        // Mouse move with cursor update
+        this.canvas.addEventListener('mousemove', (e) => {
+            this.onMouseMove(e);
+            // Update cursor if not actively interacting
+            if (!this.isPanning && !this.isRotating && !this.isDragging) {
+                this.updateCursor(false);
+            }
+        });
         
         // Mouse wheel for zoom
         this.canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
