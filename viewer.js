@@ -72,11 +72,96 @@ class ProductViewer {
         
         this.useFullRes = false; // Start with light images
         this.fullResLoadTimeout = null;
+        this.discoveryComplete = false;
         
-        // Discover images first, then init
+        // Start loading immediately with most likely pattern, then continue discovery
+        this.startImmediateLoading();
+        
+        // Discover images in background (will update image list as it finds them)
         this.discoverImages().then(() => {
-            this.init();
+            this.discoveryComplete = true;
+            // If we already initialized, update the image list
+            if (this.canvas) {
+                this.updateImageListAfterDiscovery();
+            } else {
+                this.init();
+            }
         });
+    }
+    
+    async startImmediateLoading() {
+        // Initialize canvas and UI immediately
+        this.canvas = document.getElementById('viewer');
+        this.ctx = this.canvas.getContext('2d');
+        this.loadingEl = document.getElementById('loading');
+        
+        // Set canvas size
+        this.resizeCanvas();
+        
+        // Setup controls immediately (user can start interacting)
+        this.setupControls();
+        
+        // Handle window resize
+        window.addEventListener('resize', () => this.onWindowResize());
+        
+        // Try to load first image immediately using most likely pattern
+        const firstImagePattern = `modif_animated (1)`;
+        const extensions = ['.jpg', '.JPG', '.jpeg', '.JPEG'];
+        const repoBase = this.repoBasePath;
+        const basePath = this.basePath;
+        
+        this.loadingEl.classList.add('loading');
+        
+        // Try to load first light image immediately
+        for (const ext of extensions) {
+            const lightPath = `${repoBase}${basePath}3D-Images/light/${firstImagePattern}${ext}`.replace(/\/+/g, '/');
+            const fullPath = `${repoBase}${basePath}3D-Images/${firstImagePattern}${ext}`.replace(/\/+/g, '/');
+            
+            try {
+                // Try light version first with shorter timeout for immediate loading
+                const lightExists = await this.testImageExists(lightPath, 500); // 500ms timeout for immediate load
+                if (lightExists) {
+                    // Found it! Load immediately
+                    this.lightImages = [lightPath];
+                    this.fullImages = [fullPath];
+                    this.totalImages = 1;
+                    this.currentImageIndex = 0;
+                    
+                    await this.loadSingleImage(0, 'light');
+                    this.showImage(0, 'light');
+                    
+                    setTimeout(() => {
+                        this.loadingEl.classList.remove('loading');
+                        this.loadingEl.classList.add('hidden');
+                    }, 300);
+                    
+                    // Start progressive preloading in background
+                    this.progressivePreload();
+                    
+                    // Show zoom hint after a moment
+                    setTimeout(() => {
+                        this.updateZoomIndicator();
+                    }, 1000);
+                    
+                    console.log('[Viewer] First image loaded immediately!');
+                    return;
+                }
+            } catch (e) {
+                // Continue to next extension
+            }
+        }
+        
+        // If we couldn't load immediately, wait for discovery
+        console.log('[Viewer] Could not load first image immediately, waiting for discovery...');
+    }
+    
+    updateImageListAfterDiscovery() {
+        // Update the image lists after discovery completes
+        // This is called if we already started loading
+        if (this.totalImages > 0) {
+            // Restart preloading with the complete list
+            this.progressivePreload();
+        }
     }
     
     async discoverImages() {
@@ -86,11 +171,14 @@ class ProductViewer {
         
         console.log('[Viewer] Discovering images in:', fullImagesPath, 'and', lightImagesPath);
         
-        // Try to load a manifest file first (if it exists)
+        // Try to load a manifest file first (if it exists) - but don't wait long
         try {
             const manifestPath = this.basePath ? `${this.repoBasePath}${this.basePath}image-manifest.json`.replace(/\/+/g, '/') : `${this.repoBasePath}image-manifest.json`.replace(/\/+/g, '/');
             console.log('[Viewer] Trying manifest:', manifestPath);
-            const manifestResponse = await fetch(manifestPath);
+            const manifestResponse = await Promise.race([
+                fetch(manifestPath),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1000))
+            ]);
             if (manifestResponse.ok) {
                 const manifest = await manifestResponse.json();
                 this.lightImages = manifest.light || [];
@@ -103,45 +191,50 @@ class ProductViewer {
             console.log('[Viewer] No manifest file found:', e.message);
         }
         
-        // Auto-discover images by trying to fetch directory listing or using fallback
-        // Since we can't list directories directly, we'll try common patterns
-        // and also attempt to fetch a server-generated listing
-        
-        try {
-            // Try to get directory listing from server (if supported)
-            const fullDirUrl = `${fullImagesPath}/?json=1`;
-            const lightDirUrl = `${lightImagesPath}/?json=1`;
-            console.log('[Viewer] Fetching directory listings:', fullDirUrl, lightDirUrl);
-            const fullDirResponse = await fetch(fullDirUrl);
-            const lightDirResponse = await fetch(lightDirUrl);
-            
-            console.log('[Viewer] Directory listing responses:', {
-                full: { ok: fullDirResponse.ok, status: fullDirResponse.status },
-                light: { ok: lightDirResponse.ok, status: lightDirResponse.status }
-            });
-            
-            if (fullDirResponse.ok && lightDirResponse.ok) {
-                const fullFiles = await fullDirResponse.json();
-                const lightFiles = await lightDirResponse.json();
+        // Skip directory listing on GitHub Pages (it won't work) - go straight to pattern discovery
+        // Only try directory listing if we're on a local server
+        if (!window.location.hostname.includes('.github.io')) {
+            try {
+                // Try to get directory listing from server (if supported)
+                const fullDirUrl = `${fullImagesPath}/?json=1`;
+                const lightDirUrl = `${lightImagesPath}/?json=1`;
+                console.log('[Viewer] Fetching directory listings:', fullDirUrl, lightDirUrl);
                 
-                // Filter and sort image files
-                const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.JPG', '.JPEG', '.PNG', '.WEBP'];
-                const fullImages = fullFiles
-                    .filter(f => imageExtensions.some(ext => f.name.endsWith(ext)))
-                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
-                    .map(f => `${fullImagesPath}/${f.name}`.replace(/\/+/g, '/'));
+                const [fullDirResponse, lightDirResponse] = await Promise.race([
+                    Promise.all([fetch(fullDirUrl), fetch(lightDirUrl)]),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1500))
+                ]);
                 
-                const lightImages = lightFiles
-                    .filter(f => imageExtensions.some(ext => f.name.endsWith(ext)))
-                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
-                    .map(f => `${lightImagesPath}/${f.name}`.replace(/\/+/g, '/'));
+                console.log('[Viewer] Directory listing responses:', {
+                    full: { ok: fullDirResponse.ok, status: fullDirResponse.status },
+                    light: { ok: lightDirResponse.ok, status: lightDirResponse.status }
+                });
                 
-                // Match light and full images by base name (without extension)
-                this.matchImagePairs(fullImages, lightImages);
-                return;
+                if (fullDirResponse.ok && lightDirResponse.ok) {
+                    const fullFiles = await fullDirResponse.json();
+                    const lightFiles = await lightDirResponse.json();
+                    
+                    // Filter and sort image files
+                    const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.JPG', '.JPEG', '.PNG', '.WEBP'];
+                    const fullImages = fullFiles
+                        .filter(f => imageExtensions.some(ext => f.name.endsWith(ext)))
+                        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
+                        .map(f => `${fullImagesPath}/${f.name}`.replace(/\/+/g, '/'));
+                    
+                    const lightImages = lightFiles
+                        .filter(f => imageExtensions.some(ext => f.name.endsWith(ext)))
+                        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
+                        .map(f => `${lightImagesPath}/${f.name}`.replace(/\/+/g, '/'));
+                    
+                    // Match light and full images by base name (without extension)
+                    this.matchImagePairs(fullImages, lightImages);
+                    return;
+                }
+            } catch (e) {
+                console.log('[Viewer] Directory listing not available, using fallback discovery...', e.message);
             }
-        } catch (e) {
-            console.log('[Viewer] Directory listing not available, using fallback discovery...', e.message);
+        } else {
+            console.log('[Viewer] GitHub Pages detected, skipping directory listing, using pattern discovery');
         }
         
         // Fallback: Try to discover by attempting to load images
@@ -172,10 +265,11 @@ class ProductViewer {
         let consecutiveFailures = 0;
         const maxConsecutiveFailures = 5; // Stop after 5 consecutive failures
         
-        // First, try to find which pattern works
+        // First, try to find which pattern works - but start with modif_animated immediately
+        // and test only first 3 images to find the pattern quickly
         for (const patternFn of patterns) {
             let foundPattern = false;
-            for (let i = 1; i <= 10; i++) { // Test first 10 images
+            for (let i = 1; i <= 2; i++) { // Test only first 2 images to find pattern very quickly
                 const pattern = patternFn(i);
                 for (const ext of extensions) {
                     const fullPath = `${this.repoBasePath}${this.basePath}3D-Images/${pattern}${ext}`.replace(/\/+/g, '/');
@@ -247,7 +341,7 @@ class ProductViewer {
         this.matchImagePairs(Array.from(discoveredFull), Array.from(discoveredLight));
     }
     
-    async testImageExists(path) {
+    async testImageExists(path, timeout = 2000) {
         return new Promise((resolve) => {
             const img = new Image();
             let resolved = false;
@@ -268,13 +362,13 @@ class ProductViewer {
             
             img.src = path;
             
-            // Timeout after 2 seconds (longer for GitHub Pages)
+            // Timeout (default 2 seconds for GitHub Pages, can be shorter for immediate loading)
             setTimeout(() => {
                 if (!resolved) {
                     resolved = true;
                     resolve(false);
                 }
-            }, 2000);
+            }, timeout);
         });
     }
     
