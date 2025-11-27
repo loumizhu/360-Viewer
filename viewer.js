@@ -747,7 +747,7 @@ class ProductViewer {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        if (this.zoom >= 1.01) {
+        if (this.zoom > 1.0) {
             // If zoomed in (above 100%), enable panning
             this.isPanning = true;
             this.lastPanX = x;
