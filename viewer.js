@@ -453,25 +453,15 @@ class ProductViewer {
             // Zoomed in - use drag cursor (pan mode)
             const cursorIcon = 'drag.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
-            // Build absolute URL for cursor
-            const baseUrl = window.location.origin;
-            const cursorPath = `${baseUrl}${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
-            // Try multiple methods to set cursor
-            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
+            // Use relative path with repo base path
+            const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
-            // Also try without quotes
-            setTimeout(() => {
-                this.canvas.style.cursor = `url(${cursorPath}) 15 15, ${cursorState}`;
-            }, 0);
         } else {
             // Not zoomed (at or below 100%) - use 360 icon cursor (rotate mode)
             const cursorIcon = '360icon.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
-            // Build absolute URL for cursor
-            const baseUrl = window.location.origin;
-            const cursorPath = `${baseUrl}${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
-            // Try multiple methods to set cursor
-            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
+            // Use relative path with repo base path
+            const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
         }
     }
@@ -766,7 +756,19 @@ class ProductViewer {
         } else {
             // If not zoomed, enable rotation (scrubbing)
             // Check if we have images loaded before allowing scrubbing
-            if (this.totalImages === 0 || !this.lightImageElements[0]) {
+            if (this.totalImages === 0) {
+                console.warn('[Scrubbing] Cannot scrub - no images discovered yet. Total images:', this.totalImages);
+                return;
+            }
+            
+            // In light mode, check if at least current image is loaded
+            if (this.lightMode && !this.lightImageElements[this.currentImageIndex]) {
+                console.warn('[Scrubbing] Cannot scrub - current image not loaded yet in light mode');
+                return;
+            }
+            
+            // In normal mode, check if first image is loaded
+            if (!this.lightMode && !this.lightImageElements[0]) {
                 console.warn('[Scrubbing] Cannot scrub - images not loaded yet. Total images:', this.totalImages);
                 return;
             }

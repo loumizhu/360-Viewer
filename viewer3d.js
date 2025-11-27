@@ -1877,6 +1877,9 @@ class Viewer3D {
     
     // Update animated effects
     updateEffects() {
+        // Skip effect updates in light mode (no animations)
+        if (LIGHT_MODE) return;
+        
         try {
             const time = Date.now() / 1000;
             
@@ -2269,6 +2272,19 @@ class Viewer3D {
     }
     
     animate() {
+        // In light mode, reduce render frequency (every other frame)
+        if (LIGHT_MODE) {
+            if (!this._lightModeFrameSkip) {
+                this._lightModeFrameSkip = 0;
+            }
+            this._lightModeFrameSkip++;
+            if (this._lightModeFrameSkip % 2 === 0) {
+                // Skip every other frame in light mode
+                requestAnimationFrame(() => this.animate());
+                return;
+            }
+        }
+        
         requestAnimationFrame(() => this.animate());
         
         // Update intro animation
