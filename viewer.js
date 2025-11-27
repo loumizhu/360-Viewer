@@ -446,26 +446,30 @@ class ProductViewer {
         // Use > 1.0 to detect any zoom above 100% (even 1.001)
         const isZoomed = this.zoom > 1.0;
         
-        console.log('[Cursor] Updating cursor - zoom:', this.zoom, 'isZoomed:', isZoomed, 'isGrabbing:', isGrabbing);
-        
         if (isZoomed) {
             // Zoomed in - use drag cursor (pan mode)
             const cursorIcon = 'drag.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
-            // Use repo base path for GitHub Pages compatibility
-            const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
-            // Use !important to override any CSS
+            // Build absolute URL for cursor
+            const baseUrl = window.location.origin;
+            const cursorPath = `${baseUrl}${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
+            // Try multiple methods to set cursor
+            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
             this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
-            console.log('[Cursor] Set to drag.svg:', cursorPath);
+            // Also try without quotes
+            setTimeout(() => {
+                this.canvas.style.cursor = `url(${cursorPath}) 15 15, ${cursorState}`;
+            }, 0);
         } else {
             // Not zoomed (at or below 100%) - use 360 icon cursor (rotate mode)
             const cursorIcon = '360icon.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
-            // Use repo base path for GitHub Pages compatibility
-            const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
-            // Use !important to override any CSS
+            // Build absolute URL for cursor
+            const baseUrl = window.location.origin;
+            const cursorPath = `${baseUrl}${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
+            // Try multiple methods to set cursor
+            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
             this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
-            console.log('[Cursor] Set to 360icon.svg:', cursorPath);
         }
     }
     
