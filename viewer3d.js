@@ -1874,6 +1874,55 @@ class Viewer3D {
         this.introAnimation.objectOpacities.clear();
     }
     
+    showPlanImage(objectName) {
+        // Construct path to plan image: CLIENT_ID/Plan 2D/OBJECT_NAME.png
+        const planImagePath = `${REPO_BASE_PATH}${CLIENT_BASE_PATH}Plan 2D/${objectName}.png`.replace(/\/+/g, '/');
+        
+        const panel = document.getElementById('plan-image-panel');
+        const planImage = document.getElementById('plan-image');
+        const closeBtn = document.getElementById('planCloseBtn');
+        
+        if (!panel || !planImage) {
+            console.warn('Plan image panel elements not found');
+            return;
+        }
+        
+        // Set image source
+        planImage.src = planImagePath;
+        planImage.onerror = () => {
+            console.warn(`Plan image not found: ${planImagePath}`);
+            // Optionally show error message or hide panel
+        };
+        
+        // Show panel with animation
+        panel.classList.remove('hidden');
+        panel.classList.add('visible');
+        
+        // Setup close button
+        if (closeBtn) {
+            closeBtn.onclick = () => {
+                this.hidePlanImage();
+            };
+        }
+        
+        // Close on escape key
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape' && !panel.classList.contains('hidden')) {
+                this.hidePlanImage();
+                document.removeEventListener('keydown', escapeHandler);
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+    }
+    
+    hidePlanImage() {
+        const panel = document.getElementById('plan-image-panel');
+        if (panel) {
+            panel.classList.remove('visible');
+            panel.classList.add('hidden');
+        }
+    }
+    
     // Update animated effects
     updateEffects() {
         // Skip effect updates in light mode (no animations)
