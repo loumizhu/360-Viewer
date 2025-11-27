@@ -858,6 +858,18 @@ body {
     justify-content: center;
     padding: var(--ui-spacing-xl);
     overflow: auto;
+    min-height: 0; /* Allow flex child to shrink */
+}
+
+.plan-error-message {
+    color: var(--ui-text-primary);
+    text-align: center;
+    padding: 20px;
+    font-size: 18px;
+    background: rgba(255, 68, 68, 0.2);
+    border: 1px solid var(--ui-danger);
+    border-radius: var(--ui-border-radius-md);
+    margin: auto;
 }
 
 #plan-image {
