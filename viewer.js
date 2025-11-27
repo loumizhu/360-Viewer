@@ -1037,7 +1037,7 @@ class ProductViewer {
         this.isDragging = false;
         this.dragDistance = 0;
         
-        if (!this.isPanning && !this.isRotating) {
+        if (!this.isPanning && !this.isRotating && !this.lightMode) {
             this.fullResLoadTimeout = setTimeout(() => {
                 this.loadAndShowFullRes();
             }, 300);
