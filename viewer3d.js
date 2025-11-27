@@ -1129,31 +1129,30 @@ class Viewer3D {
         // Touch events - forward all touch events to 2D viewer
         // Touch events are always handled by 2D viewer (scrubbing/panning/pinch zoom)
         this.canvas.addEventListener('touchstart', (e) => {
-            const viewer2DCanvas = document.getElementById('viewer');
-            if (viewer2DCanvas) {
-                // Forward to 2D canvas - it will handle the touch event
-                viewer2DCanvas.dispatchEvent(e);
+            const viewer2D = window.productViewer || window.viewer;
+            if (viewer2D && viewer2D.onTouchStart) {
+                viewer2D.onTouchStart(e);
             }
         }, { passive: false });
         
         this.canvas.addEventListener('touchmove', (e) => {
-            const viewer2DCanvas = document.getElementById('viewer');
-            if (viewer2DCanvas) {
-                viewer2DCanvas.dispatchEvent(e);
+            const viewer2D = window.productViewer || window.viewer;
+            if (viewer2D && viewer2D.onTouchMove) {
+                viewer2D.onTouchMove(e);
             }
         }, { passive: false });
         
         this.canvas.addEventListener('touchend', (e) => {
-            const viewer2DCanvas = document.getElementById('viewer');
-            if (viewer2DCanvas) {
-                viewer2DCanvas.dispatchEvent(e);
+            const viewer2D = window.productViewer || window.viewer;
+            if (viewer2D && viewer2D.onTouchEnd) {
+                viewer2D.onTouchEnd(e);
             }
         }, { passive: false });
         
         this.canvas.addEventListener('touchcancel', (e) => {
-            const viewer2DCanvas = document.getElementById('viewer');
-            if (viewer2DCanvas) {
-                viewer2DCanvas.dispatchEvent(e);
+            const viewer2D = window.productViewer || window.viewer;
+            if (viewer2D && viewer2D.onTouchEnd) {
+                viewer2D.onTouchEnd(e);
             }
         }, { passive: false });
         
