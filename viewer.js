@@ -750,15 +750,12 @@ class ProductViewer {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        console.log('[Viewer] onMouseDown - zoom:', this.zoom, 'totalImages:', this.totalImages);
-        
         if (this.zoom > 1.0) {
             // If zoomed in (above 100%), enable panning
             this.isPanning = true;
             this.lastPanX = x;
             this.lastPanY = y;
             this.updateCursor(true); // Grabbing state
-            console.log('[Viewer] Panning mode activated');
         } else {
             // If not zoomed, enable rotation (scrubbing)
             // Check if we have images loaded before allowing scrubbing
@@ -792,7 +789,6 @@ class ProductViewer {
             this.dragDistance = 0;
             this.updateCursor(true); // Grabbing state
             
-            console.log('[Scrubbing] Started - isRotating:', this.isRotating, 'isDragging:', this.isDragging, 'startX:', this.startX);
             
             // Use light images while rotating for performance
             this.useFullRes = false;
@@ -848,8 +844,6 @@ class ProductViewer {
                 }
                 this.dragDistance = 0; // Reset after switching
             }
-        } else {
-            console.log('[Viewer] onMouseMove - isPanning:', this.isPanning, 'isRotating:', this.isRotating, 'isDragging:', this.isDragging);
         }
         // Cursor is updated via event listeners and zoom changes
     }

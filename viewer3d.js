@@ -1013,10 +1013,7 @@ class Viewer3D {
                     // Change cursor to pointer when hovering over 3D objects
                     this.canvas.style.cursor = 'pointer';
                     
-                    if (CONFIG_3D.ENABLE_HOVER_LOGGING) {
-                        console.log('Hovering over:', this.hoveredObject.name || 'Mesh', 
-                                    '- Effect:', this.currentEffect);
-                    }
+                    // Hover logging removed for performance
                 }
                 
                 // Show tooltip with object name
@@ -1189,10 +1186,7 @@ class Viewer3D {
             }
         }
         
-        console.log(`Switched to camera ${index}:`, {
-            position: this.currentCamera.position,
-            rotation: this.currentCamera.rotation
-        });
+        // Camera switch logging removed
     }
     
     updateCameraClipping(zoomLevel = 1.0) {
