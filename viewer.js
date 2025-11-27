@@ -37,9 +37,6 @@ class ProductViewer {
         this.clientID = getClientID();
         this.basePath = this.clientID ? `${this.clientID}/` : '';
         
-        console.log('[ProductViewer] Repo base path:', this.repoBasePath);
-        console.log('[ProductViewer] Client ID:', this.clientID || 'none (using root paths)');
-        console.log('[ProductViewer] Base path:', this.basePath || 'root');
         
         this.currentImageIndex = 0;
         this.totalImages = 0; // Will be set after discovering images
@@ -146,16 +143,12 @@ class ProductViewer {
                         this.updateZoomIndicator();
                     }, 1000);
                     
-                    console.log('[Viewer] First image loaded immediately!');
                     return;
                 }
             } catch (e) {
                 // Continue to next extension
             }
         }
-        
-        // If we couldn't load immediately, wait for discovery
-        console.log('[Viewer] Could not load first image immediately, waiting for discovery...');
     }
     
     updateImageListAfterDiscovery() {
@@ -172,12 +165,9 @@ class ProductViewer {
         const fullImagesPath = `${this.repoBasePath}${this.basePath}3D-Images`.replace(/\/+/g, '/'); // Remove duplicate slashes
         const lightImagesPath = `${this.repoBasePath}${this.basePath}3D-Images/light`.replace(/\/+/g, '/');
         
-        console.log('[Viewer] Discovering images in:', fullImagesPath, 'and', lightImagesPath);
-        
         // Try to load a manifest file first (if it exists) - but don't wait long
         try {
             const manifestPath = this.basePath ? `${this.repoBasePath}${this.basePath}image-manifest.json`.replace(/\/+/g, '/') : `${this.repoBasePath}image-manifest.json`.replace(/\/+/g, '/');
-            console.log('[Viewer] Trying manifest:', manifestPath);
             const manifestResponse = await Promise.race([
                 fetch(manifestPath),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1000))
@@ -187,11 +177,10 @@ class ProductViewer {
                 this.lightImages = manifest.light || [];
                 this.fullImages = manifest.full || [];
                 this.totalImages = Math.max(this.lightImages.length, this.fullImages.length);
-                console.log(`[Viewer] Loaded ${this.totalImages} images from manifest`);
                 return;
             }
         } catch (e) {
-            console.log('[Viewer] No manifest file found:', e.message);
+            // No manifest file, continue with discovery
         }
         
         // Skip directory listing on GitHub Pages (it won't work) - go straight to pattern discovery
@@ -201,17 +190,11 @@ class ProductViewer {
                 // Try to get directory listing from server (if supported)
                 const fullDirUrl = `${fullImagesPath}/?json=1`;
                 const lightDirUrl = `${lightImagesPath}/?json=1`;
-                console.log('[Viewer] Fetching directory listings:', fullDirUrl, lightDirUrl);
                 
                 const [fullDirResponse, lightDirResponse] = await Promise.race([
                     Promise.all([fetch(fullDirUrl), fetch(lightDirUrl)]),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1500))
                 ]);
-                
-                console.log('[Viewer] Directory listing responses:', {
-                    full: { ok: fullDirResponse.ok, status: fullDirResponse.status },
-                    light: { ok: lightDirResponse.ok, status: lightDirResponse.status }
-                });
                 
                 if (fullDirResponse.ok && lightDirResponse.ok) {
                     const fullFiles = await fullDirResponse.json();
@@ -234,10 +217,8 @@ class ProductViewer {
                     return;
                 }
             } catch (e) {
-                console.log('[Viewer] Directory listing not available, using fallback discovery...', e.message);
+                // Directory listing not available, continue with fallback
             }
-        } else {
-            console.log('[Viewer] GitHub Pages detected, skipping directory listing, using pattern discovery');
         }
         
         // Fallback: Try to discover by attempting to load images
@@ -245,7 +226,6 @@ class ProductViewer {
     }
     
     async discoverImagesByTrying() {
-        console.log('Attempting to discover images by testing common patterns...');
         // Try common image extensions (prioritize .jpg since that's what we have)
         const extensions = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.webp', '.WEBP', '.png', '.PNG'];
         const maxAttempts = 200; // Try up to 200 images
@@ -293,10 +273,9 @@ class ProductViewer {
                 }
                 if (foundPattern) break;
             }
-            if (foundPattern) {
-                console.log(`[Viewer] Found working pattern: ${patternFn(1)}`);
-                break;
-            }
+                    if (foundPattern) {
+                        break;
+                    }
         }
         
         // If we found a working pattern, continue with that pattern only
@@ -331,14 +310,11 @@ class ProductViewer {
                 } else {
                     consecutiveFailures++;
                     if (consecutiveFailures >= maxConsecutiveFailures) {
-                        console.log(`[Viewer] Stopping discovery after ${consecutiveFailures} consecutive failures`);
                         break;
                     }
                 }
             }
         }
-        
-        console.log(`[Viewer] Discovered ${discoveredFull.size} full images and ${discoveredLight.size} light images`);
         
         // Convert sets to arrays and match
         this.matchImagePairs(Array.from(discoveredFull), Array.from(discoveredLight));
@@ -421,7 +397,6 @@ class ProductViewer {
         });
         
         this.totalImages = allBases.length;
-        console.log(`Discovered ${this.totalImages} image pairs`);
         
         if (this.totalImages === 0) {
             const pathInfo = this.clientID ? `client folder ${this.clientID}/` : 'root';
@@ -474,14 +449,12 @@ class ProductViewer {
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
             const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
-            console.log('[Viewer] Cursor updated to drag.svg (zoom > 1.0):', cursorPath);
         } else {
             // Not zoomed - use 360 icon cursor (rotate mode)
             const cursorIcon = '360icon.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
             const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
-            console.log('[Viewer] Cursor updated to 360icon.svg (zoom = 1.0):', cursorPath);
         }
     }
     
@@ -567,8 +540,6 @@ class ProductViewer {
     }
     
     async progressivePreload() {
-        console.log('Starting progressive preload...');
-        
         // Priority 1: Load nearby images first (spiral out from current)
         const priorityIndices = this.getSpiralOrder(this.currentImageIndex, 10);
         
@@ -581,13 +552,11 @@ class ProductViewer {
                     await this.loadSingleImage(index, 'light');
                 } catch (error) {
                     // Skip failed images, continue loading others
-                    console.warn(`Skipping light image ${index}`);
+                    console.warn(`Failed to load light image ${index}:`, error);
                 }
             }
             this.updateLoadingProgress(`Loading nearby images... ${i + 1}/${priorityIndices.length}`, i + 1, priorityIndices.length);
         }
-        
-        console.log('Nearby images loaded. Loading remaining images...');
         
         // Priority 2: Load all remaining light images
         let loadedCount = priorityIndices.length;
@@ -599,12 +568,11 @@ class ProductViewer {
                     this.updateLoadingProgress(`Loading light images... ${loadedCount}/${this.totalImages}`, loadedCount, this.totalImages);
                 } catch (error) {
                     // Skip failed images, continue loading others
-                    console.warn(`Skipping light image ${i}`);
+                    console.warn(`Failed to load light image ${i}:`, error);
                 }
             }
         }
         
-        console.log('All light images loaded! Starting full-res preload...');
         this.updateLoadingProgress('All light images loaded! Loading HD...', this.totalImages, this.totalImages);
         
         // Priority 3: Load full-res images (starting with nearby)
@@ -618,12 +586,11 @@ class ProductViewer {
                     this.updateLoadingProgress(`Loading HD images... ${i + 1}/${this.totalImages}`, i + 1, this.totalImages);
                 } catch (error) {
                     // If full-res fails, that's okay, we have light version
-                    console.warn(`Skipping full-res for image ${index}`);
+                    console.warn(`Failed to load full-res image ${index}:`, error);
                 }
             }
         }
         
-        console.log('All images fully loaded!');
         this.updateLoadingProgress('All images loaded!', this.totalImages, this.totalImages);
         
         // Hide progress after 2 seconds
@@ -731,13 +698,15 @@ class ProductViewer {
             this.lastPanY = y;
             this.updateCursor(true); // Grabbing state
         } else {
-            // If not zoomed, enable rotation
+            // If not zoomed, enable rotation (scrubbing)
             this.isRotating = true;
             this.isDragging = true;
             this.startX = e.clientX;
             this.currentX = e.clientX;
             this.dragDistance = 0;
             this.updateCursor(true); // Grabbing state
+            
+            console.log('[Scrubbing] Started - isRotating:', this.isRotating, 'isDragging:', this.isDragging);
             
             // Use light images while rotating for performance
             this.useFullRes = false;
@@ -774,19 +743,25 @@ class ProductViewer {
             this.dragDistance += deltaX;
             this.currentX = e.clientX;
             
+            console.log('[Scrubbing] Move - dragDistance:', this.dragDistance, 'sensitivity:', this.sensitivity);
+            
             // Check if we've dragged enough to change image
             if (Math.abs(this.dragDistance) >= this.sensitivity) {
                 if (this.dragDistance > 0) {
                     // Dragging right - go to previous image (rotate left)
+                    console.log('[Scrubbing] Moving to previous image');
                     this.previousImage(false);
                 } else {
                     // Dragging left - go to next image (rotate right)
+                    console.log('[Scrubbing] Moving to next image');
                     this.nextImage(false);
                 }
                 this.dragDistance = 0; // Reset after switching
             }
+        } else if (!this.isPanning && !this.isRotating && !this.isDragging) {
+            // Not interacting - update cursor based on zoom
+            this.updateCursor(false);
         }
-        // Note: Cursor is updated on mouse down/up and zoom changes, not on every mouse move
     }
     
     onMouseUp(e) {
@@ -796,6 +771,7 @@ class ProductViewer {
         }
         
         if (this.isRotating) {
+            console.log('[Scrubbing] Ended - was dragging:', this.isDragging, 'dragDistance:', this.dragDistance);
             this.isRotating = false;
             this.isDragging = false;
             this.dragDistance = 0;
@@ -1092,7 +1068,7 @@ class ProductViewer {
             try {
                 await this.loadSingleImage(index, 'full');
             } catch (error) {
-                console.warn('Full-res not available, using light version');
+                console.warn('Failed to load full-res image, using light version');
                 return;
             }
         }
