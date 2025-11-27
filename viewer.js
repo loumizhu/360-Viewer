@@ -666,6 +666,11 @@ class ProductViewer {
             }
         });
         
+        // Update cursor on mouse enter
+        this.canvas.addEventListener('mouseenter', () => {
+            this.updateCursor(false);
+        });
+        
         // Mouse wheel for zoom
         this.canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
         
