@@ -119,19 +119,12 @@ body {
 }
 
 /* On mobile, allow touch events to pass through to 2D canvas */
-/* Touch events are handled by 2D canvas, 3D canvas only renders */
+/* Touch events are handled by 2D canvas, 3D canvas only renders visually */
 @media (max-width: 768px) {
     #viewer3d {
         /* Disable pointer events so touches pass through to 2D canvas below */
-        pointer-events: none;
+        pointer-events: none !important;
         touch-action: none; /* Prevent default touch behaviors like scrolling */
-    }
-    
-    /* Re-enable pointer events for mouse interactions (desktop) */
-    @media (hover: hover) {
-        #viewer3d {
-            pointer-events: auto;
-        }
     }
 }
 
