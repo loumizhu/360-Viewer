@@ -443,15 +443,18 @@ class ProductViewer {
         // Update cursor based on zoom level and interaction state
         if (!this.canvas) return; // Canvas not ready yet
         
-        if (this.zoom > 1.0) {
+        // Use >= 1.01 to account for floating point precision (any zoom above 100%)
+        if (this.zoom >= 1.01) {
             // Zoomed in - use drag cursor (pan mode)
             const cursorIcon = 'drag.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
             // Use repo base path for GitHub Pages compatibility
             const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
+            // Force cursor update by setting it again (some browsers need this)
+            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
         } else {
-            // Not zoomed - use 360 icon cursor (rotate mode)
+            // Not zoomed (at or below 100%) - use 360 icon cursor (rotate mode)
             const cursorIcon = '360icon.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
             // Use repo base path for GitHub Pages compatibility
@@ -693,8 +696,8 @@ class ProductViewer {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        if (this.zoom > 1.0) {
-            // If zoomed in, enable panning
+        if (this.zoom >= 1.01) {
+            // If zoomed in (above 100%), enable panning
             this.isPanning = true;
             this.lastPanX = x;
             this.lastPanY = y;
@@ -766,10 +769,8 @@ class ProductViewer {
                 }
                 this.dragDistance = 0; // Reset after switching
             }
-        } else if (!this.isPanning && !this.isRotating && !this.isDragging) {
-            // Not interacting - update cursor based on zoom
-            this.updateCursor(false);
         }
+        // Cursor is updated via event listeners and zoom changes
     }
     
     onMouseUp(e) {
@@ -838,11 +839,11 @@ class ProductViewer {
             // Show zoom ripple effect
             this.showZoomRipple(mouseX, mouseY, e.deltaY < 0);
             
-            // Update cursor based on zoom level
-            this.updateCursor(false);
-            
             // Redraw with new zoom
             this.redrawCurrentImage();
+            
+            // Update cursor based on zoom level (after zoom is set)
+            this.updateCursor(false);
             
             // Update zoom indicator
             this.updateZoomIndicator();
@@ -909,7 +910,7 @@ class ProductViewer {
             const x = touch.clientX - rect.left;
             const y = touch.clientY - rect.top;
             
-            if (this.zoom > 1.0) {
+            if (this.zoom >= 1.01) {
                 this.isPanning = true;
                 this.lastPanX = x;
                 this.lastPanY = y;
