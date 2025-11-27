@@ -722,10 +722,11 @@ class ProductViewer {
         this.canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
         
         // Touch events for mobile
-        this.canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false });
-        this.canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false });
-        this.canvas.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false });
-        this.canvas.addEventListener('touchcancel', (e) => this.onTouchEnd(e), { passive: false });
+        // Use capture phase to ensure we get events before 3D canvas
+        this.canvas.addEventListener('touchstart', (e) => this.onTouchStart(e), { passive: false, capture: true });
+        this.canvas.addEventListener('touchmove', (e) => this.onTouchMove(e), { passive: false, capture: true });
+        this.canvas.addEventListener('touchend', (e) => this.onTouchEnd(e), { passive: false, capture: true });
+        this.canvas.addEventListener('touchcancel', (e) => this.onTouchEnd(e), { passive: false, capture: true });
         
         // Navigation buttons
         document.getElementById('prevBtn').addEventListener('click', () => this.previousImage());

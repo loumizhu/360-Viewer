@@ -1128,7 +1128,9 @@ class Viewer3D {
         
         // Touch events - forward all touch events to 2D viewer
         // Touch events are always handled by 2D viewer (scrubbing/panning/pinch zoom)
+        // We need to stop propagation and prevent default to avoid conflicts
         this.canvas.addEventListener('touchstart', (e) => {
+            e.stopPropagation();
             const viewer2D = window.productViewer || window.viewer;
             if (viewer2D && viewer2D.onTouchStart) {
                 viewer2D.onTouchStart(e);
@@ -1136,6 +1138,7 @@ class Viewer3D {
         }, { passive: false });
         
         this.canvas.addEventListener('touchmove', (e) => {
+            e.stopPropagation();
             const viewer2D = window.productViewer || window.viewer;
             if (viewer2D && viewer2D.onTouchMove) {
                 viewer2D.onTouchMove(e);
@@ -1143,6 +1146,7 @@ class Viewer3D {
         }, { passive: false });
         
         this.canvas.addEventListener('touchend', (e) => {
+            e.stopPropagation();
             const viewer2D = window.productViewer || window.viewer;
             if (viewer2D && viewer2D.onTouchEnd) {
                 viewer2D.onTouchEnd(e);
@@ -1150,6 +1154,7 @@ class Viewer3D {
         }, { passive: false });
         
         this.canvas.addEventListener('touchcancel', (e) => {
+            e.stopPropagation();
             const viewer2D = window.productViewer || window.viewer;
             if (viewer2D && viewer2D.onTouchEnd) {
                 viewer2D.onTouchEnd(e);

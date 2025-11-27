@@ -118,6 +118,14 @@ body {
     cursor: url('img/360icon.svg') 15 15, grab; /* Default to 360 icon cursor */
 }
 
+/* On mobile, allow touch events to pass through when not hovering 3D objects */
+@media (max-width: 768px) {
+    #viewer3d {
+        /* Touch events will be handled by JavaScript forwarding */
+        touch-action: none; /* Prevent default touch behaviors like scrolling */
+    }
+}
+
 #controls {
     position: absolute;
     bottom: 30px;
@@ -139,6 +147,35 @@ body {
     transition: all 0.3s ease;
     box-shadow: var(--ui-shadow-lg);
     border: var(--ui-border-width) solid var(--ui-toolbar-border, rgba(255, 255, 255, 0.18));
+}
+
+/* Mobile-specific toolbar adjustments */
+@media (max-width: 768px) {
+    #controls {
+        bottom: 80px; /* Higher to avoid mobile browser UI cropping */
+        padding: 4px 8px;
+        gap: 6px;
+        font-size: 0.9em;
+    }
+    
+    .control-btn {
+        padding: 6px 10px;
+        font-size: 0.85em;
+    }
+    
+    .toolbar-label {
+        font-size: 0.85em;
+        padding: 4px 8px;
+    }
+    
+    .zoom-slider {
+        width: 80px;
+    }
+    
+    .toolbar-divider {
+        width: 1px;
+        height: 20px;
+    }
 }
 
 .control-btn {
