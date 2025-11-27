@@ -446,6 +446,8 @@ class ProductViewer {
         // Use > 1.0 to detect any zoom above 100% (even 1.001)
         const isZoomed = this.zoom > 1.0;
         
+        console.log('[Cursor] Updating cursor - zoom:', this.zoom, 'isZoomed:', isZoomed, 'isGrabbing:', isGrabbing);
+        
         if (isZoomed) {
             // Zoomed in - use drag cursor (pan mode)
             const cursorIcon = 'drag.svg';
@@ -454,6 +456,7 @@ class ProductViewer {
             const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             // Use !important to override any CSS
             this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
+            console.log('[Cursor] Set to drag.svg:', cursorPath);
         } else {
             // Not zoomed (at or below 100%) - use 360 icon cursor (rotate mode)
             const cursorIcon = '360icon.svg';
@@ -462,6 +465,7 @@ class ProductViewer {
             const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             // Use !important to override any CSS
             this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
+            console.log('[Cursor] Set to 360icon.svg:', cursorPath);
         }
     }
     
@@ -851,14 +855,14 @@ class ProductViewer {
                 this.panY = 0;
             }
             
+            // Update cursor IMMEDIATELY after zoom changes
+            this.updateCursor(false);
+            
             // Show zoom ripple effect
             this.showZoomRipple(mouseX, mouseY, e.deltaY < 0);
             
             // Redraw with new zoom
             this.redrawCurrentImage();
-            
-            // Update cursor based on zoom level (after zoom is set)
-            this.updateCursor(false);
             
             // Update zoom indicator
             this.updateZoomIndicator();
