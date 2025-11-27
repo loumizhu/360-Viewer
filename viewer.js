@@ -1028,9 +1028,9 @@ class ProductViewer {
                 
                 if (Math.abs(this.dragDistance) >= this.sensitivity) {
                     if (this.dragDistance > 0) {
-                        this.previousImage(false);
+                        this.previousImage(false).catch(err => console.warn('[Scrubbing] Error loading previous image:', err));
                     } else {
-                        this.nextImage(false);
+                        this.nextImage(false).catch(err => console.warn('[Scrubbing] Error loading next image:', err));
                     }
                     this.dragDistance = 0;
                 }
@@ -1120,7 +1120,7 @@ class ProductViewer {
         }, 2000);
     }
     
-    showImage(index, forceTier = null) {
+    async showImage(index, forceTier = null) {
         // Cycle through images (wrap around)
         if (index < 0) {
             index = this.totalImages - 1;
@@ -1134,6 +1134,22 @@ class ProductViewer {
         // In light mode, always use light images
         const useTier = forceTier || (this.lightMode || !this.useFullRes || !this.fullImageElements[index]) ? 'light' : 'full';
         const imageArray = useTier === 'full' ? this.fullImageElements : this.lightImageElements;
+        
+        // If image not loaded, load it first (especially important for scrubbing)
+        if (!imageArray[index]) {
+            console.log(`[showImage] Loading ${useTier} image ${index} on demand`);
+            try {
+                await this.loadSingleImage(index, useTier);
+            } catch (error) {
+                console.warn(`[showImage] Failed to load ${useTier} image ${index}:`, error);
+                // Try to show any available image as fallback
+                const fallbackArray = useTier === 'full' ? this.lightImageElements : this.fullImageElements;
+                if (fallbackArray[index]) {
+                    this.drawImage(fallbackArray[index]);
+                }
+                return;
+            }
+        }
         
         // Draw preloaded image to canvas - instant, no flashing!
         if (imageArray[index]) {
@@ -1168,14 +1184,14 @@ class ProductViewer {
         this.showImage(index, 'full');
     }
     
-    nextImage(updateInfo = true) {
+    async nextImage(updateInfo = true) {
         const newIndex = this.currentImageIndex + 1;
-        this.showImage(newIndex);
+        await this.showImage(newIndex);
     }
     
-    previousImage(updateInfo = true) {
+    async previousImage(updateInfo = true) {
         const newIndex = this.currentImageIndex - 1;
-        this.showImage(newIndex);
+        await this.showImage(newIndex);
     }
 }
 
