@@ -1102,23 +1102,18 @@ class Viewer3D {
             this.dragStartedOn3D = false;
         });
         
-        // Mouse leave - ensure drag ends if mouse leaves canvas
+        // Mouse leave - always forward to 2D viewer to ensure drag ends properly
         this.canvas.addEventListener('mouseleave', (e) => {
             if (!this.dragStartedOn3D) {
-                const viewer2D = window.productViewer || window.viewer;
-                const isScrubbingMode = viewer2D && viewer2D.zoom <= 1.0 && viewer2D.isRotating;
-                // Only forward mouseup if not scrubbing (user might have just moved over 3D object)
-                if (!isScrubbingMode) {
-                    const viewer2DCanvas = document.getElementById('viewer');
-                    if (viewer2DCanvas) {
-                        const mouseEvent = new MouseEvent('mouseup', {
-                            clientX: e.clientX,
-                            clientY: e.clientY,
-                            bubbles: true,
-                            cancelable: true
-                        });
-                        viewer2DCanvas.dispatchEvent(mouseEvent);
-                    }
+                const viewer2DCanvas = document.getElementById('viewer');
+                if (viewer2DCanvas) {
+                    const mouseEvent = new MouseEvent('mouseup', {
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    viewer2DCanvas.dispatchEvent(mouseEvent);
                 }
             }
             this.dragStartedOn3D = false;
