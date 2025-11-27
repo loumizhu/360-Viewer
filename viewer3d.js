@@ -1044,21 +1044,26 @@ class Viewer3D {
         // Mouse down - pass to 2D viewer if not hovering 3D object OR if zoomed out (scrubbing mode)
         this.canvas.addEventListener('mousedown', (e) => {
             // Check zoom level - if <= 1.0, always forward to 2D viewer for scrubbing
-            const viewer2D = window.viewer;
+            const viewer2D = window.productViewer || window.viewer;
             const isScrubbingMode = viewer2D && viewer2D.zoom <= 1.0;
+            
+            console.log('[Viewer3D] mousedown - isHoveringObject:', this.isHoveringObject, 'isScrubbingMode:', isScrubbingMode, 'zoom:', viewer2D?.zoom);
             
             if (!this.isHoveringObject || isScrubbingMode) {
                 this.dragStartedOn3D = false;
                 // Pass through to 2D viewer
                 const viewer2DCanvas = document.getElementById('viewer');
-                const mouseEvent = new MouseEvent('mousedown', {
-                    clientX: e.clientX,
-                    clientY: e.clientY,
-                    buttons: e.buttons,
-                    bubbles: true,
-                    cancelable: true
-                });
-                viewer2DCanvas.dispatchEvent(mouseEvent);
+                if (viewer2DCanvas) {
+                    const mouseEvent = new MouseEvent('mousedown', {
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                        buttons: e.buttons,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    console.log('[Viewer3D] Forwarding mousedown to 2D viewer');
+                    viewer2DCanvas.dispatchEvent(mouseEvent);
+                }
             } else {
                 this.dragStartedOn3D = true;
             }
@@ -1067,19 +1072,21 @@ class Viewer3D {
         // Mouse move - always pass to 2D viewer if drag started there OR if in scrubbing mode
         this.canvas.addEventListener('mousemove', (e) => {
             // Check zoom level - if <= 1.0, always forward to 2D viewer for scrubbing
-            const viewer2D = window.viewer;
+            const viewer2D = window.productViewer || window.viewer;
             const isScrubbingMode = viewer2D && viewer2D.zoom <= 1.0;
             
             if (!this.dragStartedOn3D || isScrubbingMode) {
                 const viewer2DCanvas = document.getElementById('viewer');
-                const mouseEvent = new MouseEvent('mousemove', {
-                    clientX: e.clientX,
-                    clientY: e.clientY,
-                    buttons: e.buttons,
-                    bubbles: true,
-                    cancelable: true
-                });
-                viewer2DCanvas.dispatchEvent(mouseEvent);
+                if (viewer2DCanvas) {
+                    const mouseEvent = new MouseEvent('mousemove', {
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                        buttons: e.buttons,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    viewer2DCanvas.dispatchEvent(mouseEvent);
+                }
             }
         });
         

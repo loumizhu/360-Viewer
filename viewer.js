@@ -446,6 +446,9 @@ class ProductViewer {
         // Update cursor based on zoom level and interaction state
         if (!this.canvas) return; // Canvas not ready yet
         
+        // Ensure repoBasePath is defined
+        const basePath = this.repoBasePath || '/';
+        
         // Use > 1.0 to detect any zoom above 100% (even 1.001)
         const isZoomed = this.zoom > 1.0;
         
@@ -454,14 +457,14 @@ class ProductViewer {
             const cursorIcon = 'drag.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
             // Use relative path with repo base path
-            const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
+            const cursorPath = `${basePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
         } else {
             // Not zoomed (at or below 100%) - use 360 icon cursor (rotate mode)
             const cursorIcon = '360icon.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
             // Use relative path with repo base path
-            const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
+            const cursorPath = `${basePath}img/${cursorIcon}`.replace(/\/+/g, '/');
             this.canvas.style.setProperty('cursor', `url("${cursorPath}") 15 15, ${cursorState}`, 'important');
         }
     }
@@ -747,12 +750,15 @@ class ProductViewer {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
+        console.log('[Viewer] onMouseDown - zoom:', this.zoom, 'totalImages:', this.totalImages);
+        
         if (this.zoom > 1.0) {
             // If zoomed in (above 100%), enable panning
             this.isPanning = true;
             this.lastPanX = x;
             this.lastPanY = y;
             this.updateCursor(true); // Grabbing state
+            console.log('[Viewer] Panning mode activated');
         } else {
             // If not zoomed, enable rotation (scrubbing)
             // Check if we have images loaded before allowing scrubbing
@@ -763,7 +769,7 @@ class ProductViewer {
             
             // In light mode, check if at least current image is loaded
             if (this.lightMode && !this.lightImageElements[this.currentImageIndex]) {
-                console.warn('[Scrubbing] Cannot scrub - current image not loaded yet in light mode');
+                console.warn('[Scrubbing] Cannot scrub - current image not loaded yet in light mode. Index:', this.currentImageIndex);
                 return;
             }
             
@@ -779,6 +785,8 @@ class ProductViewer {
             this.currentX = e.clientX;
             this.dragDistance = 0;
             this.updateCursor(true); // Grabbing state
+            
+            console.log('[Scrubbing] Started - isRotating:', this.isRotating, 'isDragging:', this.isDragging, 'startX:', this.startX);
             
             // Use light images while rotating for performance
             this.useFullRes = false;
@@ -815,17 +823,23 @@ class ProductViewer {
             this.dragDistance += deltaX;
             this.currentX = e.clientX;
             
+            console.log('[Scrubbing] Move - dragDistance:', this.dragDistance, 'sensitivity:', this.sensitivity, 'deltaX:', deltaX);
+            
             // Check if we've dragged enough to change image
             if (Math.abs(this.dragDistance) >= this.sensitivity) {
                 if (this.dragDistance > 0) {
                     // Dragging right - go to previous image (rotate left)
+                    console.log('[Scrubbing] Moving to previous image');
                     this.previousImage(false);
                 } else {
                     // Dragging left - go to next image (rotate right)
+                    console.log('[Scrubbing] Moving to next image');
                     this.nextImage(false);
                 }
                 this.dragDistance = 0; // Reset after switching
             }
+        } else {
+            console.log('[Viewer] onMouseMove - isPanning:', this.isPanning, 'isRotating:', this.isRotating, 'isDragging:', this.isDragging);
         }
         // Cursor is updated via event listeners and zoom changes
     }
