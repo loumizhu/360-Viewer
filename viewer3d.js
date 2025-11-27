@@ -1881,34 +1881,49 @@ class Viewer3D {
         const panel = document.getElementById('plan-image-panel');
         const planImage = document.getElementById('plan-image');
         const closeBtn = document.getElementById('planCloseBtn');
+        const contentDiv = planImage ? planImage.parentElement : null;
         
-        if (!panel || !planImage) {
+        if (!panel || !planImage || !contentDiv) {
             console.warn('Plan image panel elements not found');
             return;
         }
         
-        // Reset image and wait for load
+        // Clear any previous error messages
+        const existingErrors = contentDiv.querySelectorAll('.plan-error-message');
+        existingErrors.forEach(el => el.remove());
+        
+        // Reset image
         planImage.style.display = 'none';
+        planImage.onload = null;
+        planImage.onerror = null;
         
-        // Set image source
-        planImage.onload = () => {
-            planImage.style.display = 'block';
-            console.log(`Plan image loaded: ${planImagePath}`);
-        };
+        // Create a promise to wait for image load
+        const imageLoadPromise = new Promise((resolve, reject) => {
+            planImage.onload = () => {
+                planImage.style.display = 'block';
+                console.log(`Plan image loaded: ${planImagePath}`);
+                resolve();
+            };
+            
+            planImage.onerror = () => {
+                console.warn(`Plan image not found: ${planImagePath}`);
+                planImage.style.display = 'none';
+                
+                // Show error message
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'plan-error-message';
+                errorMsg.style.cssText = 'color: var(--ui-text-primary); text-align: center; padding: 20px; font-size: 18px; margin: auto;';
+                errorMsg.textContent = `Plan image not found: ${objectName}.png`;
+                contentDiv.appendChild(errorMsg);
+                
+                reject(new Error(`Plan image not found: ${planImagePath}`));
+            };
+            
+            // Set image source (this triggers load or error)
+            planImage.src = planImagePath;
+        });
         
-        planImage.onerror = () => {
-            console.warn(`Plan image not found: ${planImagePath}`);
-            planImage.style.display = 'none';
-            // Show error message
-            const errorMsg = document.createElement('div');
-            errorMsg.style.cssText = 'color: var(--ui-text-primary); text-align: center; padding: 20px; font-size: 18px;';
-            errorMsg.textContent = `Plan image not found: ${objectName}.png`;
-            planImage.parentElement.appendChild(errorMsg);
-        };
-        
-        planImage.src = planImagePath;
-        
-        // Show panel with animation
+        // Show panel immediately, image will appear when loaded
         panel.classList.remove('hidden');
         panel.classList.add('visible');
         
