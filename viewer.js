@@ -694,7 +694,13 @@ class ProductViewer {
         // Mouse events for desktop
         this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
         this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
-        this.canvas.addEventListener('mouseleave', () => this.onMouseUp());
+        this.canvas.addEventListener('mouseleave', (e) => {
+            // Only reset if we're actually leaving the canvas area
+            // Don't reset if mouse is just moving over 3D objects
+            if (this.isPanning || this.isRotating) {
+                this.onMouseUp(e);
+            }
+        });
         
         // Mouse move with cursor update
         this.canvas.addEventListener('mousemove', (e) => {
