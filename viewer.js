@@ -128,7 +128,7 @@ class ProductViewer {
                     this.currentImageIndex = 0;
                     
                     await this.loadSingleImage(0, 'light');
-                    this.showImage(0, 'light');
+                    await this.showImage(0, 'light');
                     
                     setTimeout(() => {
                         this.loadingEl.classList.remove('loading');
@@ -418,7 +418,7 @@ class ProductViewer {
         // Load and show first image immediately
         this.loadingEl.classList.add('loading');
         await this.loadSingleImage(0, 'light');
-        this.showImage(0, 'light');
+        await this.showImage(0, 'light');
         setTimeout(() => {
             this.loadingEl.classList.remove('loading');
         this.loadingEl.classList.add('hidden');
@@ -830,11 +830,11 @@ class ProductViewer {
                 if (this.dragDistance > 0) {
                     // Dragging right - go to previous image (rotate left)
                     console.log('[Scrubbing] Moving to previous image');
-                    this.previousImage(false);
+                    this.previousImage(false).catch(err => console.warn('[Scrubbing] Error loading previous image:', err));
                 } else {
                     // Dragging left - go to next image (rotate right)
                     console.log('[Scrubbing] Moving to next image');
-                    this.nextImage(false);
+                    this.nextImage(false).catch(err => console.warn('[Scrubbing] Error loading next image:', err));
                 }
                 this.dragDistance = 0; // Reset after switching
             }
