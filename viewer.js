@@ -780,8 +780,6 @@ class ProductViewer {
             this.dragDistance = 0;
             this.updateCursor(true); // Grabbing state
             
-            console.log('[Scrubbing] Started - isRotating:', this.isRotating, 'isDragging:', this.isDragging, 'totalImages:', this.totalImages);
-            
             // Use light images while rotating for performance
             this.useFullRes = false;
             
