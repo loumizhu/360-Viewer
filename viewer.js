@@ -827,13 +827,17 @@ class ProductViewer {
             
             // Check if we've dragged enough to change image
             if (Math.abs(this.dragDistance) >= this.sensitivity) {
+                const targetIndex = this.dragDistance > 0 ? 
+                    (this.currentImageIndex - 1 + this.totalImages) % this.totalImages :
+                    (this.currentImageIndex + 1) % this.totalImages;
+                
                 if (this.dragDistance > 0) {
                     // Dragging right - go to previous image (rotate left)
-                    console.log('[Scrubbing] Moving to previous image');
+                    console.log(`[Scrubbing] Moving to previous image: ${this.currentImageIndex} -> ${targetIndex}`);
                     this.previousImage(false).catch(err => console.warn('[Scrubbing] Error loading previous image:', err));
                 } else {
                     // Dragging left - go to next image (rotate right)
-                    console.log('[Scrubbing] Moving to next image');
+                    console.log(`[Scrubbing] Moving to next image: ${this.currentImageIndex} -> ${targetIndex}`);
                     this.nextImage(false).catch(err => console.warn('[Scrubbing] Error loading next image:', err));
                 }
                 this.dragDistance = 0; // Reset after switching
@@ -1137,16 +1141,20 @@ class ProductViewer {
         const useTier = forceTier || (this.lightMode || !this.useFullRes || !this.fullImageElements[index] || this.isRotating) ? 'light' : 'full';
         const imageArray = useTier === 'full' ? this.fullImageElements : this.lightImageElements;
         
+        console.log(`[showImage] index: ${index}, useTier: ${useTier}, isRotating: ${this.isRotating}, useFullRes: ${this.useFullRes}, hasImage: ${!!imageArray[index]}`);
+        
         // If image not loaded, load it first (especially important for scrubbing)
         if (!imageArray[index]) {
             console.log(`[showImage] Loading ${useTier} image ${index} on demand`);
             try {
                 await this.loadSingleImage(index, useTier);
+                console.log(`[showImage] Successfully loaded ${useTier} image ${index}`);
             } catch (error) {
                 console.warn(`[showImage] Failed to load ${useTier} image ${index}:`, error);
                 // Try to show any available image as fallback
                 const fallbackArray = useTier === 'full' ? this.lightImageElements : this.fullImageElements;
                 if (fallbackArray[index]) {
+                    console.log(`[showImage] Using fallback image ${index}`);
                     this.drawImage(fallbackArray[index]);
                 }
                 return;
@@ -1155,7 +1163,10 @@ class ProductViewer {
         
         // Draw preloaded image to canvas - instant, no flashing!
         if (imageArray[index]) {
+            console.log(`[showImage] Drawing ${useTier} image ${index} to canvas`);
             this.drawImage(imageArray[index]);
+        } else {
+            console.warn(`[showImage] Image ${index} still not available after loading attempt`);
         }
         
         // Update info
