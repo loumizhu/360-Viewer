@@ -706,10 +706,13 @@ class ProductViewer {
         
         // Mouse move with cursor update
         this.canvas.addEventListener('mousemove', (e) => {
-            this.onMouseMove(e);
-            // Update cursor if not actively interacting
-            if (!this.isPanning && !this.isRotating && !this.isDragging) {
-                this.updateCursor(false);
+            // Only handle if event wasn't already handled (from 3D canvas forwarding)
+            if (!e.defaultPrevented) {
+                this.onMouseMove(e);
+                // Update cursor if not actively interacting
+                if (!this.isPanning && !this.isRotating && !this.isDragging) {
+                    this.updateCursor(false);
+                }
             }
         });
         
