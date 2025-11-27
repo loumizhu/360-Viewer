@@ -543,8 +543,8 @@ class ProductViewer {
             const src = tier === 'light' ? this.lightImages[index] : this.fullImages[index];
             
             // Check if source is valid
-            if (!src || src === 'undefined' || src.includes('/undefined')) {
-                reject(new Error(`Invalid image source for ${tier} image ${index}`));
+            if (!src || src === 'undefined' || src === undefined || typeof src !== 'string' || src.includes('/undefined')) {
+                reject(new Error(`Invalid image source for ${tier} image ${index}: ${src}`));
                 return;
             }
             
