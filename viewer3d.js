@@ -32,9 +32,13 @@ const REPO_BASE_PATH = getRepoBasePath();
 const CLIENT_ID = getClientID();
 const CLIENT_BASE_PATH = CLIENT_ID ? `${CLIENT_ID}/` : '';
 
+// Check for light mode setting
+const LIGHT_MODE = window.uiSettings?.getSetting('performance', 'lightMode') || false;
+
 console.log('[Viewer3D] Repo base path:', REPO_BASE_PATH);
 console.log('[Viewer3D] Client ID:', CLIENT_ID || 'none (using default paths)');
 console.log('[Viewer3D] Base path:', CLIENT_BASE_PATH || 'root');
+console.log('[Viewer3D] Light mode:', LIGHT_MODE);
 
 // ============================================
 // 3D VIEWER CONFIGURATION
@@ -80,7 +84,8 @@ const CONFIG_3D = {
     TOOLTIP_MAX_WIDTH: '250px',     // Maximum width
     
     // Effect settings
-    EFFECT_TYPE: 'solid',           // Default effect: 'solid', 'outline', 'glow', 'scan', 'particles'
+    EFFECT_TYPE: LIGHT_MODE ? 'solid' : 'solid',           // Default effect: 'solid', 'outline', 'glow', 'scan', 'particles'
+    // In light mode, force solid effect only
     
     // Solid effect
     SOLID_PULSE_SPEED: 1.0,         // Slow pulse animation speed for solid effect
@@ -257,12 +262,21 @@ class Viewer3D {
         
         console.log('Setting up effect selector, container found:', controlsContainer);
         
-        // Load saved effect type if available
-        if (window.uiSettings && window.uiSettings.getSetting('effects', 'effectType')) {
+        // Load saved effect type if available, but force 'solid' in light mode
+        if (LIGHT_MODE) {
+            this.currentEffect = 'solid';
+            CONFIG_3D.EFFECT_TYPE = 'solid';
+        } else if (window.uiSettings && window.uiSettings.getSetting('effects', 'effectType')) {
             this.currentEffect = window.uiSettings.getSetting('effects', 'effectType');
             CONFIG_3D.EFFECT_TYPE = this.currentEffect;
         }
         selector.value = this.currentEffect;
+        
+        // Disable effect selector in light mode
+        if (LIGHT_MODE) {
+            selector.disabled = true;
+            selector.title = 'Effect selection disabled in Light Mode';
+        }
         
         // Function to show all effect controls at once
         const showAllControls = () => {
@@ -756,11 +770,12 @@ class Viewer3D {
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
             alpha: true,
-            antialias: true,
+            antialias: !LIGHT_MODE, // Disable antialiasing in light mode for performance
             premultipliedAlpha: false
         });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
+        // Reduce pixel ratio in light mode for better performance
+        this.renderer.setPixelRatio(LIGHT_MODE ? Math.min(window.devicePixelRatio, 1.5) : window.devicePixelRatio);
         this.renderer.setClearColor(0x000000, 0); // Transparent background
         
         // Load GLB file
@@ -1215,6 +1230,15 @@ class Viewer3D {
     setupPostProcessing() {
         if (!this.scene || !this.currentCamera) return;
         
+        // Skip postprocessing in light mode
+        if (LIGHT_MODE) {
+            console.log('[Viewer3D] Light mode: Postprocessing disabled');
+            this.composer = null;
+            this.outlinePass = null;
+            this.bloomPass = null;
+            return;
+        }
+        
         try {
             // Check if postprocessing classes are available
             if (typeof THREE.EffectComposer === 'undefined') {
@@ -1293,6 +1317,13 @@ class Viewer3D {
     
     applyEffect(object) {
         if (!object) return;
+        
+        // In light mode, only use simple solid effect
+        if (LIGHT_MODE) {
+            this.clearEffect(object);
+            this.applySolidEffect(object);
+            return;
+        }
         
         switch (this.currentEffect) {
             case 'solid':

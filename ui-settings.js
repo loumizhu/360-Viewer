@@ -176,6 +176,9 @@ class UISettingsPanel {
         // Blur Section
         this.createBlurSection();
         
+        // Performance Section
+        this.createPerformanceSection();
+        
         // Re-initialize effect controls after UI is built
         // Make sure effect controls container exists and is populated
         setTimeout(() => {
@@ -475,6 +478,57 @@ class UISettingsPanel {
             window.uiSettings.updateSetting('ui', 'blurIntensity', value);
         });
         section.appendChild(intensityGroup);
+        
+        this.content.appendChild(section);
+    }
+    
+    createPerformanceSection() {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = 'Performance';
+        section.appendChild(title);
+        
+        // Light Mode Toggle
+        const lightModeGroup = document.createElement('div');
+        lightModeGroup.className = 'ui-settings-group';
+        
+        const description = document.createElement('p');
+        description.className = 'ui-settings-description';
+        description.style.marginTop = '8px';
+        description.style.marginBottom = '12px';
+        description.style.fontSize = '12px';
+        description.style.color = 'rgba(255, 255, 255, 0.7)';
+        description.textContent = 'Reduces CPU and RAM usage for older computers. Uses light images only, disables fancy 3D effects, and limits preloading.';
+        
+        const toggleGroup = document.createElement('div');
+        toggleGroup.className = 'ui-settings-toggle';
+        toggleGroup.innerHTML = `
+            <label class="ui-settings-toggle-label">Light Mode (Low CPU/RAM)</label>
+            <label class="ui-settings-switch">
+                <input type="checkbox" id="light-mode-toggle" 
+                       ${window.uiSettings.getSetting('performance', 'lightMode') ? 'checked' : ''}>
+                <span class="ui-settings-switch-slider"></span>
+            </label>
+        `;
+        
+        toggleGroup.querySelector('input').addEventListener('change', (e) => {
+            window.uiSettings.setSetting('performance', 'lightMode', e.target.checked);
+            window.uiSettings.saveSettings();
+            // Reload page to apply changes
+            if (confirm('Light mode setting changed. Reload page to apply changes?')) {
+                window.location.reload();
+            } else {
+                // Revert checkbox if user cancels
+                e.target.checked = !e.target.checked;
+            }
+        });
+        
+        lightModeGroup.appendChild(description);
+        lightModeGroup.appendChild(toggleGroup);
+        section.appendChild(lightModeGroup);
         
         this.content.appendChild(section);
     }

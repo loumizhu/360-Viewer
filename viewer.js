@@ -71,6 +71,9 @@ class ProductViewer {
         this.fullResLoadTimeout = null;
         this.discoveryComplete = false;
         
+        // Check for light mode setting
+        this.lightMode = window.uiSettings?.getSetting('performance', 'lightMode') || false;
+        
         // Start loading immediately with most likely pattern, then continue discovery
         this.startImmediateLoading();
         
@@ -555,6 +558,41 @@ class ProductViewer {
     }
     
     async progressivePreload() {
+        // Light mode: Only preload current ± 3 images
+        if (this.lightMode) {
+            const nearbyRange = 3;
+            const start = Math.max(0, this.currentImageIndex - nearbyRange);
+            const end = Math.min(this.totalImages, this.currentImageIndex + nearbyRange + 1);
+            
+            this.updateLoadingProgress('Loading nearby images (light mode)...', 0, end - start);
+            
+            let loadedCount = 0;
+            for (let i = start; i < end; i++) {
+                if (!this.lightImageElements[i]) {
+                    try {
+                        await this.loadSingleImage(i, 'light');
+                        loadedCount++;
+                        this.updateLoadingProgress(`Loading nearby images... ${loadedCount}/${end - start}`, loadedCount, end - start);
+                    } catch (error) {
+                        console.warn(`Failed to load light image ${i}:`, error);
+                    }
+                }
+            }
+            
+            this.updateLoadingProgress('Ready (light mode)', loadedCount, end - start);
+            
+            // Hide progress after 1 second in light mode
+            setTimeout(() => {
+                const progressEl = document.getElementById('loadingProgress');
+                if (progressEl) {
+                    progressEl.style.opacity = '0';
+                    setTimeout(() => progressEl.remove(), 500);
+                }
+            }, 1000);
+            return; // Don't load full-res or other images in light mode
+        }
+        
+        // Normal mode: Full preloading
         // Priority 1: Load nearby images first (spiral out from current)
         const priorityIndices = this.getSpiralOrder(this.currentImageIndex, 10);
         
@@ -809,10 +847,12 @@ class ProductViewer {
             this.dragDistance = 0;
             this.updateCursor(false); // Not grabbing
             
-            // Load full-res version after a short delay (300ms)
-            this.fullResLoadTimeout = setTimeout(() => {
-                this.loadAndShowFullRes();
-            }, 300);
+            // Load full-res version after a short delay (300ms) - skip in light mode
+            if (!this.lightMode) {
+                this.fullResLoadTimeout = setTimeout(() => {
+                    this.loadAndShowFullRes();
+                }, 300);
+            }
         }
     }
     
@@ -862,8 +902,10 @@ class ProductViewer {
             // Update cursor IMMEDIATELY after zoom changes
             this.updateCursor(false);
             
-            // Show zoom ripple effect
-            this.showZoomRipple(mouseX, mouseY, e.deltaY < 0);
+            // Show zoom ripple effect - skip in light mode
+            if (!this.lightMode) {
+                this.showZoomRipple(mouseX, mouseY, e.deltaY < 0);
+            }
             
             // Redraw with new zoom
             this.redrawCurrentImage();
@@ -874,6 +916,9 @@ class ProductViewer {
     }
     
     showZoomRipple(x, y, isZoomIn) {
+        // Skip in light mode
+        if (this.lightMode) return;
+        
         // Create ripple element
         const ripple = document.createElement('div');
         ripple.className = 'zoom-ripple';
@@ -1077,7 +1122,8 @@ class ProductViewer {
         this.currentImageIndex = index;
         
         // Determine which tier to use
-        const useTier = forceTier || (this.useFullRes && this.fullImageElements[index] ? 'full' : 'light');
+        // In light mode, always use light images
+        const useTier = forceTier || (this.lightMode || !this.useFullRes || !this.fullImageElements[index]) ? 'light' : 'full';
         const imageArray = useTier === 'full' ? this.fullImageElements : this.lightImageElements;
         
         // Draw preloaded image to canvas - instant, no flashing!

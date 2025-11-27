@@ -92,6 +92,10 @@ class UISettingsManager {
                     }
                 }
             },
+            performance: {
+                // Light mode for low CPU/RAM usage
+                lightMode: false
+            },
             effects: {
                 // Effect type
                 effectType: 'solid',
