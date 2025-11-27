@@ -466,16 +466,22 @@ class ProductViewer {
     
     updateCursor(isGrabbing = false) {
         // Update cursor based on zoom level and interaction state
+        if (!this.canvas) return; // Canvas not ready yet
+        
         if (this.zoom > 1.0) {
             // Zoomed in - use drag cursor (pan mode)
-            const cursorIcon = isGrabbing ? 'drag.svg' : 'drag.svg';
+            const cursorIcon = 'drag.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
-            this.canvas.style.cursor = `url("${this.repoBasePath}img/${cursorIcon}") 15 15, ${cursorState}`;
+            const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
+            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
+            console.log('[Viewer] Cursor updated to drag.svg (zoom > 1.0):', cursorPath);
         } else {
             // Not zoomed - use 360 icon cursor (rotate mode)
             const cursorIcon = '360icon.svg';
             const cursorState = isGrabbing ? 'grabbing' : 'grab';
-            this.canvas.style.cursor = `url("${this.repoBasePath}img/${cursorIcon}") 15 15, ${cursorState}`;
+            const cursorPath = `${this.repoBasePath}img/${cursorIcon}`.replace(/\/+/g, '/');
+            this.canvas.style.cursor = `url("${cursorPath}") 15 15, ${cursorState}`;
+            console.log('[Viewer] Cursor updated to 360icon.svg (zoom = 1.0):', cursorPath);
         }
     }
     
@@ -571,7 +577,12 @@ class ProductViewer {
         for (let i = 0; i < priorityIndices.length; i++) {
             const index = priorityIndices[i];
             if (!this.lightImageElements[index]) {
-                await this.loadSingleImage(index, 'light');
+                try {
+                    await this.loadSingleImage(index, 'light');
+                } catch (error) {
+                    // Skip failed images, continue loading others
+                    console.warn(`Skipping light image ${index}`);
+                }
             }
             this.updateLoadingProgress(`Loading nearby images... ${i + 1}/${priorityIndices.length}`, i + 1, priorityIndices.length);
         }
@@ -582,9 +593,14 @@ class ProductViewer {
         let loadedCount = priorityIndices.length;
         for (let i = 0; i < this.totalImages; i++) {
             if (!this.lightImageElements[i]) {
-                await this.loadSingleImage(i, 'light');
-                loadedCount++;
-                this.updateLoadingProgress(`Loading light images... ${loadedCount}/${this.totalImages}`, loadedCount, this.totalImages);
+                try {
+                    await this.loadSingleImage(i, 'light');
+                    loadedCount++;
+                    this.updateLoadingProgress(`Loading light images... ${loadedCount}/${this.totalImages}`, loadedCount, this.totalImages);
+                } catch (error) {
+                    // Skip failed images, continue loading others
+                    console.warn(`Skipping light image ${i}`);
+                }
             }
         }
         
@@ -753,7 +769,7 @@ class ProductViewer {
             // Redraw with new pan position
             this.redrawCurrentImage();
         } else if (this.isRotating && this.isDragging) {
-            // Rotate through images
+            // Rotate through images (scrubbing)
             const deltaX = e.clientX - this.currentX;
             this.dragDistance += deltaX;
             this.currentX = e.clientX;
@@ -770,6 +786,7 @@ class ProductViewer {
                 this.dragDistance = 0; // Reset after switching
             }
         }
+        // Note: Cursor is updated on mouse down/up and zoom changes, not on every mouse move
     }
     
     onMouseUp(e) {
