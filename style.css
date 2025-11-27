@@ -103,12 +103,12 @@ body {
     display: block;
     width: 100%;
     height: 100%;
-    cursor: url('/img/360icon.svg') 15 15, url('img/360icon.svg') 15 15, grab;
+    cursor: url('img/360icon.svg') 15 15, grab;
     background: #000;
 }
 
 #viewer:active {
-    cursor: url('/img/360icon.svg') 15 15, url('img/360icon.svg') 15 15, grabbing;
+    cursor: url('img/360icon.svg') 15 15, grabbing;
 }
 
 #viewer3d {
@@ -119,7 +119,7 @@ body {
     height: 100%;
     pointer-events: auto; /* Enable for hover detection */
     z-index: 5;
-    cursor: url('/img/360icon.svg') 15 15, url('img/360icon.svg') 15 15, grab; /* Default to 360 icon cursor */
+    cursor: url('img/360icon.svg') 15 15, grab; /* Default to 360 icon cursor */
 }
 
 #controls {

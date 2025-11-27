@@ -5,13 +5,39 @@ function getClientID() {
     return clientID || null;
 }
 
+// Utility function to get the repository base path (for GitHub Pages compatibility)
+function getRepoBasePath() {
+    // Get the current pathname (e.g., "/360-Viewer/index.html" or "/index.html")
+    const pathname = window.location.pathname;
+    
+    // Extract the repository name if we're on GitHub Pages
+    // GitHub Pages URLs are like: username.github.io/repo-name/...
+    if (pathname.includes('/') && pathname !== '/') {
+        // Split by '/' and get the first non-empty segment (the repo name)
+        const parts = pathname.split('/').filter(p => p);
+        if (parts.length > 0 && parts[0] !== 'index.html') {
+            // Check if we're on GitHub Pages by looking for .github.io domain
+            if (window.location.hostname.includes('.github.io')) {
+                return '/' + parts[0] + '/';
+            }
+        }
+    }
+    
+    // Default to root for local development
+    return '/';
+}
+
 // 360° Product Viewer - Drag to rotate through images
 class ProductViewer {
     constructor() {
+        // Get repository base path (for GitHub Pages compatibility)
+        this.repoBasePath = getRepoBasePath();
+        
         // Get client ID from URL and set base path
         this.clientID = getClientID();
         this.basePath = this.clientID ? `${this.clientID}/` : '';
         
+        console.log('[ProductViewer] Repo base path:', this.repoBasePath);
         console.log('[ProductViewer] Client ID:', this.clientID || 'none (using root paths)');
         console.log('[ProductViewer] Base path:', this.basePath || 'root');
         
@@ -54,15 +80,15 @@ class ProductViewer {
     }
     
     async discoverImages() {
-        // Ensure paths have leading slash for absolute paths
-        const fullImagesPath = `/${this.basePath}3D-Images`.replace(/\/+/g, '/'); // Remove duplicate slashes
-        const lightImagesPath = `/${this.basePath}3D-Images/light`.replace(/\/+/g, '/');
+        // Build paths with repository base path (for GitHub Pages compatibility)
+        const fullImagesPath = `${this.repoBasePath}${this.basePath}3D-Images`.replace(/\/+/g, '/'); // Remove duplicate slashes
+        const lightImagesPath = `${this.repoBasePath}${this.basePath}3D-Images/light`.replace(/\/+/g, '/');
         
         console.log('[Viewer] Discovering images in:', fullImagesPath, 'and', lightImagesPath);
         
         // Try to load a manifest file first (if it exists)
         try {
-            const manifestPath = this.basePath ? `/${this.basePath}image-manifest.json`.replace(/\/+/g, '/') : '/image-manifest.json';
+            const manifestPath = this.basePath ? `${this.repoBasePath}${this.basePath}image-manifest.json`.replace(/\/+/g, '/') : `${this.repoBasePath}image-manifest.json`.replace(/\/+/g, '/');
             console.log('[Viewer] Trying manifest:', manifestPath);
             const manifestResponse = await fetch(manifestPath);
             if (manifestResponse.ok) {
@@ -148,9 +174,9 @@ class ProductViewer {
             
             for (const pattern of patterns) {
                 for (const ext of extensions) {
-                    // Use absolute paths with leading slash
-                    const fullPath = `/${this.basePath}3D-Images/${pattern}${ext}`.replace(/\/+/g, '/');
-                    const lightPath = `/${this.basePath}3D-Images/light/${pattern}${ext}`.replace(/\/+/g, '/');
+                    // Use paths with repository base path for GitHub Pages compatibility
+                    const fullPath = `${this.repoBasePath}${this.basePath}3D-Images/${pattern}${ext}`.replace(/\/+/g, '/');
+                    const lightPath = `${this.repoBasePath}${this.basePath}3D-Images/light/${pattern}${ext}`.replace(/\/+/g, '/');
                     
                     const [fullExists, lightExists] = await Promise.all([
                         this.testImageExists(fullPath),
@@ -521,7 +547,7 @@ class ProductViewer {
             this.isPanning = true;
             this.lastPanX = x;
             this.lastPanY = y;
-            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grabbing';
+            this.canvas.style.cursor = `url("${this.repoBasePath}img/360icon.svg") 15 15, grabbing`;
         } else {
             // If not zoomed, enable rotation
             this.isRotating = true;
@@ -529,7 +555,7 @@ class ProductViewer {
             this.startX = e.clientX;
             this.currentX = e.clientX;
             this.dragDistance = 0;
-            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grabbing';
+            this.canvas.style.cursor = `url("${this.repoBasePath}img/360icon.svg") 15 15, grabbing`;
             
             // Use light images while rotating for performance
             this.useFullRes = false;
@@ -583,14 +609,14 @@ class ProductViewer {
     onMouseUp(e) {
         if (this.isPanning) {
             this.isPanning = false;
-            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
+            this.canvas.style.cursor = `url("${this.repoBasePath}img/360icon.svg") 15 15, grab`;
         }
         
         if (this.isRotating) {
             this.isRotating = false;
             this.isDragging = false;
             this.dragDistance = 0;
-            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
+            this.canvas.style.cursor = `url("${this.repoBasePath}img/360icon.svg") 15 15, grab`;
             
             // Load full-res version after a short delay (300ms)
             this.fullResLoadTimeout = setTimeout(() => {

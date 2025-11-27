@@ -5,10 +5,34 @@ function getClientID() {
     return clientID || null;
 }
 
-// Get client ID and build base path
+// Utility function to get the repository base path (for GitHub Pages compatibility)
+function getRepoBasePath() {
+    // Get the current pathname (e.g., "/360-Viewer/index.html" or "/index.html")
+    const pathname = window.location.pathname;
+    
+    // Extract the repository name if we're on GitHub Pages
+    // GitHub Pages URLs are like: username.github.io/repo-name/...
+    if (pathname.includes('/') && pathname !== '/') {
+        // Split by '/' and get the first non-empty segment (the repo name)
+        const parts = pathname.split('/').filter(p => p);
+        if (parts.length > 0 && parts[0] !== 'index.html') {
+            // Check if we're on GitHub Pages by looking for .github.io domain
+            if (window.location.hostname.includes('.github.io')) {
+                return '/' + parts[0] + '/';
+            }
+        }
+    }
+    
+    // Default to root for local development
+    return '/';
+}
+
+// Get repository base path and client ID
+const REPO_BASE_PATH = getRepoBasePath();
 const CLIENT_ID = getClientID();
 const CLIENT_BASE_PATH = CLIENT_ID ? `${CLIENT_ID}/` : '';
 
+console.log('[Viewer3D] Repo base path:', REPO_BASE_PATH);
 console.log('[Viewer3D] Client ID:', CLIENT_ID || 'none (using default paths)');
 console.log('[Viewer3D] Base path:', CLIENT_BASE_PATH || 'root');
 
@@ -17,7 +41,7 @@ console.log('[Viewer3D] Base path:', CLIENT_BASE_PATH || 'root');
 // ============================================
 const CONFIG_3D = {
     // Model settings - will use client path if clientID is in query string
-    MODEL_PATH: `/${CLIENT_BASE_PATH}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/'),
+    MODEL_PATH: `${REPO_BASE_PATH}${CLIENT_BASE_PATH}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/'),
     
     // Material settings - Default (invisible)
     DEFAULT_OPACITY: 0.0,           // 0.0 = invisible, 1.0 = solid
@@ -749,7 +773,7 @@ class Viewer3D {
         this.setupInteraction();
         
         // Initialize cursor to 360 icon (default state - not hovering 3D objects)
-        this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
+        this.canvas.style.cursor = `url("${REPO_BASE_PATH}img/360icon.svg") 15 15, grab`;
         
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
@@ -769,12 +793,14 @@ class Viewer3D {
         return new Promise((resolve, reject) => {
             const loader = new THREE.GLTFLoader();
             
-            // Get client ID and build model path
+            // Get client ID and build model path with repository base path
             const clientID = getClientID();
+            const repoBase = getRepoBasePath();
             const basePath = clientID ? `${clientID}/` : '';
-            const modelPath = `/${basePath}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/');
+            const modelPath = `${repoBase}${basePath}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/');
             
             console.log('[Viewer3D] Loading 3D model from:', modelPath);
+            console.log('[Viewer3D] Repo base:', repoBase);
             console.log('[Viewer3D] Client ID:', clientID || 'none');
             
             loader.load(
@@ -980,7 +1006,7 @@ class Viewer3D {
                 // No intersection - reset hover and set 360 cursor on 3D canvas (which is on top)
                 this.isHoveringObject = false;
                 // Set custom 360 cursor when hovering over image (not 3D objects)
-                this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
+                this.canvas.style.cursor = `url("${REPO_BASE_PATH}img/360icon.svg") 15 15, grab`;
                 
                 if (this.hoveredObject) {
                     this.clearAllEffects(this.hoveredObject);
@@ -1059,7 +1085,7 @@ class Viewer3D {
             
             // Reset hover state and cursor back to 360 icon
             this.isHoveringObject = false;
-            this.canvas.style.cursor = 'url("/img/360icon.svg") 15 15, url("img/360icon.svg") 15 15, grab';
+            this.canvas.style.cursor = `url("${REPO_BASE_PATH}img/360icon.svg") 15 15, grab`;
             
             // Clear effects if hovering object
             if (this.hoveredObject) {
