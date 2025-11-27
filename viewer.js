@@ -773,9 +773,9 @@ class ProductViewer {
                 return;
             }
             
-            // In normal mode, check if first image is loaded
-            if (!this.lightMode && !this.lightImageElements[0]) {
-                console.warn('[Scrubbing] Cannot scrub - images not loaded yet. Total images:', this.totalImages);
+            // In normal mode, check if current image is loaded (use light images for scrubbing performance)
+            if (!this.lightMode && !this.lightImageElements[this.currentImageIndex]) {
+                console.warn('[Scrubbing] Cannot scrub - current image not loaded yet. Index:', this.currentImageIndex);
                 return;
             }
             
@@ -1132,7 +1132,9 @@ class ProductViewer {
         
         // Determine which tier to use
         // In light mode, always use light images
-        const useTier = forceTier || (this.lightMode || !this.useFullRes || !this.fullImageElements[index]) ? 'light' : 'full';
+        // During scrubbing (isRotating), always use light images for performance
+        // Otherwise, use full-res if available and useFullRes is true
+        const useTier = forceTier || (this.lightMode || !this.useFullRes || !this.fullImageElements[index] || this.isRotating) ? 'light' : 'full';
         const imageArray = useTier === 'full' ? this.fullImageElements : this.lightImageElements;
         
         // If image not loaded, load it first (especially important for scrubbing)
