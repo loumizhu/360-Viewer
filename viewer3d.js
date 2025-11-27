@@ -1104,15 +1104,23 @@ class Viewer3D {
         
         // Mouse leave - ensure drag ends if mouse leaves canvas
         this.canvas.addEventListener('mouseleave', (e) => {
-            const viewer2DCanvas = document.getElementById('viewer');
-            const mouseEvent = new MouseEvent('mouseup', {
-                clientX: e.clientX,
-                clientY: e.clientY,
-                bubbles: true,
-                cancelable: true
-            });
-            viewer2DCanvas.dispatchEvent(mouseEvent);
-            
+            if (!this.dragStartedOn3D) {
+                const viewer2D = window.productViewer || window.viewer;
+                const isScrubbingMode = viewer2D && viewer2D.zoom <= 1.0 && viewer2D.isRotating;
+                // Only forward mouseup if not scrubbing (user might have just moved over 3D object)
+                if (!isScrubbingMode) {
+                    const viewer2DCanvas = document.getElementById('viewer');
+                    if (viewer2DCanvas) {
+                        const mouseEvent = new MouseEvent('mouseup', {
+                            clientX: e.clientX,
+                            clientY: e.clientY,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        viewer2DCanvas.dispatchEvent(mouseEvent);
+                    }
+                }
+            }
             this.dragStartedOn3D = false;
             
             // Reset hover state and cursor back to 360 icon
