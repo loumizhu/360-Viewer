@@ -817,17 +817,13 @@ class ProductViewer {
             this.dragDistance += deltaX;
             this.currentX = e.clientX;
             
-            console.log('[Scrubbing] Move - dragDistance:', this.dragDistance, 'sensitivity:', this.sensitivity);
-            
             // Check if we've dragged enough to change image
             if (Math.abs(this.dragDistance) >= this.sensitivity) {
                 if (this.dragDistance > 0) {
                     // Dragging right - go to previous image (rotate left)
-                    console.log('[Scrubbing] Moving to previous image');
                     this.previousImage(false);
                 } else {
                     // Dragging left - go to next image (rotate right)
-                    console.log('[Scrubbing] Moving to next image');
                     this.nextImage(false);
                 }
                 this.dragDistance = 0; // Reset after switching
@@ -843,7 +839,6 @@ class ProductViewer {
         }
         
         if (this.isRotating) {
-            console.log('[Scrubbing] Ended - was dragging:', this.isDragging, 'dragDistance:', this.dragDistance);
             this.isRotating = false;
             this.isDragging = false;
             this.dragDistance = 0;
