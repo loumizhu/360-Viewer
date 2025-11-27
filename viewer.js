@@ -1141,8 +1141,21 @@ class ProductViewer {
                     this.updateCursor(false);
                     this.redrawCurrentImage();
                     this.updateZoomIndicator();
+                    
+                    // Reset pan to center if zoomed back to 1.0
+                    if (this.zoom <= 1.0) {
+                        this.resetPanIfNeeded();
+                    }
                 }
             }
+        }
+    }
+    
+    resetPanIfNeeded() {
+        if (this.zoom <= 1.0 && (this.panX !== 0 || this.panY !== 0)) {
+            this.panX = 0;
+            this.panY = 0;
+            this.redrawCurrentImage();
         }
     }
     
