@@ -985,6 +985,19 @@ class Viewer3D {
         this.canvas.addEventListener('mousemove', (e) => {
             if (!this.scene || !this.currentCamera) return;
             
+            // FIX: If dragging (scrubbing), disable hover effects to prevent flashing/distraction
+            if (this.viewer2D && this.viewer2D.isDragging) {
+                if (this.hoveredObject) {
+                    this.clearAllEffects(this.hoveredObject);
+                    this.hoveredObject = null;
+                }
+                this.hideTooltip();
+                this.isHoveringObject = false;
+                // Ensure cursor matches 2D viewer state (grabbing)
+                // But 2D viewer handles its own cursor, so we just ensure we don't override it with pointer
+                return;
+            }
+            
             // Calculate mouse position in normalized device coordinates (-1 to +1)
             const rect = this.canvas.getBoundingClientRect();
             this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;

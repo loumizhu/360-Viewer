@@ -67,16 +67,10 @@ class UISettingsPanel {
         }
         
         const isHidden = this.panel.classList.contains('hidden');
-        console.log('[UI Settings] Panel has hidden class:', isHidden);
-        console.log('[UI Settings] Panel current display:', window.getComputedStyle(this.panel).display);
-        console.log('[UI Settings] Panel current visibility:', window.getComputedStyle(this.panel).visibility);
-        console.log('[UI Settings] Panel current opacity:', window.getComputedStyle(this.panel).opacity);
         
         if (isHidden) {
-            console.log('[UI Settings] Showing panel...');
             this.show();
         } else {
-            console.log('[UI Settings] Hiding panel...');
             this.hide();
         }
     }
@@ -88,36 +82,22 @@ class UISettingsPanel {
             return;
         }
         
-        console.log('[UI Settings] Before show - classes:', this.panel.className);
-        console.log('[UI Settings] Before show - computed display:', window.getComputedStyle(this.panel).display);
-        console.log('[UI Settings] Before show - inline styles:', this.panel.style.cssText);
-        
         // Remove hidden class
         this.panel.classList.remove('hidden');
-        console.log('[UI Settings] Removed hidden class, classes now:', this.panel.className);
         
         // Use setProperty with important flag to override !important in CSS
         this.panel.style.setProperty('display', 'flex', 'important');
         this.panel.style.setProperty('visibility', 'visible', 'important');
         this.panel.style.setProperty('opacity', '1', 'important');
-        
-        console.log('[UI Settings] After show - inline styles:', this.panel.style.cssText);
-        console.log('[UI Settings] After show - computed display:', window.getComputedStyle(this.panel).display);
-        console.log('[UI Settings] After show - computed visibility:', window.getComputedStyle(this.panel).visibility);
-        console.log('[UI Settings] After show - computed opacity:', window.getComputedStyle(this.panel).opacity);
-        console.log('[UI Settings] Panel element:', this.panel);
-        console.log('[UI Settings] Panel position:', this.panel.getBoundingClientRect());
+        this.panel.style.setProperty('pointer-events', 'auto', 'important');
     }
-    
+
     hide() {
         console.log('[UI Settings] hide() called');
         if (!this.panel) {
             console.error('[UI Settings] Panel element not found');
             return;
         }
-        
-        console.log('[UI Settings] Before hide - classes:', this.panel.className);
-        console.log('[UI Settings] Before hide - computed display:', window.getComputedStyle(this.panel).display);
         
         // Add hidden class
         this.panel.classList.add('hidden');
@@ -127,10 +107,6 @@ class UISettingsPanel {
         this.panel.style.setProperty('visibility', 'hidden', 'important');
         this.panel.style.setProperty('opacity', '0', 'important');
         this.panel.style.setProperty('pointer-events', 'none', 'important');
-        
-        console.log('[UI Settings] After hide - inline styles:', this.panel.style.cssText);
-        console.log('[UI Settings] After hide - computed display:', window.getComputedStyle(this.panel).display);
-        console.log('[UI Settings] Panel hidden successfully');
     }
     
     buildSettingsUI() {
@@ -651,9 +627,6 @@ class UISettingsPanel {
 // Initialize UI settings panel when DOM is ready
 function initUISettingsPanel() {
     console.log('Initializing UI Settings Panel...');
-    console.log('uiSettings available:', typeof window.uiSettings !== 'undefined');
-    console.log('Panel element exists:', !!document.getElementById('ui-settings-panel'));
-    console.log('Toggle button exists:', !!document.getElementById('uiSettingsToggleBtn'));
     
     // Wait for uiSettings to be available
     if (typeof window.uiSettings === 'undefined') {
@@ -669,43 +642,15 @@ function initUISettingsPanel() {
         return;
     }
     
-    // Check if toggle button exists
-    const toggleBtn = document.getElementById('uiSettingsToggleBtn');
-    if (!toggleBtn) {
-        console.error('UI Settings Toggle Button not found in DOM');
-        return;
-    }
-    
     // Initialize panel
     try {
+        // Prevent multiple initializations
+        if (window.uiSettingsPanel) {
+            console.log('UI Settings Panel already initialized');
+            return;
+        }
         window.uiSettingsPanel = new UISettingsPanel();
-        console.log('UI Settings Panel initialized successfully', window.uiSettingsPanel);
-        
-        // Add backup direct click handler
-        toggleBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            console.log('[UI Settings] Backup toggle button click handler fired');
-            const panel = document.getElementById('ui-settings-panel');
-            if (panel) {
-                console.log('[UI Settings] Backup - Panel found:', panel);
-                console.log('[UI Settings] Backup - Has hidden class:', panel.classList.contains('hidden'));
-                if (panel.classList.contains('hidden')) {
-                    panel.classList.remove('hidden');
-                    // Use setProperty with important flag to override !important in CSS
-                    panel.style.setProperty('display', 'flex', 'important');
-                    panel.style.setProperty('visibility', 'visible', 'important');
-                    panel.style.setProperty('opacity', '1', 'important');
-                    panel.style.setProperty('pointer-events', 'auto', 'important');
-                    console.log('[UI Settings] Backup - Panel shown, computed display:', window.getComputedStyle(panel).display);
-                    console.log('[UI Settings] Backup - Panel position:', panel.getBoundingClientRect());
-                } else {
-                    panel.classList.add('hidden');
-                    console.log('[UI Settings] Backup - Panel hidden');
-                }
-            } else {
-                console.error('[UI Settings] Backup - Panel element not found!');
-            }
-        });
+        console.log('UI Settings Panel initialized successfully');
     } catch (error) {
         console.error('Error initializing UI Settings Panel:', error);
     }
@@ -740,69 +685,9 @@ function showTooltip(message, element) {
     }, 2000);
 }
 
-// Add immediate direct event listener as fallback
-function addDirectToggleListener() {
-    const toggleBtn = document.getElementById('uiSettingsToggleBtn');
-    if (toggleBtn) {
-        console.log('[UI Settings] Adding direct toggle listener to button');
-        toggleBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('[UI Settings] DIRECT toggle button clicked!');
-            
-            const panel = document.getElementById('ui-settings-panel');
-            if (!panel) {
-                console.error('[UI Settings] DIRECT - Panel not found!');
-                showTooltip('Error: Panel not found!', toggleBtn);
-                return;
-            }
-            
-            console.log('[UI Settings] DIRECT - Panel found:', panel);
-            console.log('[UI Settings] DIRECT - Has hidden class:', panel.classList.contains('hidden'));
-            console.log('[UI Settings] DIRECT - Current display:', window.getComputedStyle(panel).display);
-            
-            if (panel.classList.contains('hidden')) {
-                console.log('[UI Settings] DIRECT - Removing hidden class and showing panel');
-                panel.classList.remove('hidden');
-                panel.style.setProperty('display', 'flex', 'important');
-                panel.style.setProperty('visibility', 'visible', 'important');
-                panel.style.setProperty('opacity', '1', 'important');
-                panel.style.setProperty('pointer-events', 'auto', 'important');
-                
-                console.log('[UI Settings] DIRECT - After show, computed display:', window.getComputedStyle(panel).display);
-                console.log('[UI Settings] DIRECT - Panel position:', panel.getBoundingClientRect());
-                showTooltip('UI Settings Panel Opened', toggleBtn);
-            } else {
-                console.log('[UI Settings] DIRECT - Hiding panel');
-                panel.classList.add('hidden');
-                // Use setProperty with important flag to override !important in CSS
-                panel.style.setProperty('display', 'none', 'important');
-                panel.style.setProperty('visibility', 'hidden', 'important');
-                panel.style.setProperty('opacity', '0', 'important');
-                panel.style.setProperty('pointer-events', 'none', 'important');
-                console.log('[UI Settings] DIRECT - Panel hidden, computed display:', window.getComputedStyle(panel).display);
-                showTooltip('UI Settings Panel Closed', toggleBtn);
-            }
-        });
-        console.log('[UI Settings] Direct toggle listener added successfully');
-    } else {
-        console.warn('[UI Settings] Toggle button not found for direct listener, retrying...');
-        setTimeout(addDirectToggleListener, 100);
-    }
-}
-
-// Add direct listener immediately
-addDirectToggleListener();
-
 // Start initialization when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('[UI Settings] DOMContentLoaded fired, initializing...');
-        setTimeout(initUISettingsPanel, 200);
-    });
+    document.addEventListener('DOMContentLoaded', initUISettingsPanel);
 } else {
-    // DOM already loaded
-    console.log('[UI Settings] DOM already loaded, initializing...');
-    setTimeout(initUISettingsPanel, 200);
+    initUISettingsPanel();
 }
-
