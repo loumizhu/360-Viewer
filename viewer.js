@@ -258,6 +258,7 @@ class ProductViewer {
         
         // First, try to find which pattern works - but start with modif_animated immediately
         // and test only first 3 images to find the pattern quickly
+        console.log('[Discovery] Starting pattern discovery...');
         for (const patternFn of patterns) {
             let foundPattern = false;
             for (let i = 1; i <= 2; i++) { // Test only first 2 images to find pattern very quickly
@@ -274,6 +275,7 @@ class ProductViewer {
                     if (fullExists || lightExists) {
                         workingPattern = patternFn;
                         foundPattern = true;
+                        console.log(`[Discovery] Found working pattern: ${pattern} with extension ${ext}`);
                         if (fullExists) discoveredFull.add(fullPath);
                         if (lightExists) discoveredLight.add(lightPath);
                         break;
@@ -325,6 +327,7 @@ class ProductViewer {
         }
         
         // Convert sets to arrays and match
+        console.log(`[Discovery] Found ${discoveredFull.size} full images and ${discoveredLight.size} light images`);
         this.matchImagePairs(Array.from(discoveredFull), Array.from(discoveredLight));
     }
     
@@ -405,6 +408,7 @@ class ProductViewer {
         });
         
         this.totalImages = allBases.length;
+        console.log(`[Discovery] Matched ${this.totalImages} image pairs`);
         
         if (this.totalImages === 0) {
             const pathInfo = this.clientID ? `client folder ${this.clientID}/` : 'root';
@@ -842,7 +846,7 @@ class ProductViewer {
             this.dragDistance += deltaX;
             this.currentX = e.clientX;
             
-            console.log('[Scrubbing] Move - dragDistance:', this.dragDistance, 'sensitivity:', this.sensitivity, 'deltaX:', deltaX);
+            console.log('[Scrubbing] Move - dragDistance:', this.dragDistance, 'sensitivity:', this.sensitivity, 'deltaX:', deltaX, 'totalImages:', this.totalImages);
             
             // Check if we've dragged enough to change image
             if (Math.abs(this.dragDistance) >= this.sensitivity) {
