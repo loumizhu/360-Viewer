@@ -37,6 +37,16 @@ class ProductViewer {
         this.clientID = getClientID();
         this.basePath = this.clientID ? `${this.clientID}/` : '';
         
+        // Log the paths being used
+        console.log('[Viewer] Repository base path:', this.repoBasePath);
+        console.log('[Viewer] Client ID:', this.clientID || 'none (using root directory)');
+        console.log('[Viewer] Images will be loaded from:', `${this.repoBasePath}${this.basePath}3D-Images/`);
+        
+        if (!this.clientID) {
+            console.warn('[Viewer] No clientID parameter found in URL. If images are in a client folder, add ?clientID=FOLDER_NAME to the URL');
+            console.warn('[Viewer] Example: http://localhost:8000/?clientID=CLT695425');
+        }
+        
         
         this.currentImageIndex = 0;
         this.totalImages = 0; // Will be set after discovering images
