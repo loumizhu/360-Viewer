@@ -139,8 +139,11 @@ class ProductViewer {
                     // Found it! Load immediately
                     this.lightImages = [lightPath];
                     this.fullImages = [fullPath];
-                    this.totalImages = 1;
+                    // Don't set totalImages here - let discovery set it properly
+                    // this.totalImages = 1;  // REMOVED - causes scrubbing to fail
                     this.currentImageIndex = 0;
+                    
+                    console.log('[Viewer] First image loaded, waiting for discovery to complete...');
                     
                     await this.loadSingleImage(0, 'light');
                     await this.showImage(0, 'light');
