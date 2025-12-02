@@ -294,6 +294,11 @@ class ProductViewer {
                 const pattern = workingPattern(i);
                 let foundAny = false;
                 
+                // Log what we're trying every 10 images or if it's the first few
+                if (i <= 5 || i % 10 === 0) {
+                    console.log(`[Discovery] Trying image ${i}: ${pattern}`);
+                }
+                
                 for (const ext of extensions) {
                     const fullPath = `${this.repoBasePath}${this.basePath}3D-Images/${pattern}${ext}`.replace(/\/+/g, '/');
                     const lightPath = `${this.repoBasePath}${this.basePath}3D-Images/light/${pattern}${ext}`.replace(/\/+/g, '/');
@@ -312,14 +317,19 @@ class ProductViewer {
                         foundAny = true;
                     }
                     
-                    if (fullExists || lightExists) break; // Found with this extension, no need to try others
+                    if (fullExists || lightExists) {
+                        if (i <= 5) console.log(`[Discovery] Found image ${i} with extension ${ext}`);
+                        break; 
+                    }
                 }
                 
                 if (foundAny) {
                     consecutiveFailures = 0;
                 } else {
                     consecutiveFailures++;
+                    console.log(`[Discovery] Failed to find image ${i} (consecutive failures: ${consecutiveFailures})`);
                     if (consecutiveFailures >= maxConsecutiveFailures) {
+                        console.log(`[Discovery] Stopping after ${consecutiveFailures} consecutive failures at index ${i}`);
                         break;
                     }
                 }
