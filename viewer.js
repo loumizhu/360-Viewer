@@ -172,9 +172,16 @@ class ProductViewer {
     updateImageListAfterDiscovery() {
         // Update the image lists after discovery completes
         // This is called if we already started loading
+        console.log('[Viewer] Discovery complete! Total images found:', this.totalImages);
+        console.log('[Viewer] Light images:', this.lightImages.length);
+        console.log('[Viewer] Full images:', this.fullImages.length);
+        
         if (this.totalImages > 0) {
             // Restart preloading with the complete list
+            console.log('[Viewer] Restarting preload with complete image list');
             this.progressivePreload();
+        } else {
+            console.warn('[Viewer] No images discovered!');
         }
     }
     
@@ -427,8 +434,10 @@ class ProductViewer {
             this.lightImages.push(light || full);
         });
         
+        const previousTotal = this.totalImages;
         this.totalImages = allBases.length;
-        console.log(`[Discovery] Matched ${this.totalImages} image pairs`);
+        console.log(`[Discovery] Matched ${this.totalImages} image pairs (was ${previousTotal})`);
+        console.log(`[Discovery] Sample images:`, this.lightImages.slice(0, 3));
         
         if (this.totalImages === 0) {
             const pathInfo = this.clientID ? `client folder ${this.clientID}/` : 'root';
