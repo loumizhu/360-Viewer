@@ -1,46 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>360° Product Viewer</title>
     <link rel="icon" type="image/x-icon" href="img/favIcon.ico">
     <link rel="stylesheet" href="style.css">
+    <script src="client-check.js"></script>
 </head>
+
 <body>
     <div id="container">
         <canvas id="viewer"></canvas>
         <canvas id="viewer3d"></canvas>
-        
+
         <!-- Integrated Control Toolbar -->
         <div id="controls">
             <!-- Navigation Controls -->
             <button id="prevBtn" class="control-btn">◄</button>
             <button id="nextBtn" class="control-btn">►</button>
-            
+
             <!-- Divider -->
             <div class="toolbar-divider"></div>
-            
+
             <!-- Zoom Controls -->
             <span id="zoom-indicator" class="toolbar-label">100%</span>
             <input type="range" id="zoom-slider" class="zoom-slider" min="100" max="500" value="100" step="5">
-            
+
             <!-- Divider -->
             <div class="toolbar-divider"></div>
-            
+
             <!-- Settings Buttons Group -->
             <div style="display: flex; align-items: center; gap: 8px;">
                 <button id="debugToggleBtn" class="control-btn" title="Toggle Scene Debug Panel">⚙</button>
                 <button id="uiSettingsToggleBtn" class="control-btn" title="Toggle UI Settings Panel">🎨</button>
             </div>
-            
+
             <!-- Collapse/Expand Button -->
             <button id="toolbar-collapse-btn" class="control-btn" title="Collapse/Expand Toolbar">▼</button>
         </div>
-        
+
         <!-- Restore Button (shown when toolbar is minimized) -->
         <button id="toolbar-restore-btn" class="control-btn" title="Restore Toolbar">▲</button>
-        
+
         <!-- Left Debug Panel -->
         <div id="debug-panel" class="hidden">
             <div class="debug-panel-header">
@@ -51,18 +54,81 @@
                 <!-- Content will be populated by JavaScript -->
             </div>
         </div>
-        
-        <!-- Plan Image Panel -->
+
+        <!-- Plan Image Panel (90% of canvas) -->
         <div id="plan-image-panel" class="hidden">
-            <div class="plan-panel-header">
-                <h3>Plan View</h3>
-                <button id="planCloseBtn" class="plan-close-btn">×</button>
-            </div>
-            <div class="plan-panel-content">
-                <img id="plan-image" src="" alt="Plan view">
+            <div class="plan-panel-container">
+                <!-- Header with tabs -->
+                <div class="plan-panel-header">
+                    <div class="plan-tabs">
+                        <button class="plan-tab active" data-tab="2d-plan">2D Plan</button>
+                        <button class="plan-tab" data-tab="3d-plan">3D Plan</button>
+                        <button class="plan-tab" data-tab="photos">Photos</button>
+                    </div>
+                    <button id="planCloseBtn" class="plan-close-btn">×</button>
+                </div>
+
+                <!-- Main content area -->
+                <div class="plan-panel-content">
+                    <!-- Left side: Image viewer -->
+                    <div class="plan-image-viewer">
+                        <img id="plan-image" src="" alt="Plan view">
+                    </div>
+
+                    <!-- Right side: Contact form and info -->
+                    <div class="plan-sidebar">
+                        <!-- Contact Form -->
+                        <div class="contact-form">
+                            <h3>Contact Us</h3>
+                            <form id="contact-form">
+                                <input type="text" placeholder="Name" required>
+                                <input type="email" placeholder="Email" required>
+                                <input type="tel" placeholder="Phone" required>
+                                <textarea placeholder="Message" rows="3" required></textarea>
+                                <button type="submit" class="send-btn">Send</button>
+                            </form>
+                        </div>
+
+                        <!-- Apartment Information -->
+                        <div class="apartment-info">
+                            <h3>Apartment Details</h3>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <span class="info-label">Unit:</span>
+                                    <span class="info-value" id="unit-value">A-205</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Surface Interior:</span>
+                                    <span class="info-value" id="surface-interior-value">85 m²</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Surface Exterior:</span>
+                                    <span class="info-value" id="surface-exterior-value">15 m²</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Terrace:</span>
+                                    <span class="info-value" id="terrace-value">12 m²</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Type:</span>
+                                    <span class="info-value" id="type-value">Apartment</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Rooms:</span>
+                                    <span class="info-value" id="rooms-value">3 Bedrooms</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">Orientation:</span>
+                                    <span class="info-value" id="orientation-value">South-West</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        
+
+
         <!-- Right UI Settings Panel -->
         <div id="ui-settings-panel" class="hidden">
             <div class="ui-settings-header">
@@ -91,7 +157,7 @@
                 <!-- Other settings will be populated by JavaScript -->
             </div>
         </div>
-        
+
         <!-- Loading indicator -->
         <div id="loading"></div>
     </div>
@@ -111,6 +177,7 @@
     <script src="viewer3d.js"></script>
     <script src="ui-interactions.js"></script>
     <script src="ui-settings.js"></script>
+    <script src="plan-panel-interactions.js"></script>
 </body>
-</html>
 
+</html>

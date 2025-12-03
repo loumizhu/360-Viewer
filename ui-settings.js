@@ -23,18 +23,11 @@ class UISettingsPanel {
     }
     
     init() {
-        console.log('[UI Settings] Initializing...');
-        console.log('[UI Settings] Panel:', this.panel);
-        console.log('[UI Settings] Toggle Button:', this.toggleBtn);
-        console.log('[UI Settings] Close Button:', this.closeBtn);
-        console.log('[UI Settings] Content:', this.content);
         
         // Toggle button
         if (this.toggleBtn) {
-            console.log('[UI Settings] Adding click listener to toggle button');
             this.toggleBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                console.log('[UI Settings] Toggle button clicked!');
                 this.toggle();
             });
         } else {
@@ -43,10 +36,8 @@ class UISettingsPanel {
         
         // Close button
         if (this.closeBtn) {
-            console.log('[UI Settings] Adding click listener to close button');
             this.closeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                console.log('[UI Settings] Close button clicked!');
                 this.hide();
             });
         } else {
@@ -54,13 +45,10 @@ class UISettingsPanel {
         }
         
         // Build the settings UI
-        console.log('[UI Settings] Building settings UI...');
         this.buildSettingsUI();
-        console.log('[UI Settings] Initialization complete');
     }
     
     toggle() {
-        console.log('[UI Settings] toggle() called');
         if (!this.panel) {
             console.error('[UI Settings] Cannot toggle: Panel element not found');
             return;
@@ -76,7 +64,6 @@ class UISettingsPanel {
     }
     
     show() {
-        console.log('[UI Settings] show() called');
         if (!this.panel) {
             console.error('[UI Settings] Panel element not found');
             return;
@@ -93,7 +80,6 @@ class UISettingsPanel {
     }
 
     hide() {
-        console.log('[UI Settings] hide() called');
         if (!this.panel) {
             console.error('[UI Settings] Panel element not found');
             return;
@@ -160,12 +146,10 @@ class UISettingsPanel {
         setTimeout(() => {
             const effectControls = document.getElementById('effect-controls');
             if (effectControls && effectControls.children.length === 0) {
-                console.log('Effect controls container is empty, initializing...');
                 if (window.viewer3D && window.viewer3D.setupEffectSelector) {
                     window.viewer3D.setupEffectSelector();
                 }
             } else if (effectControls) {
-                console.log('Effect controls already populated with', effectControls.children.length, 'sections');
             } else {
                 console.warn('Effect controls container not found');
             }
@@ -626,11 +610,9 @@ class UISettingsPanel {
 
 // Initialize UI settings panel when DOM is ready
 function initUISettingsPanel() {
-    console.log('Initializing UI Settings Panel...');
     
     // Wait for uiSettings to be available
     if (typeof window.uiSettings === 'undefined') {
-        console.log('Waiting for uiSettings...');
         setTimeout(initUISettingsPanel, 50);
         return;
     }
@@ -646,11 +628,9 @@ function initUISettingsPanel() {
     try {
         // Prevent multiple initializations
         if (window.uiSettingsPanel) {
-            console.log('UI Settings Panel already initialized');
             return;
         }
         window.uiSettingsPanel = new UISettingsPanel();
-        console.log('UI Settings Panel initialized successfully');
     } catch (error) {
         console.error('Error initializing UI Settings Panel:', error);
     }

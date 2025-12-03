@@ -29,7 +29,6 @@ class UIInteractionHandler {
         this.setupPanelGlow();
         this.setupControlGroupGlow();
 
-        console.log('UI interaction handlers initialized');
     }
 
     // Add glow effect to an element
@@ -228,7 +227,6 @@ class ToolbarControls {
             }
         });
 
-        console.log('Toolbar controls initialized');
     }
 
     toggle() {

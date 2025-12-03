@@ -141,7 +141,6 @@ class UISettingsManager {
             if (stored) {
                 this.settings = JSON.parse(stored);
                 this.applySettings();
-                console.log('Settings loaded from localStorage');
                 return;
             }
         } catch (error) {
@@ -161,9 +160,7 @@ class UISettingsManager {
                 this.settings = { ...this.settings, ...data };
                 this.applySettings();
                 this.saveToLocalStorage();
-                console.log('Settings loaded from file');
             } else {
-                console.log('Settings file not found, using defaults');
                 this.saveSettings(); // Create default file
             }
         } catch (error) {
@@ -182,7 +179,6 @@ class UISettingsManager {
             // Save to JSON file (async)
             this.saveToFile();
             
-            console.log('Settings saved');
         } catch (error) {
             console.error('Error saving settings:', error);
         }
@@ -210,7 +206,6 @@ class UISettingsManager {
             
             // Store in a way that can be accessed later if needed
             // For now, localStorage is the primary storage mechanism
-            console.log('Settings ready to save:', this.settings);
         } catch (error) {
             console.warn('Error saving to file:', error);
         }
@@ -310,14 +305,12 @@ class UISettingsManager {
     // Apply theme to CSS variables
     applyTheme(theme) {
         const root = document.documentElement;
-        console.log('[Settings] Applying theme:', theme);
         
         // Apply primary colors
         if (theme.primary) {
             Object.keys(theme.primary).forEach(key => {
                 const value = theme.primary[key];
                 root.style.setProperty(`--ui-primary-${key}`, value);
-                console.log(`[Settings] Set --ui-primary-${key} = ${value}`);
             });
         }
         
@@ -337,28 +330,22 @@ class UISettingsManager {
         if (theme.background) {
             if (theme.background.default) {
                 root.style.setProperty('--ui-bg-default', theme.background.default);
-                console.log('[Settings] Set --ui-bg-default =', theme.background.default);
             }
             if (theme.background.panel) {
                 root.style.setProperty('--ui-bg-panel', theme.background.panel);
-                console.log('[Settings] Set --ui-bg-panel =', theme.background.panel);
             }
             if (theme.background.card) {
                 root.style.setProperty('--ui-bg-card', theme.background.card);
-                console.log('[Settings] Set --ui-bg-card =', theme.background.card);
             }
             if (theme.background.hover) {
                 root.style.setProperty('--ui-bg-hover', theme.background.hover);
-                console.log('[Settings] Set --ui-bg-hover =', theme.background.hover);
             }
             // Toolbar background can use card or a custom value
             if (theme.background.toolbar) {
                 root.style.setProperty('--ui-toolbar-bg', theme.background.toolbar);
-                console.log('[Settings] Set --ui-toolbar-bg =', theme.background.toolbar);
             } else if (theme.background.card) {
                 // Use card background for toolbar if no specific toolbar color
                 root.style.setProperty('--ui-toolbar-bg', theme.background.card);
-                console.log('[Settings] Set --ui-toolbar-bg =', theme.background.card, '(from card)');
             }
         }
         
@@ -373,20 +360,16 @@ class UISettingsManager {
         if (theme.border) {
             if (theme.border.color) {
                 root.style.setProperty('--ui-border-color', theme.border.color);
-                console.log('[Settings] Set --ui-border-color =', theme.border.color);
                 // Also update toolbar border if no specific value
                 if (!theme.border.toolbar) {
                     root.style.setProperty('--ui-toolbar-border', theme.border.color);
-                    console.log('[Settings] Set --ui-toolbar-border =', theme.border.color, '(from border color)');
                 }
             }
             if (theme.border.toolbar) {
                 root.style.setProperty('--ui-toolbar-border', theme.border.toolbar);
-                console.log('[Settings] Set --ui-toolbar-border =', theme.border.toolbar);
             }
             if (theme.border.width) {
                 root.style.setProperty('--ui-border-width', theme.border.width);
-                console.log('[Settings] Set --ui-border-width =', theme.border.width);
             }
             if (theme.border.radius) {
                 if (theme.border.radius.small) root.style.setProperty('--ui-border-radius-sm', theme.border.radius.small);
@@ -450,7 +433,6 @@ class UISettingsManager {
             this.settings = { ...this.settings, ...imported };
             this.applySettings();
             this.saveSettings();
-            console.log('Settings imported successfully');
         } catch (error) {
             console.error('Error importing settings:', error);
             throw error;

@@ -768,24 +768,21 @@ body {
 }
 
 /* ============================================
-   PLAN IMAGE PANEL
+   PLAN IMAGE PANEL (90% of Canvas)
    ============================================ */
 #plan-image-panel {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    top: 5%;
+    left: 5%;
+    width: 90%;
+    height: 90%;
+    background: transparent;
     z-index: 100;
     display: none;
-    flex-direction: column;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease, visibility 0.3s ease;
-    overflow: hidden;
+    pointer-events: none;
 }
 
 #plan-image-panel.visible {
@@ -802,63 +799,293 @@ body {
     pointer-events: none;
 }
 
+.plan-panel-container {
+    width: 100%;
+    height: 100%;
+    background: var(--ui-bg-panel);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: var(--ui-shadow-xl), 0 0 100px rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    border: 2px solid var(--ui-border-color);
+    animation: panelSlideIn 0.4s ease-out;
+}
+
+@keyframes panelSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
 .plan-panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: var(--ui-spacing-lg) var(--ui-spacing-xl);
     background: var(--ui-bg-card);
-    border-bottom: 1px solid var(--ui-border-color);
+    border-bottom: 2px solid var(--ui-border-color);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
 }
 
-.plan-panel-header h3 {
-    color: var(--ui-text-primary);
-    font-size: var(--ui-font-size-xl);
-    font-weight: var(--ui-font-weight-bold);
-    margin: 0;
+.plan-tabs {
+    display: flex;
+    gap: var(--ui-spacing-sm);
+}
+
+.plan-tab {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid var(--ui-border-color);
+    color: var(--ui-text-secondary);
+    padding: var(--ui-spacing-sm) var(--ui-spacing-xl);
+    border-radius: var(--ui-border-radius-md);
+    cursor: pointer;
+    font-size: var(--ui-font-size-md);
+    font-weight: var(--ui-font-weight-semibold);
     font-family: var(--ui-font-family);
+    transition: all 0.3s ease;
+}
+
+.plan-tab:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--ui-primary-400);
+    color: var(--ui-text-primary);
+    transform: translateY(-2px);
+}
+
+.plan-tab.active {
+    background: var(--ui-primary-500);
+    border-color: var(--ui-primary-400);
+    color: var(--ui-text-primary);
+    box-shadow: 0 0 20px rgba(0, 111, 238, 0.4);
 }
 
 .plan-close-btn {
     background: var(--ui-bg-card);
-    border: none;
+    border: 2px solid var(--ui-border-color);
     color: var(--ui-text-primary);
-    font-size: var(--ui-font-size-2xl);
-    width: 40px;
-    height: 40px;
+    font-size: 32px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
     line-height: 1;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     box-shadow: var(--ui-shadow-sm);
+    font-weight: 300;
 }
 
 .plan-close-btn:hover {
     background: var(--ui-danger);
-    transform: rotate(90deg);
-    box-shadow: var(--ui-shadow-md);
-}
-
-.plan-close-btn:active {
-    box-shadow: 0 0 20px var(--ui-danger), 0 0 40px var(--ui-danger);
-    background: var(--ui-danger);
+    border-color: var(--ui-danger);
+    transform: rotate(90deg) scale(1.1);
+    box-shadow: 0 0 20px var(--ui-danger);
 }
 
 .plan-panel-content {
     flex: 1;
     display: flex;
+    gap: var(--ui-spacing-xl);
+    padding: var(--ui-spacing-xl);
+    overflow: hidden;
+    min-height: 0;
+}
+
+.plan-image-viewer {
+    flex: 1;
+    display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--ui-spacing-xl);
-    overflow: auto;
-    min-height: 0; /* Allow flex child to shrink */
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: var(--ui-border-radius-lg);
+    overflow: hidden;
+    border: 2px solid var(--ui-border-color);
+}
+
+#plan-image {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: var(--ui-border-radius-md);
+    animation: imageZoomIn 0.4s ease-out;
+}
+
+@keyframes imageZoomIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.plan-sidebar {
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-spacing-lg);
+    overflow-y: auto;
+}
+
+/* Custom scrollbar for sidebar */
+.plan-sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.plan-sidebar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.plan-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.plan-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Contact Form */
+.contact-form {
+    background: var(--ui-bg-card);
+    border: 2px solid var(--ui-border-color);
+    border-radius: var(--ui-border-radius-lg);
+    padding: var(--ui-spacing-lg);
+}
+
+.contact-form h3 {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-lg);
+    font-weight: var(--ui-font-weight-bold);
+    margin-bottom: var(--ui-spacing-md);
+    font-family: var(--ui-font-family);
+}
+
+.contact-form form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-spacing-sm);
+}
+
+.contact-form input,
+.contact-form textarea {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid var(--ui-border-color);
+    color: var(--ui-text-primary);
+    padding: var(--ui-spacing-sm) var(--ui-spacing-md);
+    border-radius: var(--ui-border-radius-sm);
+    font-size: var(--ui-font-size-sm);
+    font-family: var(--ui-font-family);
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus {
+    border-color: var(--ui-primary-400);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 10px rgba(0, 111, 238, 0.3);
+}
+
+.contact-form input::placeholder,
+.contact-form textarea::placeholder {
+    color: var(--ui-text-disabled);
+}
+
+.contact-form textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.send-btn {
+    background: linear-gradient(135deg, var(--ui-primary-500), var(--ui-primary-600));
+    border: 2px solid var(--ui-primary-400);
+    color: var(--ui-text-primary);
+    padding: var(--ui-spacing-sm) var(--ui-spacing-lg);
+    border-radius: var(--ui-border-radius-md);
+    cursor: pointer;
+    font-size: var(--ui-font-size-md);
+    font-weight: var(--ui-font-weight-semibold);
+    font-family: var(--ui-font-family);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 111, 238, 0.3);
+}
+
+.send-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 111, 238, 0.5);
+    background: linear-gradient(135deg, var(--ui-primary-400), var(--ui-primary-500));
+}
+
+.send-btn:active {
+    transform: translateY(0);
+}
+
+/* Apartment Information */
+.apartment-info {
+    background: var(--ui-bg-card);
+    border: 2px solid var(--ui-border-color);
+    border-radius: var(--ui-border-radius-lg);
+    padding: var(--ui-spacing-lg);
+}
+
+.apartment-info h3 {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-lg);
+    font-weight: var(--ui-font-weight-bold);
+    margin-bottom: var(--ui-spacing-md);
+    font-family: var(--ui-font-family);
+}
+
+.info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-spacing-sm);
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--ui-spacing-sm);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--ui-border-radius-sm);
+    transition: all 0.2s ease;
+}
+
+.info-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateX(4px);
+}
+
+.info-label {
+    color: var(--ui-text-secondary);
+    font-size: var(--ui-font-size-sm);
+    font-weight: var(--ui-font-weight-medium);
+    font-family: var(--ui-font-family);
+}
+
+.info-value {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-sm);
+    font-weight: var(--ui-font-weight-semibold);
+    font-family: var(--ui-font-family);
 }
 
 .plan-error-message {
@@ -867,32 +1094,56 @@ body {
     padding: 20px;
     font-size: 18px;
     background: rgba(255, 68, 68, 0.2);
-    border: 1px solid var(--ui-danger);
+    border: 2px solid var(--ui-danger);
     border-radius: var(--ui-border-radius-md);
     margin: auto;
 }
 
-#plan-image {
-    max-width: 90%;
-    max-height: calc(100% - 100px);
-    width: auto;
-    height: auto;
-    object-fit: contain;
-    border-radius: var(--ui-border-radius-md);
-    box-shadow: var(--ui-shadow-xl);
-    animation: planImageFadeIn 0.4s ease-out;
-    display: block;
-    margin: 0 auto;
-}
-
-@keyframes planImageFadeIn {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
+/* Mobile adjustments for plan panel */
+@media (max-width: 768px) {
+    #plan-image-panel {
+        top: 2%;
+        left: 2%;
+        width: 96%;
+        height: 96%;
     }
-    to {
-        opacity: 1;
-        transform: scale(1);
+    
+    .plan-panel-container {
+        border-radius: 12px;
+    }
+    
+    .plan-panel-header {
+        padding: var(--ui-spacing-sm) var(--ui-spacing-md);
+        flex-wrap: wrap;
+    }
+    
+    .plan-tabs {
+        gap: 4px;
+    }
+    
+    .plan-tab {
+        padding: 6px 12px;
+        font-size: var(--ui-font-size-sm);
+    }
+    
+    .plan-close-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 24px;
+    }
+    
+    .plan-panel-content {
+        flex-direction: column;
+        padding: var(--ui-spacing-md);
+        gap: var(--ui-spacing-md);
+    }
+    
+    .plan-image-viewer {
+        min-height: 200px;
+    }
+    
+    .plan-sidebar {
+        width: 100%;
     }
 }
 

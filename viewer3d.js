@@ -35,10 +35,6 @@ const CLIENT_BASE_PATH = CLIENT_ID ? `${CLIENT_ID}/` : '';
 // Check for light mode setting
 const LIGHT_MODE = window.uiSettings?.getSetting('performance', 'lightMode') || false;
 
-console.log('[Viewer3D] Repo base path:', REPO_BASE_PATH);
-console.log('[Viewer3D] Client ID:', CLIENT_ID || 'none (using default paths)');
-console.log('[Viewer3D] Base path:', CLIENT_BASE_PATH || 'root');
-console.log('[Viewer3D] Light mode:', LIGHT_MODE);
 
 // ============================================
 // 3D VIEWER CONFIGURATION
@@ -260,7 +256,6 @@ class Viewer3D {
             return;
         }
         
-        console.log('Setting up effect selector, container found:', controlsContainer);
         
         // Load saved effect type if available, but force 'solid' in light mode
         if (LIGHT_MODE) {
@@ -330,7 +325,6 @@ class Viewer3D {
             }
             this.currentEffect = e.target.value;
             CONFIG_3D.EFFECT_TYPE = this.currentEffect;
-            console.log(`Switched to effect: ${this.currentEffect}`);
             
             // Save effect settings
             if (window.uiSettings) {
@@ -347,7 +341,6 @@ class Viewer3D {
         // Initialize controls - show all at once
         showAllControls();
         
-        console.log('Effect controls created, container now has', controlsContainer.children.length, 'children');
     }
     
     createControl(container, label, value, min, max, step, onChange) {
@@ -532,7 +525,6 @@ class Viewer3D {
         debugBtn.onclick = () => {
             CONFIG_3D.SCAN_DEBUG_MODE = !CONFIG_3D.SCAN_DEBUG_MODE;
             debugBtn.style.background = CONFIG_3D.SCAN_DEBUG_MODE ? '#ff4444' : 'rgba(255, 255, 255, 0.1)';
-            console.log('Scan Debug Mode:', CONFIG_3D.SCAN_DEBUG_MODE);
             
             // Refresh effect on hovered object if any
             if (this.hoveredObject) {
@@ -593,7 +585,6 @@ class Viewer3D {
             // Attach event listeners
             this.attachDebugEventListeners();
             
-            console.log('Debug panel initialized');
         } catch (error) {
             console.error('Error setting up debug panel:', error);
         }
@@ -801,7 +792,6 @@ class Viewer3D {
         // Start render loop
         this.animate();
         
-        console.log('3D Viewer initialized');
         
         // Start intro animation if enabled
         if (CONFIG_3D.ENABLE_INTRO_ANIMATION) {
@@ -819,9 +809,6 @@ class Viewer3D {
             const basePath = clientID ? `${clientID}/` : '';
             const modelPath = `${repoBase}${basePath}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/');
             
-            console.log('[Viewer3D] Loading 3D model from:', modelPath);
-            console.log('[Viewer3D] Repo base:', repoBase);
-            console.log('[Viewer3D] Client ID:', clientID || 'none');
             
             loader.load(
                 modelPath,
@@ -836,7 +823,6 @@ class Viewer3D {
                         }
                     });
                     
-                    console.log(`Found ${this.cameras.length} cameras in GLB file`);
                     
                     // If no cameras in GLB, create a default one
                     if (this.cameras.length === 0) {
@@ -860,7 +846,6 @@ class Viewer3D {
                         }
                     });
                     
-                    console.log(`Applied clipping planes: near=${CONFIG_3D.CAMERA_NEAR_CLIP}, far=${CONFIG_3D.CAMERA_FAR_CLIP}`);
                     
                     // Set initial camera
                     this.currentCamera = this.cameras[0];
@@ -900,7 +885,6 @@ class Viewer3D {
                         }
                     });
                     
-                    console.log(`Found ${this.meshes.length} meshes in GLB file`);
                     
                     // Calculate bounding box to understand scene scale
                     const box = new THREE.Box3().setFromObject(this.scene);
@@ -910,9 +894,6 @@ class Viewer3D {
                     // Store for dynamic clipping calculations
                     this.sceneBounds = { box, size, center };
                     
-                    console.log('Scene bounding box:');
-                    console.log('  Size:', size);
-                    console.log('  Center:', center);
                     
                     // Calculate scale factor based on camera distance
                     // Cameras are around 14000 units away, objects are small
@@ -926,8 +907,6 @@ class Viewer3D {
                     });
                     avgCameraDistance /= this.cameras.length;
                     
-                    console.log('Average camera distance from origin:', avgCameraDistance);
-                    console.log('Object size:', size.length());
                     
                     // If objects are much smaller than camera distance, they won't be visible
                     // This is expected for architectural models - objects are at real-world scale
@@ -948,21 +927,11 @@ class Viewer3D {
                     
                     // Debug first mesh visibility
                     if (this.meshes.length > 0) {
-                        console.log('Sample mesh info:');
-                        console.log('  Position:', this.meshes[0].position);
-                        console.log('  Scale:', this.meshes[0].scale);
-                        console.log('  Visible:', this.meshes[0].visible);
-                        console.log('  Material opacity:', this.meshes[0].material.opacity);
                     }
                     
                     // Debug first camera
                     if (this.cameras.length > 0) {
-                        console.log('Sample camera info:');
-                        console.log('  Position:', this.cameras[0].position);
-                        console.log('  Rotation:', this.cameras[0].rotation);
                         if (this.cameras[0].isPerspectiveCamera) {
-                            console.log('  FOV:', this.cameras[0].fov);
-                            console.log('  Near/Far:', this.cameras[0].near, '/', this.cameras[0].far);
                         }
                     }
                     
@@ -970,7 +939,6 @@ class Viewer3D {
                 },
                 (progress) => {
                     const percent = (progress.loaded / progress.total * 100).toFixed(0);
-                    console.log(`Loading 3D model: ${percent}%`);
                 },
                 (error) => {
                     console.error('Error loading GLB:', error);
@@ -1221,7 +1189,6 @@ class Viewer3D {
         this.currentCamera.updateProjectionMatrix();
         
         if (CONFIG_3D.ENABLE_CLIPPING_LOGGING) {
-            console.log(`Camera ${this.currentCameraIndex} clipping (zoom ${zoomLevel.toFixed(2)}x): near=${nearPlane.toFixed(6)}, far=${farPlane.toFixed(0)}`);
         }
     }
     
@@ -1249,7 +1216,6 @@ class Viewer3D {
         
         // Skip postprocessing in light mode
         if (LIGHT_MODE) {
-            console.log('[Viewer3D] Light mode: Postprocessing disabled');
             this.composer = null;
             this.outlinePass = null;
             this.bloomPass = null;
@@ -1289,7 +1255,6 @@ class Viewer3D {
                 this.outlinePass.enabled = false;
                 this.composer.addPass(this.outlinePass);
                 
-                console.log('OutlinePass initialized with thickness:', CONFIG_3D.OUTLINE_THICKNESS);
             } else {
                 console.warn('OutlinePass not available. Outline effect will be disabled.');
             }
@@ -1318,7 +1283,6 @@ class Viewer3D {
                 console.warn('To enable bloom, add: <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>');
             }
             
-            console.log('Postprocessing initialized successfully');
         } catch (error) {
             console.error('Error setting up postprocessing:', error);
             console.warn('Postprocessing disabled. Falling back to basic rendering.');
@@ -1486,7 +1450,6 @@ class Viewer3D {
         // Store reference for cleanup and animation
         object.userData.outlineBoxHelper = alignedBox;
         
-        console.log('Aligned outline applied to:', object.name);
     }
     
     // Create an aligned box helper that respects object rotation
@@ -1583,7 +1546,6 @@ class Viewer3D {
             this.bloomPass.enabled = false; // Disabled to prevent ANY scene dimming or overlay
         }
         
-        console.log('Glow effect applied - pure emissive glow (no bloom), color:', glowColor.toString(16), 'intensity:', object.material.emissiveIntensity, 'opacity:', object.material.opacity);
     }
     
     // Scanning lines effect - uses aligned box helper like outline
@@ -1681,13 +1643,8 @@ class Viewer3D {
             // Note: debugBoxHelper is already added as child of object by createAlignedBoxHelper
             object.userData.scanDebugBoxHelper = debugBoxHelper;
             
-            console.log('Scan debug helpers added:', object.name);
-            console.log('World Box:', worldBox);
-            console.log('World Size:', worldSize);
-            console.log('World Center:', worldCenter);
         }
         
-        console.log('Scan effect applied to:', object.name);
     }
     
     // Particle effect
@@ -1749,7 +1706,6 @@ class Viewer3D {
     startIntroAnimation() {
         if (!CONFIG_3D.ENABLE_INTRO_ANIMATION || this.meshes.length === 0) return;
         
-        console.log('Starting intro animation...');
         
         // Calculate scene bounding box
         const sceneBounds = new THREE.Box3();
@@ -1804,7 +1760,6 @@ class Viewer3D {
         
         this.scene.add(this.introAnimation.plane);
         
-        console.log('Intro animation started - rising from Y:', this.introAnimation.startY, 'to Y:', this.introAnimation.endY);
     }
     
     updateIntroAnimation() {
@@ -1865,7 +1820,6 @@ class Viewer3D {
     stopIntroAnimation() {
         if (!this.introAnimation.active) return;
         
-        console.log('Intro animation complete');
         this.introAnimation.active = false;
         
         // Remove plane
@@ -1914,7 +1868,6 @@ class Viewer3D {
         const imageLoadPromise = new Promise((resolve, reject) => {
             planImage.onload = () => {
                 planImage.style.display = 'block';
-                console.log(`Plan image loaded: ${planImagePath}`);
                 resolve();
             };
             
@@ -2125,7 +2078,6 @@ class Viewer3D {
             this.sceneHelpers.gridHelper = new THREE.GridHelper(size, divisions, 0x888888, 0x444444);
             this.sceneHelpers.gridHelper.name = 'GridHelper';
             this.scene.add(this.sceneHelpers.gridHelper);
-            console.log(`Grid Helper added: ${size} x ${divisions}`);
         } else {
             if (this.sceneHelpers.gridHelper) {
                 this.scene.remove(this.sceneHelpers.gridHelper);
@@ -2133,7 +2085,6 @@ class Viewer3D {
                 if (this.sceneHelpers.gridHelper.geometry) this.sceneHelpers.gridHelper.geometry.dispose();
                 if (this.sceneHelpers.gridHelper.material) this.sceneHelpers.gridHelper.material.dispose();
                 this.sceneHelpers.gridHelper = null;
-                console.log('Grid Helper removed');
             }
         }
     }
@@ -2164,7 +2115,6 @@ class Viewer3D {
             
             this.sceneHelpers.horizonLines = group;
             this.scene.add(group);
-            console.log('Horizon Lines added');
         } else {
             if (this.sceneHelpers.horizonLines) {
                 this.scene.remove(this.sceneHelpers.horizonLines);
@@ -2173,7 +2123,6 @@ class Viewer3D {
                     if (child.material) child.material.dispose();
                 });
                 this.sceneHelpers.horizonLines = null;
-                console.log('Horizon Lines removed');
             }
         }
     }
@@ -2216,7 +2165,6 @@ class Viewer3D {
             
             this.sceneHelpers.vanishingLines = group;
             this.scene.add(group);
-            console.log('Vanishing Lines added');
         } else {
             if (this.sceneHelpers.vanishingLines) {
                 this.scene.remove(this.sceneHelpers.vanishingLines);
@@ -2225,7 +2173,6 @@ class Viewer3D {
                     if (child.material) child.material.dispose();
                 });
                 this.sceneHelpers.vanishingLines = null;
-                console.log('Vanishing Lines removed');
             }
         }
     }
@@ -2239,7 +2186,6 @@ class Viewer3D {
             this.sceneHelpers.axesHelper = new THREE.AxesHelper(size);
             this.sceneHelpers.axesHelper.name = 'AxesHelper';
             this.scene.add(this.sceneHelpers.axesHelper);
-            console.log('Axes Helper added');
         } else {
             if (this.sceneHelpers.axesHelper) {
                 this.scene.remove(this.sceneHelpers.axesHelper);
@@ -2253,7 +2199,6 @@ class Viewer3D {
                     }
                 }
                 this.sceneHelpers.axesHelper = null;
-                console.log('Axes Helper removed');
             }
         }
     }
@@ -2267,7 +2212,6 @@ class Viewer3D {
                 this.sceneHelpers.allBoxHelpers.push(boxHelper);
                 this.scene.add(boxHelper);
             });
-            console.log(`Added ${this.sceneHelpers.allBoxHelpers.length} box helpers`);
         } else {
             // Remove all box helpers
             this.sceneHelpers.allBoxHelpers.forEach(boxHelper => {
@@ -2276,7 +2220,6 @@ class Viewer3D {
                 if (boxHelper.dispose) boxHelper.dispose();
             });
             this.sceneHelpers.allBoxHelpers = [];
-            console.log('All box helpers removed');
         }
     }
     
@@ -2288,7 +2231,6 @@ class Viewer3D {
                 this.sceneHelpers.cameraHelper = new THREE.CameraHelper(this.currentCamera);
                 this.sceneHelpers.cameraHelper.name = 'CameraHelper';
                 this.scene.add(this.sceneHelpers.cameraHelper);
-                console.log('Camera Helper added');
             }
         } else {
             if (this.sceneHelpers.cameraHelper) {
@@ -2296,7 +2238,6 @@ class Viewer3D {
                 // CameraHelper has proper dispose method
                 if (this.sceneHelpers.cameraHelper.dispose) this.sceneHelpers.cameraHelper.dispose();
                 this.sceneHelpers.cameraHelper = null;
-                console.log('Camera Helper removed');
             }
         }
     }
@@ -2423,42 +2364,24 @@ class Viewer3D {
     
     // Debug helper - call this to check if 3D is rendering
     debug() {
-        console.log('=== 3D Viewer Debug Info ===');
-        console.log('Scene:', this.scene);
-        console.log('Current Camera:', this.currentCamera);
-        console.log('Camera Index:', this.currentCameraIndex);
-        console.log('Total Cameras:', this.cameras.length);
-        console.log('Total Meshes:', this.meshes.length);
-        console.log('Renderer size:', this.renderer.getSize(new THREE.Vector2()));
-        console.log('Canvas size:', this.canvas.width, 'x', this.canvas.height);
         
         if (this.currentCamera) {
-            console.log('Camera position:', this.currentCamera.position);
-            console.log('Camera rotation:', this.currentCamera.rotation);
             if (this.currentCamera.isPerspectiveCamera) {
-                console.log('Camera FOV:', this.currentCamera.fov);
-                console.log('Camera aspect:', this.currentCamera.aspect);
             }
         }
         
         // Check if meshes are visible
         const visibleMeshes = this.meshes.filter(m => m.visible);
-        console.log('Visible meshes:', visibleMeshes.length);
         
         if (this.meshes.length > 0) {
-            console.log('First mesh position:', this.meshes[0].position);
-            console.log('First mesh material opacity:', this.meshes[0].material.opacity);
         }
         
         // Check scene bounds
         const box = new THREE.Box3().setFromObject(this.scene);
-        console.log('Scene bounds:', box);
-        console.log('Scene size:', box.getSize(new THREE.Vector3()));
     }
     
     // Make all objects super visible for debugging
     makeVisible() {
-        console.log('Making all objects highly visible (solid red)...');
         this.meshes.forEach(mesh => {
             mesh.material = new THREE.MeshBasicMaterial({
                 color: 0xff0000,
@@ -2467,16 +2390,13 @@ class Viewer3D {
                 side: THREE.DoubleSide
             });
         });
-        console.log('Done! Objects should now be bright red and fully opaque.');
     }
     
     // Reset to transparent
     makeTransparent() {
-        console.log('Resetting objects to transparent...');
         this.meshes.forEach(mesh => {
             mesh.material = mesh.userData.transparentMaterial;
         });
-        console.log('Done!');
     }
     
     // Sync with 2D viewer
@@ -2607,10 +2527,8 @@ window.addEventListener('DOMContentLoaded', () => {
             };
             
             // Debug: Show initial camera info
-            console.log('3D viewer ready. Call window.viewer3D.debug() for debug info');
             setTimeout(() => {
                 if (window.viewer3D && window.viewer3D.currentCamera) {
-                    console.log('Initial camera synced to image 0');
                     window.viewer3D.syncWithImageIndex(0);
                 }
             }, 1000);

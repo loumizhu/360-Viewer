@@ -38,9 +38,6 @@ class ProductViewer {
         this.basePath = this.clientID ? `${this.clientID}/` : '';
         
         // Log the paths being used
-        console.log('[Viewer] Repository base path:', this.repoBasePath);
-        console.log('[Viewer] Client ID:', this.clientID || 'none (using root directory)');
-        console.log('[Viewer] Images will be loaded from:', `${this.repoBasePath}${this.basePath}3D-Images/`);
         
         if (!this.clientID) {
             console.warn('[Viewer] No clientID parameter found in URL. If images are in a client folder, add ?clientID=FOLDER_NAME to the URL');
@@ -143,7 +140,6 @@ class ProductViewer {
                     // this.totalImages = 1;  // REMOVED - causes scrubbing to fail
                     this.currentImageIndex = 0;
                     
-                    console.log('[Viewer] First image loaded, waiting for discovery to complete...');
                     
                     await this.loadSingleImage(0, 'light');
                     await this.showImage(0, 'light');
@@ -175,13 +171,9 @@ class ProductViewer {
     updateImageListAfterDiscovery() {
         // Update the image lists after discovery completes
         // This is called if we already started loading
-        console.log('[Viewer] Discovery complete! Total images found:', this.totalImages);
-        console.log('[Viewer] Light images:', this.lightImages.length);
-        console.log('[Viewer] Full images:', this.fullImages.length);
         
         if (this.totalImages > 0) {
             // Restart preloading with the complete list
-            console.log('[Viewer] Restarting preload with complete image list');
             this.progressivePreload();
         } else {
             console.warn('[Viewer] No images discovered!');
@@ -278,7 +270,6 @@ class ProductViewer {
         
         // First, try to find which pattern works - but start with modif_animated immediately
         // and test only first 3 images to find the pattern quickly
-        console.log('[Discovery] Starting pattern discovery...');
         for (const patternFn of patterns) {
             let foundPattern = false;
             for (let i = 1; i <= 2; i++) { // Test only first 2 images to find pattern very quickly
@@ -295,7 +286,6 @@ class ProductViewer {
                     if (fullExists || lightExists) {
                         workingPattern = patternFn;
                         foundPattern = true;
-                        console.log(`[Discovery] Found working pattern: ${pattern} with extension ${ext}`);
                         if (fullExists) discoveredFull.add(fullPath);
                         if (lightExists) discoveredLight.add(lightPath);
                         break;
@@ -316,7 +306,6 @@ class ProductViewer {
                 
                 // Log what we're trying every 10 images or if it's the first few
                 if (i <= 5 || i % 10 === 0) {
-                    console.log(`[Discovery] Trying image ${i}: ${pattern}`);
                 }
                 
                 for (const ext of extensions) {
@@ -338,7 +327,6 @@ class ProductViewer {
                     }
                     
                     if (fullExists || lightExists) {
-                        if (i <= 5) console.log(`[Discovery] Found image ${i} with extension ${ext}`);
                         break; 
                     }
                 }
@@ -347,9 +335,7 @@ class ProductViewer {
                     consecutiveFailures = 0;
                 } else {
                     consecutiveFailures++;
-                    console.log(`[Discovery] Failed to find image ${i} (consecutive failures: ${consecutiveFailures})`);
                     if (consecutiveFailures >= maxConsecutiveFailures) {
-                        console.log(`[Discovery] Stopping after ${consecutiveFailures} consecutive failures at index ${i}`);
                         break;
                     }
                 }
@@ -357,7 +343,6 @@ class ProductViewer {
         }
         
         // Convert sets to arrays and match
-        console.log(`[Discovery] Found ${discoveredFull.size} full images and ${discoveredLight.size} light images`);
         this.matchImagePairs(Array.from(discoveredFull), Array.from(discoveredLight));
     }
     
@@ -439,8 +424,6 @@ class ProductViewer {
         
         const previousTotal = this.totalImages;
         this.totalImages = allBases.length;
-        console.log(`[Discovery] Matched ${this.totalImages} image pairs (was ${previousTotal})`);
-        console.log(`[Discovery] Sample images:`, this.lightImages.slice(0, 3));
         
         if (this.totalImages === 0) {
             const pathInfo = this.clientID ? `client folder ${this.clientID}/` : 'root';
@@ -878,7 +861,6 @@ class ProductViewer {
             this.dragDistance += deltaX;
             this.currentX = e.clientX;
             
-            console.log('[Scrubbing] Move - dragDistance:', this.dragDistance, 'sensitivity:', this.sensitivity, 'deltaX:', deltaX, 'totalImages:', this.totalImages);
             
             // Check if we've dragged enough to change image
             if (Math.abs(this.dragDistance) >= this.sensitivity) {
@@ -888,11 +870,9 @@ class ProductViewer {
                 
                 if (this.dragDistance > 0) {
                     // Dragging right - go to previous image (rotate left)
-                    console.log(`[Scrubbing] Moving to previous image: ${this.currentImageIndex} -> ${targetIndex}`);
                     this.previousImage(false).catch(err => console.warn('[Scrubbing] Error loading previous image:', err));
                 } else {
                     // Dragging left - go to next image (rotate right)
-                    console.log(`[Scrubbing] Moving to next image: ${this.currentImageIndex} -> ${targetIndex}`);
                     this.nextImage(false).catch(err => console.warn('[Scrubbing] Error loading next image:', err));
                 }
                 this.dragDistance = 0; // Reset after switching
@@ -1333,20 +1313,16 @@ class ProductViewer {
         const useTier = forceTier || (this.lightMode || !this.useFullRes || !this.fullImageElements[index] || this.isRotating) ? 'light' : 'full';
         const imageArray = useTier === 'full' ? this.fullImageElements : this.lightImageElements;
         
-        console.log(`[showImage] index: ${index}, useTier: ${useTier}, isRotating: ${this.isRotating}, useFullRes: ${this.useFullRes}, hasImage: ${!!imageArray[index]}`);
         
         // If image not loaded, load it first (especially important for scrubbing)
         if (!imageArray[index]) {
-            console.log(`[showImage] Loading ${useTier} image ${index} on demand`);
             try {
                 await this.loadSingleImage(index, useTier);
-                console.log(`[showImage] Successfully loaded ${useTier} image ${index}`);
             } catch (error) {
                 console.warn(`[showImage] Failed to load ${useTier} image ${index}:`, error);
                 // Try to show any available image as fallback
                 const fallbackArray = useTier === 'full' ? this.lightImageElements : this.fullImageElements;
                 if (fallbackArray[index]) {
-                    console.log(`[showImage] Using fallback image ${index}`);
                     this.drawImage(fallbackArray[index]);
                 }
                 return;
@@ -1355,7 +1331,6 @@ class ProductViewer {
         
         // Draw preloaded image to canvas - instant, no flashing!
         if (imageArray[index]) {
-            console.log(`[showImage] Drawing ${useTier} image ${index} to canvas`);
             this.drawImage(imageArray[index]);
         } else {
             console.warn(`[showImage] Image ${index} still not available after loading attempt`);

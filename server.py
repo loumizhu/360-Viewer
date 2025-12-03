@@ -90,18 +90,20 @@ def main():
     
     with socketserver.TCPServer(("", PORT), MyHTTPRequestHandler) as httpd:
         url = f"http://localhost:{PORT}"
+        url_with_client = f"{url}?clientID=CLT695425"
         
         print("=" * 60)
         print("🚀 360° Image Viewer Server Started!")
         print("=" * 60)
         print(f"\n📍 Server running at: {url}")
+        print(f"\n🎯 Demo scene URL: {url_with_client}")
         print(f"\n🌐 Opening browser in 2 seconds...")
         print("   (Or manually open the URL above)\n")
         print("Press Ctrl+C to stop the server\n")
         print("=" * 60)
         
-        # Open browser automatically after a short delay
-        open_browser_delayed(url, delay=2)
+        # Open browser automatically with demo clientID
+        open_browser_delayed(url_with_client, delay=2)
         
         try:
             httpd.serve_forever()
