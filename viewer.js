@@ -116,56 +116,103 @@ class ProductViewer {
         // Handle window resize
         window.addEventListener('resize', () => this.onWindowResize());
         
-        // Try to load first image immediately using most likely pattern
-        const firstImagePattern = `modif_animated (1)`;
-        const extensions = ['.jpg', '.JPG', '.jpeg', '.JPEG'];
-        const repoBase = this.repoBasePath;
-        const basePath = this.basePath;
-        
         this.loadingEl.classList.add('loading');
         
-        // Try to load first light image immediately
-        for (const ext of extensions) {
-            const lightPath = `${repoBase}${basePath}3D-Images/light/${firstImagePattern}${ext}`.replace(/\/+/g, '/');
-            const fullPath = `${repoBase}${basePath}3D-Images/${firstImagePattern}${ext}`.replace(/\/+/g, '/');
-            
-            try {
-                // Try light version first with shorter timeout for immediate loading
-                const lightExists = await this.testImageExists(lightPath, 500); // 500ms timeout for immediate load
-                if (lightExists) {
-                    // Found it! Load immediately
-                    this.lightImages = [lightPath];
-                    this.fullImages = [fullPath];
-                    // Don't set totalImages here - let discovery set it properly
-                    // this.totalImages = 1;  // REMOVED - causes scrubbing to fail
+        // Try to load manifest first for instant loading with correct filenames
+        const manifestPath = this.basePath ? `${this.repoBasePath}${this.basePath}image-manifest.json`.replace(/\/+/g, '/') : `${this.repoBasePath}image-manifest.json`.replace(/\/+/g, '/');
+        
+        fetch(manifestPath)
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error('No manifest');
+            })
+            .then(manifest => {
+                // Manifest found! Use it for immediate loading
+                if (manifest.light && manifest.light.length > 0) {
+                    const firstLightPath = `${this.repoBasePath}${manifest.light[0]}`.replace(/\/+/g, '/');
+                    const firstFullPath = `${this.repoBasePath}${manifest.full[0]}`.replace(/\/+/g, '/');
+                    
+                    this.lightImages = [firstLightPath];
+                    this.fullImages = [firstFullPath];
                     this.currentImageIndex = 0;
                     
-                    
-                    await this.loadSingleImage(0, 'light');
-                    await this.showImage(0, 'light');
-                    
-                    setTimeout(() => {
-                        this.loadingEl.classList.remove('loading');
-                        this.loadingEl.classList.add('hidden');
-                    }, 300);
-                    
-                    // Start progressive preloading in background
-                    this.progressivePreload();
-                    
-                    // Set initial cursor (zoom is 1.0, so use 360icon)
-                    this.updateCursor(false);
-                    
-                    // Show zoom hint after a moment
-                    setTimeout(() => {
-                        this.updateZoomIndicator();
-                    }, 1000);
-                    
-                    return;
+                    this.loadSingleImage(0, 'light').then(() => {
+                        this.showImage(0, 'light');
+                        setTimeout(() => {
+                            this.loadingEl.classList.remove('loading');
+                            this.loadingEl.classList.add('hidden');
+                        }, 300);
+                        
+                        this.progressivePreload();
+                        this.updateCursor(false);
+                        setTimeout(() => this.updateZoomIndicator(), 1000);
+                    });
                 }
-            } catch (e) {
-                // Continue to next extension
-            }
-        }
+            })
+            .catch(() => {
+                // No manifest - try common patterns for immediate loading
+                const commonPatterns = [
+                    'modif_animated (1)',
+                    'image_1',
+                    'img_1',
+                    'frame_1',
+                    '1',
+                    'image001',
+                    'img001',
+                    'frame001'
+                ];
+                const extensions = ['.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.webp', '.WEBP'];
+                const repoBase = this.repoBasePath;
+                const basePath = this.basePath;
+                
+                // Try each pattern with each extension
+                const tryNextPattern = async (patternIndex = 0, extIndex = 0) => {
+                    if (patternIndex >= commonPatterns.length) {
+                        // All patterns failed - discovery will handle it
+                        return;
+                    }
+                    
+                    const pattern = commonPatterns[patternIndex];
+                    const ext = extensions[extIndex];
+                    const lightPath = `${repoBase}${basePath}3D-Images/light/${pattern}${ext}`.replace(/\/+/g, '/');
+                    const fullPath = `${repoBase}${basePath}3D-Images/${pattern}${ext}`.replace(/\/+/g, '/');
+                    
+                    try {
+                        const lightExists = await this.testImageExists(lightPath, 500);
+                        if (lightExists) {
+                            this.lightImages = [lightPath];
+                            this.fullImages = [fullPath];
+                            this.currentImageIndex = 0;
+                            
+                            await this.loadSingleImage(0, 'light');
+                            await this.showImage(0, 'light');
+                            
+                            setTimeout(() => {
+                                this.loadingEl.classList.remove('loading');
+                                this.loadingEl.classList.add('hidden');
+                            }, 300);
+                            
+                            this.progressivePreload();
+                            this.updateCursor(false);
+                            setTimeout(() => this.updateZoomIndicator(), 1000);
+                            return;
+                        }
+                    } catch (e) {
+                        // Try next extension or pattern
+                    }
+                    
+                    // Try next extension, or next pattern if we've tried all extensions
+                    if (extIndex + 1 < extensions.length) {
+                        tryNextPattern(patternIndex, extIndex + 1);
+                    } else {
+                        tryNextPattern(patternIndex + 1, 0);
+                    }
+                };
+                
+                tryNextPattern();
+            });
     }
     
     updateImageListAfterDiscovery() {
