@@ -475,6 +475,20 @@ class ProductViewer {
         if (this.totalImages === 0) {
             const pathInfo = this.clientID ? `client folder ${this.clientID}/` : 'root';
             console.error(`No images found! Please ensure images are in ${pathInfo}3D-Images/ and ${pathInfo}3D-Images/light/ folders`);
+            
+            // Show helpful alert to user
+            setTimeout(() => {
+                alert(
+                    '⚠️ No Images Found!\n\n' +
+                    `Images should be in: ${pathInfo}3D-Images/\n\n` +
+                    'Quick Fix:\n' +
+                    '1. Make sure your images are in the 3D-Images folder\n' +
+                    '2. Run "create-light-images.bat" to create optimized versions\n' +
+                    '3. Run "create-image-manifest.bat" for faster loading\n' +
+                    '4. Refresh the page\n\n' +
+                    'The app will work with any image names after running these scripts!'
+                );
+            }, 1000);
         }
     }
     
