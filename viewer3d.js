@@ -128,7 +128,14 @@ const CONFIG_3D = {
     INTRO_FADE_SPEED: 2.0,          // Speed of fade in/out
     INTRO_PLANE_COLOR: 0x00ffff,    // Color of the scanning plane (cyan) - only for debug
     INTRO_PLANE_OPACITY: 0.0,       // Opacity of the scanning plane (0 = invisible)
-    INTRO_SHOW_PLANE: false         // Show the plane during animation (false = invisible)
+    INTRO_SHOW_PLANE: false,        // Show the plane during animation (false = invisible)
+    
+    // Drop Animation settings
+    ENABLE_DROP_ANIMATION: true,    // Enable/disable drop animation
+    DROP_HEIGHT: 5000,              // Height from which objects drop
+    DROP_SPEED: 2.0,                // Speed of drop animation (lerp factor)
+    DROP_DELAY: 500,                // Delay before animation starts (ms)
+    DROP_STAGGER: 50                // Delay between objects dropping (if implemented, currently simultaneous)
 };
 
 // ============================================
@@ -189,6 +196,14 @@ class Viewer3D {
             objectOpacities: new Map()
         };
         
+        // Drop animation state
+        this.dropAnimation = {
+            active: false,
+            complete: false,
+            startTime: 0,
+            objects: [] // Store objects and their target Y
+        };
+        
         // Create tooltip element
         this.createTooltip();
         
@@ -200,6 +215,17 @@ class Viewer3D {
         // Setup effect selector UI after DOM is ready and UI settings panel is initialized
         setTimeout(() => {
             this.setupEffectSelector();
+            
+            // Load saved debug settings (Drop Animation)
+            if (window.uiSettings) {
+                const debugDrop = window.uiSettings.getSetting('debug', 'dropAnimation');
+                if (debugDrop !== undefined) {
+                    CONFIG_3D.ENABLE_DROP_ANIMATION = debugDrop;
+                    // Update checkbox if it exists
+                    const dropCheckbox = document.getElementById('debug-drop-animation');
+                    if (dropCheckbox) dropCheckbox.checked = CONFIG_3D.ENABLE_DROP_ANIMATION;
+                }
+            }
         }, 500);
     }
     
@@ -605,6 +631,14 @@ class Viewer3D {
                 </div>
                 
                 <div class="debug-toggle">
+                    <label for="debug-drop-animation">Drop Animation</label>
+                    <label class="debug-switch">
+                        <input type="checkbox" id="debug-drop-animation" ${CONFIG_3D.ENABLE_DROP_ANIMATION ? 'checked' : ''}>
+                        <span class="debug-switch-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="debug-toggle">
                     <label for="debug-horizon">Horizon Lines</label>
                     <label class="debug-switch">
                         <input type="checkbox" id="debug-horizon">
@@ -775,6 +809,25 @@ class Viewer3D {
                 this.debugSettings.showGrid = e.target.checked;
                 this.toggleGridHelper();
             });
+            
+            // Drop Animation toggle
+            document.getElementById('debug-drop-animation')?.addEventListener('change', (e) => {
+                CONFIG_3D.ENABLE_DROP_ANIMATION = e.target.checked;
+                
+                // Save setting
+                if (window.uiSettings) {
+                    window.uiSettings.updateSetting('debug', 'dropAnimation', e.target.checked);
+                }
+                
+                // If enabled and not complete, restart? Or just next time?
+                // For now, it just affects next load. 
+                // To restart: window.location.reload() or re-trigger setupDropAnimation (complex)
+                if (e.target.checked && this.dropAnimation.complete) {
+                    if (confirm('Reload scene to see drop animation?')) {
+                        window.location.reload();
+                    }
+                }
+            });
         
         // Horizon toggle
         document.getElementById('debug-horizon')?.addEventListener('change', (e) => {
@@ -862,9 +915,16 @@ class Viewer3D {
         this.animate();
         
         
-        // Start intro animation if enabled
-        if (CONFIG_3D.ENABLE_INTRO_ANIMATION) {
-            setTimeout(() => this.startIntroAnimation(), CONFIG_3D.INTRO_DELAY);
+        
+        // Start drop animation if enabled
+        if (CONFIG_3D.ENABLE_DROP_ANIMATION) {
+            setTimeout(() => this.startDropAnimation(), CONFIG_3D.DROP_DELAY);
+        } else {
+            // Ensure objects are visible if animation is disabled
+             this.meshes.forEach(mesh => {
+                 mesh.visible = true;
+                 mesh.material.opacity = CONFIG_3D.DEFAULT_OPACITY; // Transparent
+             });
         }
     }
     
@@ -1003,6 +1063,15 @@ class Viewer3D {
                         if (this.cameras[0].isPerspectiveCamera) {
                         }
                     }
+                    
+                    // Debug first camera
+                    if (this.cameras.length > 0) {
+                        if (this.cameras[0].isPerspectiveCamera) {
+                        }
+                    }
+                    
+                    // Setup drop animation positions
+                    this.setupDropAnimation();
                     
                     resolve();
                 },
@@ -1908,6 +1977,81 @@ class Viewer3D {
         // Clear state
         this.introAnimation.touchedObjects.clear();
         this.introAnimation.objectOpacities.clear();
+        this.introAnimation.touchedObjects.clear();
+        this.introAnimation.objectOpacities.clear();
+    }
+    
+    // ============================================
+    // DROP ANIMATION
+    // ============================================
+    setupDropAnimation() {
+        if (!CONFIG_3D.ENABLE_DROP_ANIMATION) return;
+        
+        this.dropAnimation.objects = [];
+        
+        this.meshes.forEach(mesh => {
+            // Store original Y
+            const originalY = mesh.position.y;
+            
+            // Move up
+            mesh.position.y += CONFIG_3D.DROP_HEIGHT;
+            
+            // Set visible and semi-transparent
+            mesh.visible = true;
+            mesh.material.opacity = 0.8; // Visible during drop
+            mesh.material.transparent = true;
+            
+            this.dropAnimation.objects.push({
+                mesh: mesh,
+                targetY: originalY,
+                currentY: mesh.position.y
+            });
+        });
+    }
+    
+    startDropAnimation() {
+        if (!CONFIG_3D.ENABLE_DROP_ANIMATION || this.dropAnimation.objects.length === 0) return;
+        
+        this.dropAnimation.active = true;
+        this.dropAnimation.complete = false;
+        this.dropAnimation.startTime = Date.now();
+    }
+    
+    updateDropAnimation() {
+        if (!this.dropAnimation.active || this.dropAnimation.complete) return;
+        
+        const dt = 0.016; // Approx 60fps delta
+        const speed = CONFIG_3D.DROP_SPEED;
+        let allComplete = true;
+        
+        this.dropAnimation.objects.forEach(obj => {
+            const mesh = obj.mesh;
+            const diff = obj.targetY - mesh.position.y;
+            
+            if (Math.abs(diff) > 0.1) {
+                // Lerp position
+                mesh.position.y += diff * speed * dt * 5; // Multiplier for better feel
+                allComplete = false;
+            } else {
+                // Snap to target
+                mesh.position.y = obj.targetY;
+                
+                // Fade out to default opacity (invisible)
+                if (mesh.material.opacity > CONFIG_3D.DEFAULT_OPACITY) {
+                    mesh.material.opacity = Math.max(CONFIG_3D.DEFAULT_OPACITY, mesh.material.opacity - dt * 2.0);
+                    allComplete = false; // Still fading
+                }
+            }
+        });
+        
+        if (allComplete) {
+            this.dropAnimation.active = false;
+            this.dropAnimation.complete = true;
+            // Ensure final state
+            this.meshes.forEach(mesh => {
+                mesh.material.opacity = CONFIG_3D.DEFAULT_OPACITY;
+            });
+        }
     }
     
     showPlanImage(objectName) {
@@ -2388,7 +2532,8 @@ class Viewer3D {
         requestAnimationFrame(() => this.animate());
         
         // Update intro animation
-        this.updateIntroAnimation();
+        // this.updateIntroAnimation(); // Disabled in favor of drop animation
+        this.updateDropAnimation();
         
         // Update animated effects
         this.updateEffects();
