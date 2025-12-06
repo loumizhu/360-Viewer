@@ -133,7 +133,8 @@ const CONFIG_3D = {
     // Drop Animation settings
     ENABLE_DROP_ANIMATION: true,    // Enable/disable drop animation
     DROP_HEIGHT: 5000,              // Height from which objects drop
-    DROP_SPEED: 2.0,                // Speed of drop animation (lerp factor)
+    DROP_GRAVITY: 3500.0,           // Gravity accelerating the drop (units/s^2)
+    DROP_TERMINAL_VELOCITY: 8000.0, // Maximum speed
     DROP_DELAY: 500,                // Delay before animation starts (ms)
     DROP_STAGGER: 50                // Delay between objects dropping (if implemented, currently simultaneous)
 };
@@ -2004,7 +2005,8 @@ class Viewer3D {
             this.dropAnimation.objects.push({
                 mesh: mesh,
                 targetY: originalY,
-                currentY: mesh.position.y
+                velocity: 0,
+                hasLanded: false
             });
         });
     }
@@ -2021,24 +2023,35 @@ class Viewer3D {
         if (!this.dropAnimation.active || this.dropAnimation.complete) return;
         
         const dt = 0.016; // Approx 60fps delta
-        const speed = CONFIG_3D.DROP_SPEED;
         let allComplete = true;
         
         this.dropAnimation.objects.forEach(obj => {
             const mesh = obj.mesh;
-            const diff = obj.targetY - mesh.position.y;
             
-            if (Math.abs(diff) > 0.1) {
-                // Lerp position
-                mesh.position.y += diff * speed * dt * 5; // Multiplier for better feel
+            if (!obj.hasLanded) {
+                // Apply gravity to velocity
+                obj.velocity += CONFIG_3D.DROP_GRAVITY * dt;
+                
+                // Clamp terminal velocity
+                obj.velocity = Math.min(obj.velocity, CONFIG_3D.DROP_TERMINAL_VELOCITY);
+                
+                // Move object
+                mesh.position.y -= obj.velocity * dt;
+                
+                // Check for landing
+                if (mesh.position.y <= obj.targetY) {
+                    // Hard stop (heavy brick effect)
+                    mesh.position.y = obj.targetY;
+                    obj.hasLanded = true;
+                    // Optional: could add a very small bounce here if requested, but "heavy brick" usually means thud.
+                }
                 allComplete = false;
             } else {
-                // Snap to target
-                mesh.position.y = obj.targetY;
-                
+                // Fade out after landing
                 // Fade out to default opacity (invisible)
                 if (mesh.material.opacity > CONFIG_3D.DEFAULT_OPACITY) {
-                    mesh.material.opacity = Math.max(CONFIG_3D.DEFAULT_OPACITY, mesh.material.opacity - dt * 2.0);
+                    // Fast fade out
+                    mesh.material.opacity = Math.max(CONFIG_3D.DEFAULT_OPACITY, mesh.material.opacity - dt * 3.0);
                     allComplete = false; // Still fading
                 }
             }
