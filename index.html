@@ -11,6 +11,39 @@
 </head>
 
 <body>
+    <!-- 3D Cube Loader -->
+    <div id="page-loader" class="page-loader">
+        <div class="loader-content">
+            <h1 class="loader-title">3D VARA</h1>
+            <div class="boxes">
+                <div class="box">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>
+                <div class="box">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>
+                <div class="box">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>
+                <div class="box">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="container">
         <canvas id="viewer"></canvas>
         <canvas id="viewer3d"></canvas>
@@ -175,9 +208,67 @@
     <script src="settings.js"></script>
     <script src="viewer.js"></script>
     <script src="viewer3d.js"></script>
+    <script src="loader-integration.js"></script>
     <script src="ui-interactions.js"></script>
     <script src="ui-settings.js"></script>
     <script src="plan-panel-interactions.js"></script>
+
+    <!-- Loader Control Script -->
+    <script>
+        // Track loading state
+        const loaderState = {
+            htmlLoaded: false,
+            firstImageLoaded: false,
+            viewer3dReady: false
+        };
+
+        // Check if all critical resources are loaded
+        function checkAllLoaded() {
+            if (loaderState.htmlLoaded && loaderState.firstImageLoaded && loaderState.viewer3dReady) {
+                hideLoader();
+            }
+        }
+
+        // Hide loader with 3D swipe animation
+        function hideLoader() {
+            const loader = document.getElementById('page-loader');
+            if (loader && !loader.classList.contains('loaded')) {
+                setTimeout(() => {
+                    loader.classList.add('loaded');
+                    // Remove from DOM after animation completes
+                    setTimeout(() => {
+                        loader.remove();
+                    }, 800);
+                }, 300); // Small delay for smooth transition
+            }
+        }
+
+        // Mark HTML as loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            loaderState.htmlLoaded = true;
+            checkAllLoaded();
+        });
+
+        // Listen for first image loaded event from viewer.js
+        window.addEventListener('firstImageLoaded', () => {
+            loaderState.firstImageLoaded = true;
+            checkAllLoaded();
+        });
+
+        // Listen for 3D viewer ready event from viewer3d.js
+        window.addEventListener('viewer3dReady', () => {
+            loaderState.viewer3dReady = true;
+            checkAllLoaded();
+        });
+
+        // Fallback: Hide loader after 5 seconds if events don't fire
+        setTimeout(() => {
+            if (!document.getElementById('page-loader')?.classList.contains('loaded')) {
+                console.warn('[Loader] Timeout reached, hiding loader');
+                hideLoader();
+            }
+        }, 5000);
+    </script>
 </body>
 
 </html>
