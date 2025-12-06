@@ -2470,16 +2470,71 @@ class Viewer3D {
     
     // Sync with 2D viewer
     syncWithImageIndex(imageIndex) {
-        // Map image index to camera index (assuming 1:1 mapping)
-        if (this.cameras.length > 0) {
-            // If we have exactly 90 cameras, direct mapping
-            if (this.cameras.length === 90) {
-                this.switchCamera(imageIndex);
-            } else {
-                // Otherwise, scale the index proportionally
-                const cameraIndex = Math.round((imageIndex / 89) * (this.cameras.length - 1));
-                this.switchCamera(cameraIndex);
-            }
+        if (this.cameras.length === 0) return;
+        
+        // Get total images from 2D viewer
+        const viewer = window.productViewer || window.viewer;
+        // Default to cameras length if not ready specific check for 1 image to avoid division by zero
+        // If viewer.totalImages is 0 (not loaded), fallback to 1 to avoid division by zero
+        const totalImages = (viewer && viewer.totalImages > 0) ? viewer.totalImages : this.cameras.length;
+        
+        // Calculate normalized progress (0.0 to 1.0)
+        // Ensure we don't divide by zero if there's only 1 image
+        const maxImageIndex = Math.max(1, totalImages - 1);
+        const progress = imageIndex / maxImageIndex;
+        
+        // Map to camera index
+        const maxCameraIndex = this.cameras.length - 1;
+        const cameraIndex = Math.round(progress * maxCameraIndex);
+        
+        // Ensure bounds
+        const safeIndex = Math.max(0, Math.min(cameraIndex, maxCameraIndex));
+        
+        this.switchCamera(safeIndex);
+        
+        // Perform a one-time check for mismatch
+        if (!this._hasCheckedSyncMismatch && viewer && viewer.totalImages > 0) {
+            this.checkSyncMismatch(viewer.totalImages, this.cameras.length);
+            this._hasCheckedSyncMismatch = true;
+        }
+    }
+    
+    checkSyncMismatch(imageCount, cameraCount) {
+        if (imageCount !== cameraCount) {
+            console.warn(`[Sync Mismatch] Images: ${imageCount}, Cameras: ${cameraCount}`);
+            
+            // Show user-facing warning
+            const warningEl = document.createElement('div');
+            warningEl.id = 'sync-mismatch-warning';
+            warningEl.style.position = 'fixed';
+            warningEl.style.top = '80px';
+            warningEl.style.left = '50%';
+            warningEl.style.transform = 'translateX(-50%)';
+            warningEl.style.background = 'rgba(255, 100, 0, 0.9)'; // Orange-Red
+            warningEl.style.color = 'white';
+            warningEl.style.padding = '10px 20px';
+            warningEl.style.borderRadius = '30px';
+            warningEl.style.zIndex = '10000';
+            warningEl.style.fontFamily = 'system-ui, sans-serif';
+            warningEl.style.fontSize = '14px';
+            warningEl.style.fontWeight = 'bold';
+            warningEl.style.pointerEvents = 'none';
+            warningEl.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
+            warningEl.style.backdropFilter = 'blur(8px)';
+            warningEl.style.border = '1px solid rgba(255,255,255,0.2)';
+            warningEl.style.transition = 'opacity 0.5s, transform 0.5s';
+            warningEl.innerHTML = `⚠️ Data Mismatch: ${imageCount} Images vs ${cameraCount} Cameras`;
+            
+            document.body.appendChild(warningEl);
+            
+            // Fade out after 6 seconds
+            setTimeout(() => {
+                if (warningEl) {
+                    warningEl.style.opacity = '0';
+                    warningEl.style.transform = 'translateX(-50%) translateY(-20px)';
+                    setTimeout(() => warningEl.remove(), 500);
+                }
+            }, 6000);
         }
     }
     
