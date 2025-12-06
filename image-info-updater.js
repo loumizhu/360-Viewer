@@ -8,8 +8,10 @@
     
     // Wait for viewer and debug panel elements to be ready
     function initImageInfoPanel() {
+        const viewer = window.productViewer || window.viewer;
+        
         // Check if viewer exists
-        if (!window.viewer || !window.viewer.totalImages) {
+        if (!viewer || !viewer.totalImages) {
             setTimeout(initImageInfoPanel, 500);
             return;
         }
@@ -31,15 +33,15 @@
         updateInterval = setInterval(updateImageInfo, 1000);
         
         // Update on image change (listen for custom events if available)
-        if (window.viewer.canvas) {
-            window.viewer.canvas.addEventListener('mouseup', () => {
+        if (viewer.canvas) {
+            viewer.canvas.addEventListener('mouseup', () => {
                 setTimeout(updateImageInfo, 100);
             });
         }
     }
     
     function updateImageInfo() {
-        const viewer = window.viewer;
+        const viewer = window.productViewer || window.viewer;
         if (!viewer) return;
         
         // Update total images count
