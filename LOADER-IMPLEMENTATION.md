@@ -132,7 +132,7 @@ To customize the loader, edit these variables in `style.css`:
 
 /* Change title */
 .loader-title {
-    font-size: 48px; /* Your size */
+    font-size: 25px; /* Your size */
 }
 ```
 
