@@ -696,6 +696,75 @@ class Viewer3D {
                     <strong>Hovered:</strong> None
                 </div>
             </div>
+
+            <!-- Image Information Section -->
+            <div class="debug-section">
+                <div class="debug-section-title">Image Info</div>
+                
+                <!-- Summary Stats -->
+                <div class="info-stats-grid">
+                    <div class="info-stat-item">
+                        <span class="info-stat-label">Total Images:</span>
+                        <span class="info-stat-value" id="total-images-count">0</span>
+                    </div>
+                    <div class="info-stat-item">
+                        <span class="info-stat-label">Current:</span>
+                        <span class="info-stat-value" id="current-image-index">0</span>
+                    </div>
+                    <div class="info-stat-item">
+                        <span class="info-stat-label">Light:</span>
+                        <span class="info-stat-value" id="light-images-loaded">0</span>
+                    </div>
+                    <div class="info-stat-item">
+                        <span class="info-stat-label">Full:</span>
+                        <span class="info-stat-value" id="full-images-loaded">0</span>
+                    </div>
+                </div>
+                
+                <!-- Current Image Details -->
+                <div class="current-image-details">
+                    <h5 class="info-subsection-title">Current Details</h5>
+                    <div class="info-detail-item">
+                        <span class="info-detail-label">Res:</span>
+                        <span class="info-detail-value" id="current-image-resolution">-</span>
+                    </div>
+                    <div class="info-detail-item">
+                        <span class="info-detail-label">Size:</span>
+                        <span class="info-detail-value" id="current-image-size">-</span>
+                    </div>
+                    <div class="info-detail-item">
+                        <span class="info-detail-label">Type:</span>
+                        <span class="info-detail-value" id="current-image-type">-</span>
+                    </div>
+                    <div class="info-detail-item">
+                        <span class="info-detail-label">Path:</span>
+                        <span class="info-detail-value info-path" id="current-image-path">-</span>
+                    </div>
+                </div>
+                
+                <!-- Loading Progress -->
+                <div class="loading-progress-info">
+                    <h5 class="info-subsection-title">Progress</h5>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-label">
+                            <span>Light</span>
+                            <span id="light-progress-text">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-bar-fill" id="light-progress-bar"></div>
+                        </div>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-label">
+                            <span>Full</span>
+                            <span id="full-progress-text">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-bar-fill" id="full-progress-bar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
     }
     

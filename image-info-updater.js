@@ -6,10 +6,17 @@
     
     let updateInterval = null;
     
-    // Wait for viewer to be ready
+    // Wait for viewer and debug panel elements to be ready
     function initImageInfoPanel() {
         // Check if viewer exists
         if (!window.viewer || !window.viewer.totalImages) {
+            setTimeout(initImageInfoPanel, 500);
+            return;
+        }
+        
+        // Check if debug panel elements exist (they might be created later by viewer3d)
+        if (!document.getElementById('total-images-count')) {
+            console.log('[ImageInfo] Waiting for debug panel elements...');
             setTimeout(initImageInfoPanel, 500);
             return;
         }
@@ -20,6 +27,7 @@
         updateImageInfo();
         
         // Update every second
+        if (updateInterval) clearInterval(updateInterval);
         updateInterval = setInterval(updateImageInfo, 1000);
         
         // Update on image change (listen for custom events if available)
