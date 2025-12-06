@@ -1995,7 +1995,151 @@ body {
 
 #toolbar-restore-btn {
     display: none;
-}/* ============================================
+}
+
+/* ============================================
+   UI SETTINGS PANEL - Right Sidebar
+   ============================================ */
+#ui-settings-panel {
+    position: absolute;
+    right: var(--ui-spacing-xl);
+    top: var(--ui-spacing-xl);
+    width: 380px;
+    max-height: calc(100vh - 40px);
+    background: var(--ui-bg-panel);
+    border: var(--ui-border-width) solid var(--ui-border-color);
+    border-radius: var(--ui-border-radius-lg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 15;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    box-shadow: var(--ui-shadow-xl);
+}
+
+#ui-settings-panel.glowing {
+    box-shadow: 0 0 30px var(--ui-primary-400), 0 0 60px var(--ui-primary-500), var(--ui-shadow-xl);
+    border-color: var(--ui-primary-400);
+}
+
+#ui-settings-panel.hidden {
+    transform: translateX(420px);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ui-settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--ui-spacing-lg) var(--ui-spacing-xl);
+    background: var(--ui-bg-card);
+    border-bottom: 1px solid var(--ui-border-color);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.ui-settings-header h3 {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-xl);
+    font-weight: var(--ui-font-weight-bold);
+    margin: 0;
+    font-family: var(--ui-font-family);
+}
+
+.ui-settings-close-btn {
+    background: var(--ui-bg-card);
+    border: none;
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-2xl);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    line-height: 1;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.ui-settings-close-btn:hover {
+    background: var(--ui-danger);
+    transform: rotate(90deg);
+    box-shadow: var(--ui-shadow-md);
+}
+
+.ui-settings-close-btn:active,
+.ui-settings-close-btn.glowing {
+    box-shadow: 0 0 20px var(--ui-danger), 0 0 40px var(--ui-danger);
+    background: var(--ui-danger);
+}
+
+.ui-settings-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--ui-spacing-xl);
+}
+
+/* Custom scrollbar for ui settings panel */
+.ui-settings-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.ui-settings-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.ui-settings-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.ui-settings-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* UI Settings Sections */
+.ui-settings-section {
+    margin-bottom: var(--ui-spacing-2xl);
+    padding-bottom: var(--ui-spacing-xl);
+    border-bottom: 1px solid var(--ui-border-color);
+}
+
+.ui-settings-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.ui-settings-section-title {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-lg);
+    font-weight: var(--ui-font-weight-bold);
+    margin: 0 0 var(--ui-spacing-lg) 0;
+    padding-bottom: var(--ui-spacing-sm);
+    border-bottom: 2px solid var(--ui-primary-400);
+    font-family: var(--ui-font-family);
+}
+
+.ui-settings-group {
+    margin-bottom: var(--ui-spacing-md);
+}
+
+.ui-settings-label {
+    display: block;
+    color: var(--ui-text-secondary);
+    font-size: var(--ui-font-size-sm);
+    font-weight: var(--ui-font-weight-medium);
+    margin-bottom: var(--ui-spacing-sm);
+    font-family: var(--ui-font-family);
+}
+
+/* ============================================
    IMAGE INFORMATION SECTION STYLES
    ============================================ */
 
