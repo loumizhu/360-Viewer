@@ -66,7 +66,7 @@ const CONFIG_3D = {
     CAMERA_NEAR_CLIP: 0.1,      // Near clipping plane base value (objects closer than this are not rendered)
     CAMERA_FAR_CLIP: 10000000,      // Far clipping plane (objects farther than this are not rendered)
     DYNAMIC_CLIPPING: false,         // Automatically adjust clipping planes based on scene size and zoom level
-    NEAR_CLIP_ZOOM_FACTOR: 1.0,     // How aggressively near plane reduces with zoom (1.0 = linear, 2.0 = squared)
+    NEAR_CLIP_ZOOM_FACTOR: 2.0,     // How aggressively near plane reduces with zoom (1.0 = linear, 2.0 = squared)
     
     // Tooltip settings
     SHOW_TOOLTIP: true,             // Show tooltip with object name on hover
@@ -132,11 +132,11 @@ const CONFIG_3D = {
     
     // Drop Animation settings
     ENABLE_DROP_ANIMATION: true,    // Enable/disable drop animation
-    DROP_HEIGHT: 2000,             // Height from which objects drop (increased to ensure it's above camera)
-    DROP_GRAVITY: 400.0,           // Gravity accelerating the drop (units/s^2)
-    DROP_TERMINAL_VELOCITY: 1000.0,// Maximum speed
+    DROP_HEIGHT: 2000,             // Height from which objects drop (will be overridden by scene size)
+    DROP_GRAVITY: 25000.0,         // Gravity accelerating the drop (units/s^2) - Adjusted for large scale
+    DROP_TERMINAL_VELOCITY: 50000.0, // Maximum speed - Adjusted for large scale
     DROP_DELAY: 500,                // Delay before animation starts (ms)
-    DROP_STAGGER: 100               // Delay between objects dropping (ms)
+    DROP_STAGGER: 50                // Delay between objects dropping (ms)
 };
 
 // ============================================
@@ -1018,8 +1018,10 @@ class Viewer3D {
                     
                     // Calculate bounding box to understand scene scale
                     const box = new THREE.Box3().setFromObject(this.scene);
-                    const size = box.getSize(new THREE.Vector3());
-                    const center = box.getCenter(new THREE.Vector3());
+                    const size = new THREE.Vector3();
+                    box.getSize(size);
+                    const center = new THREE.Vector3();
+                    box.getCenter(center);
                     
                     // Store for dynamic clipping calculations
                     this.sceneBounds = { box, size, center };
@@ -2026,9 +2028,8 @@ class Viewer3D {
             // Apply initial position: LocalPos = OriginalLocal + (LocalUnitUp * WorldHeight)
             mesh.position.copy(originalPosition).addScaledVector(localUnitUp, currentHeight);
             
-            // CRITICAL: Disable auto update to prevent GLTF animations/constraints from resetting position
-            mesh.matrixAutoUpdate = false;
-            mesh.updateMatrix();
+            // Ensure no culling issues for high objects
+            mesh.frustumCulled = false;
             
             // Set visible and semi-transparent
             mesh.visible = true;
@@ -2067,13 +2068,6 @@ class Viewer3D {
         
         const dt = 0.016; // Approx 60fps delta
         let allComplete = true;
-        let activeCount = 0;
-        
-        // Debug logging for the first object every 60 frames (approx 1 sec)
-        const shouldLog = Math.floor(currentTime / 1000) > Math.floor(this._lastLogTime || 0);
-        if (shouldLog) {
-            this._lastLogTime = currentTime / 1000;
-        }
         
         this.dropAnimation.objects.forEach((obj, index) => {
             // Check if this object's delay has passed
@@ -2082,7 +2076,6 @@ class Viewer3D {
                 return;
             }
             
-            activeCount++;
             const mesh = obj.mesh;
             
             if (!obj.hasLanded) {
@@ -2100,21 +2093,10 @@ class Viewer3D {
                     // Hard stop
                     obj.currentHeight = 0;
                     obj.hasLanded = true;
-                    // Restore auto update once landed
-                    if (mesh.matrixAutoUpdate === false) {
-                        mesh.matrixAutoUpdate = true;
-                    }
                 }
                 
                 // Update Position: OriginalLocal + (LocalUnitUp * WorldHeight)
                 mesh.position.copy(obj.originalPosition).addScaledVector(obj.localUnitUp, obj.currentHeight);
-                
-                // Force matrix update since autoUpdate is false
-                mesh.updateMatrix();
-                
-                if (shouldLog && index === 0) {
-                     console.log(`[Viewer3D] Drop Obj 0: Height ${obj.currentHeight.toFixed(2)}, Vel ${obj.velocity.toFixed(2)}, Pos ${mesh.position.toArray().map(v=>v.toFixed(2))}`);
-                }
                 
                 allComplete = false;
             } else {
@@ -2128,10 +2110,6 @@ class Viewer3D {
                 }
             }
         });
-        
-        if (shouldLog && !allComplete) {
-            console.log(`[Viewer3D] Dropping... Active: ${activeCount}/${this.dropAnimation.objects.length}`);
-        }
         
         if (allComplete) {
             console.log('[Viewer3D] Drop Animation Complete');
