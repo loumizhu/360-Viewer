@@ -995,13 +995,27 @@ class Viewer3D {
             
             // If no model path in settings, try to find default or use hardcoded fallback
             if (!modelPath) {
-                // FALLBACK: Use the hardcoded path from before if settings.json is empty
-                modelPath = `${repoBase}${basePath}3D/3D.glb`.replace(/\/+/g, '/');
+                // FALLBACK: Use the hardcoded path if nothing else found
+                modelPath = `${repoBase}${basePath}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/');
                 console.warn('No MODEL_PATH in settings, using fallback:', modelPath);
             } else {
-                 // Ensure path is relative to repo/client
-                 if (!modelPath.startsWith('http') && !modelPath.startsWith('/')) {
-                     modelPath = `${repoBase}${basePath}${modelPath}`.replace(/\/+/g, '/');
+                 // Check if it's an absolute URL
+                 if (modelPath.startsWith('http') || modelPath.startsWith('//')) {
+                     // Do nothing, use as is
+                 } 
+                 // If it already includes the client folder (manifest case), only add repo base
+                 else if (clientID && modelPath.startsWith(clientID + '/')) {
+                     modelPath = `${repoBase}${modelPath}`.replace(/\/+/g, '/');
+                 }
+                 // Otherwise add full path (normal case)
+                 else {
+                     // If it starts with a slash, treat as relative to root (repo base)
+                     if (modelPath.startsWith('/')) {
+                        modelPath = `${repoBase}${modelPath.substring(1)}`.replace(/\/+/g, '/');
+                     } else {
+                        // Relative to client folder
+                        modelPath = `${repoBase}${basePath}${modelPath}`.replace(/\/+/g, '/');
+                     }
                  }
             }
             
