@@ -36,6 +36,16 @@ def get_base_name(filename: str) -> str:
     """Get base name without extension"""
     return Path(filename).stem
 
+def get_3d_model(directory: Path) -> str:
+    """Find the first .glb or .gltf file in the directory"""
+    if not directory.exists():
+        return None
+        
+    for file in directory.iterdir():
+        if file.is_file() and file.suffix.lower() in {'.glb', '.gltf'}:
+            return file.name
+    return None
+
 def create_manifest_for_client(client_folder: Path) -> Dict:
     """Create manifest for a specific client folder"""
     images_path = client_folder / "3D-Images"
@@ -93,9 +103,18 @@ def create_manifest_for_client(client_folder: Path) -> Dict:
             # Use full version if light doesn't exist
             light_paths.append(f"{client_name}/3D-Images/{full_img}")
     
+    
+    # Check for 3D model
+    model_dir = client_folder / "3D"
+    model_file = get_3d_model(model_dir)
+    model_path = None
+    if model_file:
+        model_path = f"{client_name}/3D/{model_file}"
+    
     return {
         "light": light_paths,
-        "full": full_paths
+        "full": full_paths,
+        "model3d": model_path
     }
 
 def create_root_manifest(root_path: Path) -> Dict:
@@ -152,9 +171,19 @@ def create_root_manifest(root_path: Path) -> Dict:
         elif full_img:
             light_paths.append(f"3D-Images/{full_img}")
     
+            light_paths.append(f"3D-Images/{full_img}")
+    
+    # Check for 3D model
+    model_dir = root_path / "3D"
+    model_file = get_3d_model(model_dir)
+    model_path = None
+    if model_file:
+        model_path = f"3D/{model_file}"
+        
     return {
         "light": light_paths,
-        "full": full_paths
+        "full": full_paths,
+        "model3d": model_path
     }
 
 def main():
@@ -178,7 +207,10 @@ def main():
                 json.dump(manifest, f, indent=2, ensure_ascii=False)
             print(f"  [OK] Created: {manifest_path}")
             print(f"    - {len(manifest['light'])} light images")
-            print(f"    - {len(manifest['full'])} full images\n")
+            print(f"    - {len(manifest['full'])} full images")
+            if manifest.get('model3d'):
+                print(f"    - Found 3D Model: {manifest['model3d']}")
+            print("")
             manifests_created += 1
     
     # Check for client folders
@@ -195,7 +227,10 @@ def main():
                         json.dump(manifest, f, indent=2, ensure_ascii=False)
                     print(f"  [OK] Created: {manifest_path}")
                     print(f"    - {len(manifest['light'])} light images")
-                    print(f"    - {len(manifest['full'])} full images\n")
+                    print(f"    - {len(manifest['full'])} full images")
+                    if manifest.get('model3d'):
+                        print(f"    - Found 3D Model: {manifest['model3d']}")
+                    print("")
                     manifests_created += 1
     
     if manifests_created == 0:
