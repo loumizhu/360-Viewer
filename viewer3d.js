@@ -125,7 +125,7 @@ async function loadViewerSettings() {
             .then(res => res.ok ? res.json() : null)
             .catch(() => null);
             
-        const manifestPath = CLIENT_ID ? `${REPO_BASE_PATH}${CLIENT_BASE_PATH}image-manifest.json`.replace(/\/+/g, '/') : `${REPO_BASE_PATH}image-manifest.json`;
+        const manifestPath = `${REPO_BASE_PATH}image-manifest.json`;
         const manifestPromise = fetch(manifestPath)
             .then(res => res.ok ? res.json() : null)
             .catch(() => null);
