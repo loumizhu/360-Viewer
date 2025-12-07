@@ -131,7 +131,7 @@ const CONFIG_3D = {
     INTRO_SHOW_PLANE: false,        // Show the plane during animation (false = invisible)
     
     // Drop Animation settings
-    ENABLE_DROP_ANIMATION: true,    // Enable/disable drop animation
+    ENABLE_DROP_ANIMATION: false,    // Enable/disable drop animation
     DROP_HEIGHT: 2000,             // Height from which objects drop (will be overridden by scene size)
     DROP_GRAVITY: 25000.0,         // Gravity accelerating the drop (units/s^2) - Adjusted for large scale
     DROP_TERMINAL_VELOCITY: 50000.0, // Maximum speed - Adjusted for large scale
