@@ -132,7 +132,7 @@ const CONFIG_3D = {
     
     // Drop Animation settings
     ENABLE_DROP_ANIMATION: true,    // Enable/disable drop animation
-    DROP_HEIGHT: 20000,             // Height from which objects drop (increased to ensure it's above camera)
+    DROP_HEIGHT: 2000000,             // Height from which objects drop (increased to ensure it's above camera)
     DROP_GRAVITY: 4000.0,           // Gravity accelerating the drop (units/s^2)
     DROP_TERMINAL_VELOCITY: 100000.0,// Maximum speed
     DROP_DELAY: 10,                // Delay before animation starts (ms)
@@ -2000,25 +2000,24 @@ class Viewer3D {
         // Use a safe height relative to scene size if available, otherwise default
         let dropHeight = CONFIG_3D.DROP_HEIGHT;
         if (this.sceneBounds && this.sceneBounds.size) {
-             // Ensure drop height is at least 2x scene height + 5000
-             dropHeight = Math.max(dropHeight, this.sceneBounds.size.y * 2 + 5000);
+             // Ensure drop height is at least 2x scene height + 5000 (using Z axis as requested)
+             dropHeight = Math.max(dropHeight, this.sceneBounds.size.z * 2 + 5000);
         }
         
-        console.log(`[Viewer3D] Drop Height: ${dropHeight}`);
+        console.log(`[Viewer3D] Drop Height: ${dropHeight} (Z-Axis)`);
         
         this.meshes.forEach((mesh, index) => {
             // Store original LOCAL Position
             const originalPosition = mesh.position.clone();
             
-            // Calculate Vector representing "1 Unit World UP" in Parent's Local Space
-            // This handles Parent Rotation AND Parent Scale robustly
+            // Calculate Vector representing "1 Unit World UP" (Z-Axis) in Parent's Local Space
             const parent = mesh.parent || this.scene;
             
             // P0 = (0,0,0) World -> Local
-            // P1 = (0,1,0) World -> Local
+            // P1 = (0,0,1) World -> Local (Z-Axis Up)
             // Vector = P1 - P0
             const v0 = parent.worldToLocal(new THREE.Vector3(0, 0, 0));
-            const v1 = parent.worldToLocal(new THREE.Vector3(0, 1, 0));
+            const v1 = parent.worldToLocal(new THREE.Vector3(0, 0, 1));
             const localUnitUp = v1.sub(v0);
             
             // Initial Height (World Units)
