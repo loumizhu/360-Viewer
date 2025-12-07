@@ -134,8 +134,8 @@ const CONFIG_3D = {
     ENABLE_DROP_ANIMATION: true,    // Enable/disable drop animation
     DROP_HEIGHT: 20000,             // Height from which objects drop (increased to ensure it's above camera)
     DROP_GRAVITY: 4000.0,           // Gravity accelerating the drop (units/s^2)
-    DROP_TERMINAL_VELOCITY: 10000.0,// Maximum speed
-    DROP_DELAY: 500,                // Delay before animation starts (ms)
+    DROP_TERMINAL_VELOCITY: 100000.0,// Maximum speed
+    DROP_DELAY: 10,                // Delay before animation starts (ms)
     DROP_STAGGER: 100               // Delay between objects dropping (ms)
 };
 
@@ -1988,6 +1988,13 @@ class Viewer3D {
     setupDropAnimation() {
         if (!CONFIG_3D.ENABLE_DROP_ANIMATION) return;
         
+        console.log('[Viewer3D] Setting up Drop Animation...');
+        
+        // Update world matrices to ensure correct worldToLocal calculations
+        if (this.scene) {
+            this.scene.updateMatrixWorld(true);
+        }
+        
         this.dropAnimation.objects = [];
         
         // Use a safe height relative to scene size if available, otherwise default
@@ -1997,47 +2004,47 @@ class Viewer3D {
              dropHeight = Math.max(dropHeight, this.sceneBounds.size.y * 2 + 5000);
         }
         
-        const worldUp = new THREE.Vector3(0, 1, 0);
-        const dummyQuat = new THREE.Quaternion();
+        console.log(`[Viewer3D] Drop Height: ${dropHeight}`);
         
         this.meshes.forEach((mesh, index) => {
-            // Store original Position
+            // Store original LOCAL Position
             const originalPosition = mesh.position.clone();
             
-            // Calculate Local Up Vector: transform World Up (0,1,0) into Mesh's Parent Local Space
-            // This ensures we move "Up" in world space, which translates to "Some Vector" in local space
-            const localUp = worldUp.clone();
-            if (mesh.parent) {
-                // Get parent's world rotation and invert it to transform world vector to local
-                mesh.parent.getWorldQuaternion(dummyQuat);
-                dummyQuat.invert();
-                localUp.applyQuaternion(dummyQuat);
-            }
-            localUp.normalize();
+            // Calculate Vector representing "1 Unit World UP" in Parent's Local Space
+            // This handles Parent Rotation AND Parent Scale robustly
+            const parent = mesh.parent || this.scene;
             
-            // Initial Displacement
-            // We track the animation by "height offset" from original position
+            // P0 = (0,0,0) World -> Local
+            // P1 = (0,1,0) World -> Local
+            // Vector = P1 - P0
+            const v0 = parent.worldToLocal(new THREE.Vector3(0, 0, 0));
+            const v1 = parent.worldToLocal(new THREE.Vector3(0, 1, 0));
+            const localUnitUp = v1.sub(v0);
+            
+            // Initial Height (World Units)
             const currentHeight = dropHeight;
             
-            // Apply initial position
-            mesh.position.copy(originalPosition).addScaledVector(localUp, currentHeight);
-            mesh.updateMatrix(); // Force update
+            // Apply initial position: LocalPos = OriginalLocal + (LocalUnitUp * WorldHeight)
+            mesh.position.copy(originalPosition).addScaledVector(localUnitUp, currentHeight);
+            mesh.updateMatrix();
             
             // Set visible and semi-transparent
             mesh.visible = true;
-            mesh.material.opacity = 0.8; // Visible during drop
+            mesh.material.opacity = 0.8;
             mesh.material.transparent = true;
             
             this.dropAnimation.objects.push({
                 mesh: mesh,
-                originalPosition: originalPosition, // Vector3
-                localUp: localUp,                   // Vector3
-                currentHeight: currentHeight,       // Number
+                originalPosition: originalPosition, // Vector3 (Local)
+                localUnitUp: localUnitUp,           // Vector3 (Local direction + scale magnitude)
+                currentHeight: currentHeight,       // Number (World Units)
                 velocity: 0,
                 hasLanded: false,
-                delay: index * CONFIG_3D.DROP_STAGGER // Stagger delay
+                delay: index * CONFIG_3D.DROP_STAGGER
             });
         });
+        
+        console.log(`[Viewer3D] Drop Animation Setup Complete. ${this.dropAnimation.objects.length} objects.`);
     }
     
     startDropAnimation() {
@@ -2084,7 +2091,7 @@ class Viewer3D {
                 }
                 
                 // Update Position: Original + (LocalUp * Height)
-                mesh.position.copy(obj.originalPosition).addScaledVector(obj.localUp, obj.currentHeight);
+                mesh.position.copy(obj.originalPosition).addScaledVector(obj.localUnitUp, obj.currentHeight);
                 mesh.updateMatrix(); // Ensure matrix updates even if rendering loop skips
                 
                 allComplete = false;
@@ -2102,6 +2109,7 @@ class Viewer3D {
         });
         
         if (allComplete) {
+            console.log('[Viewer3D] Drop Animation Complete');
             this.dropAnimation.active = false;
             this.dropAnimation.complete = true;
         }
