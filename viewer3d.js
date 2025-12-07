@@ -121,7 +121,7 @@ const CONFIG_3D = {
     
     // Intro Animation settings
     ENABLE_INTRO_ANIMATION: false,   // Enable/disable intro animation
-    INTRO_DELAY: 1000,              // Delay before animation starts (ms)
+    INTRO_DELAY: 100,              // Delay before animation starts (ms)
     INTRO_PLANE_SPEED: 2000,        // Speed of plane rising (units per second)
     INTRO_PLANE_ANGLE: 45,          // Angle of plane in degrees (0 = horizontal, 45 = diagonal)
     INTRO_OBJECT_OPACITY: 0.5,      // Opacity when plane touches object
@@ -2026,6 +2026,9 @@ class Viewer3D {
             
             // Apply initial position: LocalPos = OriginalLocal + (LocalUnitUp * WorldHeight)
             mesh.position.copy(originalPosition).addScaledVector(localUnitUp, currentHeight);
+            
+            // CRITICAL: Disable auto update to prevent GLTF animations/constraints from resetting position
+            mesh.matrixAutoUpdate = false;
             mesh.updateMatrix();
             
             // Set visible and semi-transparent
@@ -2090,12 +2093,17 @@ class Viewer3D {
                     obj.hasLanded = true;
                 }
                 
-                // Update Position: Original + (LocalUp * Height)
+                // Update Position: OriginalLocal + (LocalUnitUp * WorldHeight)
                 mesh.position.copy(obj.originalPosition).addScaledVector(obj.localUnitUp, obj.currentHeight);
-                mesh.updateMatrix(); // Ensure matrix updates even if rendering loop skips
+                mesh.updateMatrix(); // Manual update required since autoUpdate is false
                 
                 allComplete = false;
             } else {
+                // Restore auto update once landed
+                if (mesh.matrixAutoUpdate === false) {
+                    mesh.matrixAutoUpdate = true;
+                }
+                
                 // Fade out after landing
                 if (mesh.material.opacity > CONFIG_3D.DEFAULT_OPACITY) {
                     // Fast fade out
