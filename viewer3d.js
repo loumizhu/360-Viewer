@@ -132,11 +132,11 @@ const CONFIG_3D = {
     
     // Drop Animation settings
     ENABLE_DROP_ANIMATION: true,    // Enable/disable drop animation
-    DROP_HEIGHT: 5000,              // Height from which objects drop
-    DROP_GRAVITY: 3500.0,           // Gravity accelerating the drop (units/s^2)
-    DROP_TERMINAL_VELOCITY: 8000.0, // Maximum speed
+    DROP_HEIGHT: 20000,             // Height from which objects drop (increased to ensure it's above camera)
+    DROP_GRAVITY: 4000.0,           // Gravity accelerating the drop (units/s^2)
+    DROP_TERMINAL_VELOCITY: 10000.0,// Maximum speed
     DROP_DELAY: 500,                // Delay before animation starts (ms)
-    DROP_STAGGER: 50                // Delay between objects dropping (if implemented, currently simultaneous)
+    DROP_STAGGER: 100               // Delay between objects dropping (ms)
 };
 
 // ============================================
@@ -1990,12 +1990,20 @@ class Viewer3D {
         
         this.dropAnimation.objects = [];
         
-        this.meshes.forEach(mesh => {
+        // Use a safe height relative to scene size if available, otherwise default
+        let dropHeight = CONFIG_3D.DROP_HEIGHT;
+        if (this.sceneBounds && this.sceneBounds.size) {
+             // Ensure drop height is at least 2x scene height + 5000
+             dropHeight = Math.max(dropHeight, this.sceneBounds.size.y * 2 + 5000);
+        }
+        
+        this.meshes.forEach((mesh, index) => {
             // Store original Y
             const originalY = mesh.position.y;
             
             // Move up
-            mesh.position.y += CONFIG_3D.DROP_HEIGHT;
+            mesh.position.y += dropHeight;
+            mesh.updateMatrix(); // Force matrix update !important
             
             // Set visible and semi-transparent
             mesh.visible = true;
@@ -2006,7 +2014,8 @@ class Viewer3D {
                 mesh: mesh,
                 targetY: originalY,
                 velocity: 0,
-                hasLanded: false
+                hasLanded: false,
+                delay: index * CONFIG_3D.DROP_STAGGER // Stagger delay
             });
         });
     }
@@ -2022,10 +2031,19 @@ class Viewer3D {
     updateDropAnimation() {
         if (!this.dropAnimation.active || this.dropAnimation.complete) return;
         
+        const currentTime = Date.now();
+        const animationElapsed = currentTime - this.dropAnimation.startTime;
+        
         const dt = 0.016; // Approx 60fps delta
         let allComplete = true;
         
         this.dropAnimation.objects.forEach(obj => {
+            // Check if this object's delay has passed
+            if (animationElapsed < obj.delay) {
+                allComplete = false;
+                return;
+            }
+            
             const mesh = obj.mesh;
             
             if (!obj.hasLanded) {
@@ -2043,12 +2061,10 @@ class Viewer3D {
                     // Hard stop (heavy brick effect)
                     mesh.position.y = obj.targetY;
                     obj.hasLanded = true;
-                    // Optional: could add a very small bounce here if requested, but "heavy brick" usually means thud.
                 }
                 allComplete = false;
             } else {
                 // Fade out after landing
-                // Fade out to default opacity (invisible)
                 if (mesh.material.opacity > CONFIG_3D.DEFAULT_OPACITY) {
                     // Fast fade out
                     mesh.material.opacity = Math.max(CONFIG_3D.DEFAULT_OPACITY, mesh.material.opacity - dt * 3.0);
