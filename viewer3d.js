@@ -132,10 +132,10 @@ const CONFIG_3D = {
     
     // Drop Animation settings
     ENABLE_DROP_ANIMATION: true,    // Enable/disable drop animation
-    DROP_HEIGHT: 2000000,             // Height from which objects drop (increased to ensure it's above camera)
-    DROP_GRAVITY: 4000.0,           // Gravity accelerating the drop (units/s^2)
-    DROP_TERMINAL_VELOCITY: 100000.0,// Maximum speed
-    DROP_DELAY: 10,                // Delay before animation starts (ms)
+    DROP_HEIGHT: 2000,             // Height from which objects drop (increased to ensure it's above camera)
+    DROP_GRAVITY: 400.0,           // Gravity accelerating the drop (units/s^2)
+    DROP_TERMINAL_VELOCITY: 1000.0,// Maximum speed
+    DROP_DELAY: 500,                // Delay before animation starts (ms)
     DROP_STAGGER: 100               // Delay between objects dropping (ms)
 };
 
@@ -2065,14 +2065,22 @@ class Viewer3D {
         
         const dt = 0.016; // Approx 60fps delta
         let allComplete = true;
+        let activeCount = 0;
         
-        this.dropAnimation.objects.forEach(obj => {
+        // Debug logging for the first object every 60 frames (approx 1 sec)
+        const shouldLog = Math.floor(currentTime / 1000) > Math.floor(this._lastLogTime || 0);
+        if (shouldLog) {
+            this._lastLogTime = currentTime / 1000;
+        }
+        
+        this.dropAnimation.objects.forEach((obj, index) => {
             // Check if this object's delay has passed
             if (animationElapsed < obj.delay) {
                 allComplete = false;
                 return;
             }
             
+            activeCount++;
             const mesh = obj.mesh;
             
             if (!obj.hasLanded) {
@@ -2082,7 +2090,7 @@ class Viewer3D {
                 // Clamp terminal velocity
                 obj.velocity = Math.min(obj.velocity, CONFIG_3D.DROP_TERMINAL_VELOCITY);
                 
-                // Reduce height
+                // Reduce height (World Units)
                 obj.currentHeight -= obj.velocity * dt;
                 
                 // Check for landing
@@ -2090,30 +2098,38 @@ class Viewer3D {
                     // Hard stop
                     obj.currentHeight = 0;
                     obj.hasLanded = true;
+                    // Restore auto update once landed
+                    if (mesh.matrixAutoUpdate === false) {
+                        mesh.matrixAutoUpdate = true;
+                    }
                 }
                 
                 // Update Position: OriginalLocal + (LocalUnitUp * WorldHeight)
                 mesh.position.copy(obj.originalPosition).addScaledVector(obj.localUnitUp, obj.currentHeight);
-                mesh.updateMatrix(); // Manual update required since autoUpdate is false
+                
+                // Force matrix update since autoUpdate is false
+                mesh.updateMatrix();
+                
+                if (shouldLog && index === 0) {
+                     console.log(`[Viewer3D] Drop Obj 0: Height ${obj.currentHeight.toFixed(2)}, Vel ${obj.velocity.toFixed(2)}, Pos ${mesh.position.toArray().map(v=>v.toFixed(2))}`);
+                }
                 
                 allComplete = false;
             } else {
-                // Restore auto update once landed
-                if (mesh.matrixAutoUpdate === false) {
-                    mesh.matrixAutoUpdate = true;
-                }
-                
                 // Fade out after landing
                 if (mesh.material.opacity > CONFIG_3D.DEFAULT_OPACITY) {
                     // Fast fade out
                     mesh.material.opacity = Math.max(CONFIG_3D.DEFAULT_OPACITY, mesh.material.opacity - dt * 3.0);
                     allComplete = false; // Still fading
                 } else {
-                    // Ensure exact opacity on finish
                     mesh.material.opacity = CONFIG_3D.DEFAULT_OPACITY;
                 }
             }
         });
+        
+        if (shouldLog && !allComplete) {
+            console.log(`[Viewer3D] Dropping... Active: ${activeCount}/${this.dropAnimation.objects.length}`);
+        }
         
         if (allComplete) {
             console.log('[Viewer3D] Drop Animation Complete');
