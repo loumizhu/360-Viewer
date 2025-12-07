@@ -1997,13 +1997,31 @@ class Viewer3D {
              dropHeight = Math.max(dropHeight, this.sceneBounds.size.y * 2 + 5000);
         }
         
+        const worldUp = new THREE.Vector3(0, 1, 0);
+        const dummyQuat = new THREE.Quaternion();
+        
         this.meshes.forEach((mesh, index) => {
-            // Store original Y
-            const originalY = mesh.position.y;
+            // Store original Position
+            const originalPosition = mesh.position.clone();
             
-            // Move up
-            mesh.position.y += dropHeight;
-            mesh.updateMatrix(); // Force matrix update !important
+            // Calculate Local Up Vector: transform World Up (0,1,0) into Mesh's Parent Local Space
+            // This ensures we move "Up" in world space, which translates to "Some Vector" in local space
+            const localUp = worldUp.clone();
+            if (mesh.parent) {
+                // Get parent's world rotation and invert it to transform world vector to local
+                mesh.parent.getWorldQuaternion(dummyQuat);
+                dummyQuat.invert();
+                localUp.applyQuaternion(dummyQuat);
+            }
+            localUp.normalize();
+            
+            // Initial Displacement
+            // We track the animation by "height offset" from original position
+            const currentHeight = dropHeight;
+            
+            // Apply initial position
+            mesh.position.copy(originalPosition).addScaledVector(localUp, currentHeight);
+            mesh.updateMatrix(); // Force update
             
             // Set visible and semi-transparent
             mesh.visible = true;
@@ -2012,7 +2030,9 @@ class Viewer3D {
             
             this.dropAnimation.objects.push({
                 mesh: mesh,
-                targetY: originalY,
+                originalPosition: originalPosition, // Vector3
+                localUp: localUp,                   // Vector3
+                currentHeight: currentHeight,       // Number
                 velocity: 0,
                 hasLanded: false,
                 delay: index * CONFIG_3D.DROP_STAGGER // Stagger delay
@@ -2053,15 +2073,20 @@ class Viewer3D {
                 // Clamp terminal velocity
                 obj.velocity = Math.min(obj.velocity, CONFIG_3D.DROP_TERMINAL_VELOCITY);
                 
-                // Move object
-                mesh.position.y -= obj.velocity * dt;
+                // Reduce height
+                obj.currentHeight -= obj.velocity * dt;
                 
                 // Check for landing
-                if (mesh.position.y <= obj.targetY) {
-                    // Hard stop (heavy brick effect)
-                    mesh.position.y = obj.targetY;
+                if (obj.currentHeight <= 0) {
+                    // Hard stop
+                    obj.currentHeight = 0;
                     obj.hasLanded = true;
                 }
+                
+                // Update Position: Original + (LocalUp * Height)
+                mesh.position.copy(obj.originalPosition).addScaledVector(obj.localUp, obj.currentHeight);
+                mesh.updateMatrix(); // Ensure matrix updates even if rendering loop skips
+                
                 allComplete = false;
             } else {
                 // Fade out after landing
@@ -2069,6 +2094,9 @@ class Viewer3D {
                     // Fast fade out
                     mesh.material.opacity = Math.max(CONFIG_3D.DEFAULT_OPACITY, mesh.material.opacity - dt * 3.0);
                     allComplete = false; // Still fading
+                } else {
+                    // Ensure exact opacity on finish
+                    mesh.material.opacity = CONFIG_3D.DEFAULT_OPACITY;
                 }
             }
         });
@@ -2076,15 +2104,10 @@ class Viewer3D {
         if (allComplete) {
             this.dropAnimation.active = false;
             this.dropAnimation.complete = true;
-            // Ensure final state
-            this.meshes.forEach(mesh => {
-                mesh.material.opacity = CONFIG_3D.DEFAULT_OPACITY;
-            });
         }
     }
     
     showPlanImage(objectName) {
-        // Construct path to plan image: CLIENT_ID/Plan 2D/OBJECT_NAME.png
         const planImagePath = `${REPO_BASE_PATH}${CLIENT_BASE_PATH}Plan 2D/${objectName}.png`.replace(/\/+/g, '/');
         
         const panel = document.getElementById('plan-image-panel');
