@@ -65,7 +65,7 @@ const CONFIG_3D = {
     CAMERA_ASPECT_RATIO: null,      // Will be set to window.innerWidth / window.innerHeight
     CAMERA_NEAR_CLIP: 0.1,      // Near clipping plane base value (objects closer than this are not rendered)
     CAMERA_FAR_CLIP: 10000000,      // Far clipping plane (objects farther than this are not rendered)
-    DYNAMIC_CLIPPING: true,         // Automatically adjust clipping planes based on scene size and zoom level
+    DYNAMIC_CLIPPING: false,         // Automatically adjust clipping planes based on scene size and zoom level
     NEAR_CLIP_ZOOM_FACTOR: 1.0,     // How aggressively near plane reduces with zoom (1.0 = linear, 2.0 = squared)
     
     // Tooltip settings
@@ -2051,6 +2051,8 @@ class Viewer3D {
     
     startDropAnimation() {
         if (!CONFIG_3D.ENABLE_DROP_ANIMATION || this.dropAnimation.objects.length === 0) return;
+        
+        console.log(`[Viewer3D] STARTING DROP. Camera Pos: ${this.currentCamera.position.toArray().join(',')}, FarClip: ${this.currentCamera.far}`);
         
         this.dropAnimation.active = true;
         this.dropAnimation.complete = false;
