@@ -118,14 +118,21 @@ const CONFIG_3D = {
     DROP_STAGGER: 50
 };
 
-// Function to load settings from settings.json
+// Function to load settings from settings.json and image-manifest.json
 async function loadViewerSettings() {
     try {
-        const response = await fetch(`${REPO_BASE_PATH}settings.json`);
-        if (!response.ok) throw new Error('Settings not found');
-        const settings = await response.json();
+        const settingsPromise = fetch(`${REPO_BASE_PATH}settings.json`)
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null);
+            
+        const manifestPath = CLIENT_ID ? `${REPO_BASE_PATH}${CLIENT_BASE_PATH}image-manifest.json`.replace(/\/+/g, '/') : `${REPO_BASE_PATH}image-manifest.json`;
+        const manifestPromise = fetch(manifestPath)
+            .then(res => res.ok ? res.json() : null)
+            .catch(() => null);
+            
+        const [settings, manifest] = await Promise.all([settingsPromise, manifestPromise]);
         
-        if (settings.viewer3d) {
+        if (settings && settings.viewer3d) {
             // Merge settings into CONFIG_3D
             Object.assign(CONFIG_3D, {
                 // Map JSON keys (camelCase) to CONFIG keys (UPPER_CASE)
@@ -167,8 +174,17 @@ async function loadViewerSettings() {
                 DROP_STAGGER: settings.viewer3d.dropStagger ?? CONFIG_3D.DROP_STAGGER
             });
         }
+        
+        // If Model Path is still not set (or empty), try to get it from manifest
+        if (!CONFIG_3D.MODEL_PATH && manifest && manifest.model3d) {
+            console.log('[Viewer3D] Found model in manifest:', manifest.model3d);
+            // Manifest path is usually relative to repo root (e.g. "CLIENT_ID/3D/model.glb" or "3D/model.glb")
+            // We need to ensure we don't double-prefix if manifest path already includes client folder
+            CONFIG_3D.MODEL_PATH = manifest.model3d;
+        }
+        
     } catch (e) {
-        console.warn('Failed to load settings.json, using defaults', e);
+        console.warn('Failed to load settings or manifest, using defaults', e);
     }
 }
 
@@ -980,7 +996,7 @@ class Viewer3D {
             // If no model path in settings, try to find default or use hardcoded fallback
             if (!modelPath) {
                 // FALLBACK: Use the hardcoded path from before if settings.json is empty
-                modelPath = `${repoBase}${basePath}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/');
+                modelPath = `${repoBase}${basePath}3D/3D.glb`.replace(/\/+/g, '/');
                 console.warn('No MODEL_PATH in settings, using fallback:', modelPath);
             } else {
                  // Ensure path is relative to repo/client
