@@ -39,105 +39,138 @@ const LIGHT_MODE = window.uiSettings?.getSetting('performance', 'lightMode') || 
 // ============================================
 // 3D VIEWER CONFIGURATION
 // ============================================
+// ============================================
+// 3D VIEWER CONFIGURATION
+// ============================================
+// Defaults will be overridden by settings.json
 const CONFIG_3D = {
     // Model settings - will use client path if clientID is in query string
-    MODEL_PATH: `${REPO_BASE_PATH}${CLIENT_BASE_PATH}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/'),
+    MODEL_PATH: null, // Will be loaded dynamically
     
     // Material settings - Default (invisible)
-    DEFAULT_OPACITY: 0.0,           // 0.0 = invisible, 1.0 = solid
-    DEFAULT_COLOR: 0xffffff,        // White
+    DEFAULT_OPACITY: 0.0,
+    DEFAULT_COLOR: 0xffffff,
     DEFAULT_DEPTH_WRITE: false,
     
-    // Material settings - Hover (red highlight)
-    HOVER_OPACITY: 0.5,            // 75% opaque (25% transparent)
-    HOVER_COLOR: 0x175ddc,          // blue
-    HOVER_EMISSIVE: 0x175ddc,       // Red glow
-    HOVER_EMISSIVE_INTENSITY: 0.6,  // Glow strength
+    // Material settings - Hover
+    HOVER_OPACITY: 0.5,
+    HOVER_COLOR: 0x175ddc,
+    HOVER_EMISSIVE: 0x175ddc,
+    HOVER_EMISSIVE_INTENSITY: 0.6,
     HOVER_DEPTH_WRITE: true,
     
     // Lighting
     AMBIENT_LIGHT_INTENSITY: 1.5,
     DIRECTIONAL_LIGHT_INTENSITY: 1.0,
     DIRECTIONAL_LIGHT_2_INTENSITY: 0.5,
-    LIGHT_POSITION_SCALE: 0.3,      // Multiplier for light position based on camera distance
+    LIGHT_POSITION_SCALE: 0.3,
     
     // Camera sync
-    CAMERA_ASPECT_RATIO: null,      // Will be set to window.innerWidth / window.innerHeight
-    CAMERA_NEAR_CLIP: 0.1,      // Near clipping plane base value (objects closer than this are not rendered)
-    CAMERA_FAR_CLIP: 10000000,      // Far clipping plane (objects farther than this are not rendered)
-    DYNAMIC_CLIPPING: false,         // Automatically adjust clipping planes based on scene size and zoom level
-    NEAR_CLIP_ZOOM_FACTOR: 2.0,     // How aggressively near plane reduces with zoom (1.0 = linear, 2.0 = squared)
+    CAMERA_NEAR_CLIP: 0.1,
+    CAMERA_FAR_CLIP: 10000000,
+    DYNAMIC_CLIPPING: false,
+    NEAR_CLIP_ZOOM_FACTOR: 2.0,
     
     // Tooltip settings
-    SHOW_TOOLTIP: true,             // Show tooltip with object name on hover
-    TOOLTIP_OFFSET_X: 15,           // Horizontal offset from cursor (pixels)
-    TOOLTIP_OFFSET_Y: 15,           // Vertical offset from cursor (pixels)
-    TOOLTIP_BG_COLOR: 'rgba(0, 0, 0, 0.85)', // Background color
-    TOOLTIP_TEXT_COLOR: '#ffffff',  // Text color
-    TOOLTIP_FONT_SIZE: '14px',      // Font size
-    TOOLTIP_PADDING: '8px 12px',    // Padding
-    TOOLTIP_BORDER_RADIUS: '6px',   // Border radius
-    TOOLTIP_MAX_WIDTH: '250px',     // Maximum width
+    SHOW_TOOLTIP: true,
+    TOOLTIP_OFFSET_X: 15,
+    TOOLTIP_OFFSET_Y: 15,
+    TOOLTIP_BG_COLOR: 'rgba(0, 0, 0, 0.85)',
+    TOOLTIP_TEXT_COLOR: '#ffffff',
+    TOOLTIP_FONT_SIZE: '14px',
+    TOOLTIP_PADDING: '8px 12px',
+    TOOLTIP_BORDER_RADIUS: '6px',
+    TOOLTIP_MAX_WIDTH: '250px',
     
     // Effect settings
-    EFFECT_TYPE: LIGHT_MODE ? 'solid' : 'solid',           // Default effect: 'solid', 'outline', 'glow', 'scan', 'particles'
-    // In light mode, force solid effect only
-    
-    // Solid effect
-    SOLID_PULSE_SPEED: 1.0,         // Slow pulse animation speed for solid effect
-    
-    // Outline effect (BoxHelper)
-    OUTLINE_COLOR: 0x00ff00,        // Outline color (green)
-    OUTLINE_PULSE_SPEED: 8.0,       // Pulse animation speed
-    
-    // Glow/Bloom effect
-    BLOOM_STRENGTH: 2.5,            // Bloom intensity
-    BLOOM_RADIUS: 1.0,              // Bloom spread
-    BLOOM_THRESHOLD: 0.6,           // Bloom threshold (higher = only bright objects glow, prevents black screen)
-    GLOW_COLOR: 0x175ddc,           // Glow color (separate from hover color)
-    
-    // Scanning lines effect
-    SCAN_SPEED: 2.0,                // Scanning animation speed
-    SCAN_LINE_COUNT: 15,            // Number of scanning lines
-    SCAN_COLOR: 0x00ffff,           // Scanning line color (cyan)
-    SCAN_OPACITY: 0.8,              // Scanning line opacity
-    
-    // Particle effect
-    PARTICLE_COUNT: 500,            // Number of particles per object
-    PARTICLE_SIZE: 0.05,            // Particle size (relative to object size)
-    PARTICLE_SPEED: 10.0,            // Particle animation speed
-    PARTICLE_COLOR: 0xffff00,       // Particle color (yellow)
-    PARTICLE_OPACITY: 0.8,          // Particle opacity
+    EFFECT_TYPE: 'solid',
+    SOLID_PULSE_SPEED: 1.0,
+    OUTLINE_COLOR: 0x00ff00,
+    OUTLINE_PULSE_SPEED: 8.0,
+    BLOOM_STRENGTH: 2.5,
+    BLOOM_RADIUS: 1.0,
+    BLOOM_THRESHOLD: 0.6,
+    GLOW_COLOR: 0x175ddc,
+    SCAN_SPEED: 2.0,
+    SCAN_LINE_COUNT: 15,
+    SCAN_COLOR: 0x00ffff,
+    SCAN_OPACITY: 0.8,
+    PARTICLE_COUNT: 500,
+    PARTICLE_SIZE: 0.05,
+    PARTICLE_SPEED: 10.0,
+    PARTICLE_COLOR: 0xffff00,
+    PARTICLE_OPACITY: 0.8,
     
     // Debug
-    ENABLE_HOVER_LOGGING: true,     // Log object names when hovering
-    ENABLE_CLICK_LOGGING: true,     // Log object names when clicking
-    ENABLE_CLIPPING_LOGGING: false, // Log camera clipping plane adjustments (for debugging clipping issues)
-    SHOW_ZOOM_PIVOT: false,         // Show red crosshair at 3D zoom pivot point (for debugging)
-    
-    // Scan effect debug settings
-    SCAN_DEBUG_MODE: false,         // Enable debug logging and visualization
-    SCAN_LOG_GEOMETRY: false,       // Log geometry bounds to console
-    
-    // Intro Animation settings
-    ENABLE_INTRO_ANIMATION: false,   // Enable/disable intro animation
-    INTRO_DELAY: 100,              // Delay before animation starts (ms)
-    INTRO_PLANE_SPEED: 2000,        // Speed of plane rising (units per second)
-    INTRO_PLANE_ANGLE: 45,          // Angle of plane in degrees (0 = horizontal, 45 = diagonal)
-    INTRO_OBJECT_OPACITY: 0.5,      // Opacity when plane touches object
-    INTRO_FADE_SPEED: 2.0,          // Speed of fade in/out
-    INTRO_PLANE_COLOR: 0x00ffff,    // Color of the scanning plane (cyan) - only for debug
-    INTRO_PLANE_OPACITY: 0.0,       // Opacity of the scanning plane (0 = invisible)
-    INTRO_SHOW_PLANE: false,        // Show the plane during animation (false = invisible)
+    ENABLE_HOVER_LOGGING: true,
+    ENABLE_CLICK_LOGGING: true,
+    ENABLE_CLIPPING_LOGGING: false,
+    SHOW_ZOOM_PIVOT: false,
+    SCAN_DEBUG_MODE: false,
+    SCAN_LOG_GEOMETRY: false,
     
     // Drop Animation settings
-    ENABLE_DROP_ANIMATION: false,    // Enable/disable drop animation
-    DROP_HEIGHT: 2000,             // Height from which objects drop (will be overridden by scene size)
-    DROP_GRAVITY: 25000.0,         // Gravity accelerating the drop (units/s^2) - Adjusted for large scale
-    DROP_TERMINAL_VELOCITY: 50000.0, // Maximum speed - Adjusted for large scale
-    DROP_DELAY: 500,                // Delay before animation starts (ms)
-    DROP_STAGGER: 50                // Delay between objects dropping (ms)
+    ENABLE_DROP_ANIMATION: true,
+    DROP_HEIGHT: 2000,
+    DROP_GRAVITY: 25000.0,
+    DROP_TERMINAL_VELOCITY: 50000.0,
+    DROP_DELAY: 500,
+    DROP_STAGGER: 50
 };
+
+// Function to load settings from settings.json
+async function loadViewerSettings() {
+    try {
+        const response = await fetch(`${REPO_BASE_PATH}settings.json`);
+        if (!response.ok) throw new Error('Settings not found');
+        const settings = await response.json();
+        
+        if (settings.viewer3d) {
+            // Merge settings into CONFIG_3D
+            Object.assign(CONFIG_3D, {
+                // Map JSON keys (camelCase) to CONFIG keys (UPPER_CASE)
+                MODEL_PATH: settings.viewer3d.modelPath || CONFIG_3D.MODEL_PATH,
+                DEFAULT_OPACITY: settings.viewer3d.defaultOpacity ?? CONFIG_3D.DEFAULT_OPACITY,
+                DEFAULT_COLOR: settings.viewer3d.defaultColor ?? CONFIG_3D.DEFAULT_COLOR,
+                DEFAULT_DEPTH_WRITE: settings.viewer3d.defaultDepthWrite ?? CONFIG_3D.DEFAULT_DEPTH_WRITE,
+                HOVER_OPACITY: settings.viewer3d.hoverOpacity ?? CONFIG_3D.HOVER_OPACITY,
+                HOVER_COLOR: settings.viewer3d.hoverColor ?? CONFIG_3D.HOVER_COLOR,
+                HOVER_EMISSIVE: settings.viewer3d.hoverEmissive ?? CONFIG_3D.HOVER_EMISSIVE,
+                HOVER_EMISSIVE_INTENSITY: settings.viewer3d.hoverEmissiveIntensity ?? CONFIG_3D.HOVER_EMISSIVE_INTENSITY,
+                HOVER_DEPTH_WRITE: settings.viewer3d.hoverDepthWrite ?? CONFIG_3D.HOVER_DEPTH_WRITE,
+                AMBIENT_LIGHT_INTENSITY: settings.viewer3d.ambientLightIntensity ?? CONFIG_3D.AMBIENT_LIGHT_INTENSITY,
+                DIRECTIONAL_LIGHT_INTENSITY: settings.viewer3d.directionalLightIntensity ?? CONFIG_3D.DIRECTIONAL_LIGHT_INTENSITY,
+                DIRECTIONAL_LIGHT_2_INTENSITY: settings.viewer3d.directionalLight2Intensity ?? CONFIG_3D.DIRECTIONAL_LIGHT_2_INTENSITY,
+                LIGHT_POSITION_SCALE: settings.viewer3d.lightPositionScale ?? CONFIG_3D.LIGHT_POSITION_SCALE,
+                CAMERA_NEAR_CLIP: settings.viewer3d.cameraNearClip ?? CONFIG_3D.CAMERA_NEAR_CLIP,
+                CAMERA_FAR_CLIP: settings.viewer3d.cameraFarClip ?? CONFIG_3D.CAMERA_FAR_CLIP,
+                DYNAMIC_CLIPPING: settings.viewer3d.dynamicClipping ?? CONFIG_3D.DYNAMIC_CLIPPING,
+                NEAR_CLIP_ZOOM_FACTOR: settings.viewer3d.nearClipZoomFactor ?? CONFIG_3D.NEAR_CLIP_ZOOM_FACTOR,
+                SHOW_TOOLTIP: settings.viewer3d.showTooltip ?? CONFIG_3D.SHOW_TOOLTIP,
+                TOOLTIP_OFFSET_X: settings.viewer3d.tooltipOffsetX ?? CONFIG_3D.TOOLTIP_OFFSET_X,
+                TOOLTIP_OFFSET_Y: settings.viewer3d.tooltipOffsetY ?? CONFIG_3D.TOOLTIP_OFFSET_Y,
+                TOOLTIP_BG_COLOR: settings.viewer3d.tooltipBgColor ?? CONFIG_3D.TOOLTIP_BG_COLOR,
+                TOOLTIP_TEXT_COLOR: settings.viewer3d.tooltipTextColor ?? CONFIG_3D.TOOLTIP_TEXT_COLOR,
+                TOOLTIP_FONT_SIZE: settings.viewer3d.tooltipFontSize ?? CONFIG_3D.TOOLTIP_FONT_SIZE,
+                TOOLTIP_PADDING: settings.viewer3d.tooltipPadding ?? CONFIG_3D.TOOLTIP_PADDING,
+                TOOLTIP_BORDER_RADIUS: settings.viewer3d.tooltipBorderRadius ?? CONFIG_3D.TOOLTIP_BORDER_RADIUS,
+                TOOLTIP_MAX_WIDTH: settings.viewer3d.tooltipMaxWidth ?? CONFIG_3D.TOOLTIP_MAX_WIDTH,
+                ENABLE_HOVER_LOGGING: settings.viewer3d.enableHoverLogging ?? CONFIG_3D.ENABLE_HOVER_LOGGING,
+                ENABLE_CLICK_LOGGING: settings.viewer3d.enableClickLogging ?? CONFIG_3D.ENABLE_CLICK_LOGGING,
+                ENABLE_CLIPPING_LOGGING: settings.viewer3d.enableClippingLogging ?? CONFIG_3D.ENABLE_CLIPPING_LOGGING,
+                SHOW_ZOOM_PIVOT: settings.viewer3d.showZoomPivot ?? CONFIG_3D.SHOW_ZOOM_PIVOT,
+                ENABLE_DROP_ANIMATION: settings.viewer3d.enableDropAnimation ?? CONFIG_3D.ENABLE_DROP_ANIMATION,
+                DROP_HEIGHT: settings.viewer3d.dropHeight ?? CONFIG_3D.DROP_HEIGHT,
+                DROP_GRAVITY: settings.viewer3d.dropGravity ?? CONFIG_3D.DROP_GRAVITY,
+                DROP_TERMINAL_VELOCITY: settings.viewer3d.dropTerminalVelocity ?? CONFIG_3D.DROP_TERMINAL_VELOCITY,
+                DROP_DELAY: settings.viewer3d.dropDelay ?? CONFIG_3D.DROP_DELAY,
+                DROP_STAGGER: settings.viewer3d.dropStagger ?? CONFIG_3D.DROP_STAGGER
+            });
+        }
+    } catch (e) {
+        console.warn('Failed to load settings.json, using defaults', e);
+    }
+}
 
 // ============================================
 // 3D Overlay Manager for 360° Product Viewer
@@ -885,6 +918,9 @@ class Viewer3D {
     }
     
     async init() {
+        // Load settings first
+        await loadViewerSettings();
+        
         // Setup Three.js renderer
         this.renderer = new THREE.WebGLRenderer({
             canvas: this.canvas,
@@ -937,8 +973,21 @@ class Viewer3D {
             const clientID = getClientID();
             const repoBase = getRepoBasePath();
             const basePath = clientID ? `${clientID}/` : '';
-            const modelPath = `${repoBase}${basePath}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/');
             
+            // Determine model path
+            let modelPath = CONFIG_3D.MODEL_PATH;
+            
+            // If no model path in settings, try to find default or use hardcoded fallback
+            if (!modelPath) {
+                // FALLBACK: Use the hardcoded path from before if settings.json is empty
+                modelPath = `${repoBase}${basePath}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/');
+                console.warn('No MODEL_PATH in settings, using fallback:', modelPath);
+            } else {
+                 // Ensure path is relative to repo/client
+                 if (!modelPath.startsWith('http') && !modelPath.startsWith('/')) {
+                     modelPath = `${repoBase}${basePath}${modelPath}`.replace(/\/+/g, '/');
+                 }
+            }
             
             loader.load(
                 modelPath,
