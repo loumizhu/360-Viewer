@@ -222,11 +222,11 @@ def main():
                 print(f"Creating manifest for client: {item.name}...")
                 manifest = create_manifest_for_client(item)
                 if manifest:
-                    # WRITE TO ROOT (User Request)
-                    manifest_path = root_path / "image-manifest.json"
+                    # Write to client folder
+                    manifest_path = item / "image-manifest.json"
                     with open(manifest_path, 'w', encoding='utf-8') as f:
                         json.dump(manifest, f, indent=2, ensure_ascii=False)
-                    print(f"  [OK] Created (in ROOT): {manifest_path}")
+                    print(f"  [OK] Created: {manifest_path}")
                     print(f"    - {len(manifest['light'])} light images")
                     print(f"    - {len(manifest['full'])} full images")
                     if manifest.get('model3d'):

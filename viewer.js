@@ -121,6 +121,30 @@ class ProductViewer {
         // Try to load manifest first for instant loading with correct filenames
         const manifestPath = this.basePath ? `${this.repoBasePath}${this.basePath}image-manifest.json`.replace(/\/+/g, '/') : `${this.repoBasePath}image-manifest.json`.replace(/\/+/g, '/');
         
+        // Helper to load from manifest
+        const loadFromManifest = (manifest) => {
+            if (manifest.light && manifest.light.length > 0) {
+                const firstLightPath = `${this.repoBasePath}${manifest.light[0]}`.replace(/\/+/g, '/');
+                const firstFullPath = `${this.repoBasePath}${manifest.full[0]}`.replace(/\/+/g, '/');
+                
+                this.lightImages = [firstLightPath];
+                this.fullImages = [firstFullPath];
+                this.currentImageIndex = 0;
+                
+                this.loadSingleImage(0, 'light').then(() => {
+                    this.showImage(0, 'light');
+                    setTimeout(() => {
+                        this.loadingEl.classList.remove('loading');
+                        this.loadingEl.classList.add('hidden');
+                    }, 300);
+                    
+                    this.progressivePreload();
+                    this.updateCursor(false);
+                    setTimeout(() => this.updateZoomIndicator(), 1000);
+                });
+            }
+        };
+
         fetch(manifestPath)
             .then(response => {
                 if (response.ok) {
@@ -130,29 +154,35 @@ class ProductViewer {
             })
             .then(manifest => {
                 // Manifest found! Use it for immediate loading
-                if (manifest.light && manifest.light.length > 0) {
-                    const firstLightPath = `${this.repoBasePath}${manifest.light[0]}`.replace(/\/+/g, '/');
-                    const firstFullPath = `${this.repoBasePath}${manifest.full[0]}`.replace(/\/+/g, '/');
-                    
-                    this.lightImages = [firstLightPath];
-                    this.fullImages = [firstFullPath];
-                    this.currentImageIndex = 0;
-                    
-                    this.loadSingleImage(0, 'light').then(() => {
-                        this.showImage(0, 'light');
-                        setTimeout(() => {
-                            this.loadingEl.classList.remove('loading');
-                            this.loadingEl.classList.add('hidden');
-                        }, 300);
-                        
-                        this.progressivePreload();
-                        this.updateCursor(false);
-                        setTimeout(() => this.updateZoomIndicator(), 1000);
-                    });
-                }
+                loadFromManifest(manifest);
             })
-            .catch(() => {
-                // No manifest - try common patterns for immediate loading
+            .catch(async () => {
+                // No manifest - check if we can auto-generate (Localhost only)
+                const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+                
+                if (isLocal) {
+                    try {
+                        console.log('[Viewer] Manifest missing, requesting auto-generation...');
+                        const genResponse = await fetch('/api/create-manifest', { method: 'POST' });
+                        if (genResponse.ok) {
+                            console.log('[Viewer] Manifest generated, retrying fetch...');
+                            // Give it a moment to ensure file write completes
+                            await new Promise(r => setTimeout(r, 500));
+                            
+                            const retryResponse = await fetch(manifestPath);
+                            if (retryResponse.ok) {
+                                const manifest = await retryResponse.json();
+                                console.log('[Viewer] Manifest loaded after generation!');
+                                loadFromManifest(manifest);
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[Viewer] Auto-generation failed:', e);
+                    }
+                }
+
+                // No manifest or generation failed - try common patterns for immediate loading
                 const commonPatterns = [
                     'modif_animated (1)',
                     'image_1',
@@ -489,6 +519,11 @@ class ProductViewer {
                     'The app will work with any image names after running these scripts!'
                 );
             }, 1000);
+        }
+        
+        // Check sync with 3D viewer if it's ready
+        if (window.viewer3D && typeof window.viewer3D.checkSyncStatus === 'function') {
+            window.viewer3D.checkSyncStatus();
         }
     }
     

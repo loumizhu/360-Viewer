@@ -110,7 +110,7 @@ const CONFIG_3D = {
     SCAN_LOG_GEOMETRY: false,
     
     // Drop Animation settings
-    ENABLE_DROP_ANIMATION: true,
+    ENABLE_DROP_ANIMATION: false,
     DROP_HEIGHT: 2000,
     DROP_GRAVITY: 25000.0,
     DROP_TERMINAL_VELOCITY: 50000.0,
@@ -125,53 +125,56 @@ async function loadViewerSettings() {
             .then(res => res.ok ? res.json() : null)
             .catch(() => null);
             
-        const manifestPath = `${REPO_BASE_PATH}image-manifest.json`;
+        const manifestPath = `${REPO_BASE_PATH}${CLIENT_BASE_PATH}image-manifest.json`.replace(/\/+/g, '/');
         const manifestPromise = fetch(manifestPath)
             .then(res => res.ok ? res.json() : null)
             .catch(() => null);
             
         const [settings, manifest] = await Promise.all([settingsPromise, manifestPromise]);
         
-        if (settings && settings.viewer3d) {
+        if (settings && settings.effects) {
+            const fx = settings.effects;
             // Merge settings into CONFIG_3D
             Object.assign(CONFIG_3D, {
                 // Map JSON keys (camelCase) to CONFIG keys (UPPER_CASE)
-                MODEL_PATH: settings.viewer3d.modelPath || CONFIG_3D.MODEL_PATH,
-                DEFAULT_OPACITY: settings.viewer3d.defaultOpacity ?? CONFIG_3D.DEFAULT_OPACITY,
-                DEFAULT_COLOR: settings.viewer3d.defaultColor ?? CONFIG_3D.DEFAULT_COLOR,
-                DEFAULT_DEPTH_WRITE: settings.viewer3d.defaultDepthWrite ?? CONFIG_3D.DEFAULT_DEPTH_WRITE,
-                HOVER_OPACITY: settings.viewer3d.hoverOpacity ?? CONFIG_3D.HOVER_OPACITY,
-                HOVER_COLOR: settings.viewer3d.hoverColor ?? CONFIG_3D.HOVER_COLOR,
-                HOVER_EMISSIVE: settings.viewer3d.hoverEmissive ?? CONFIG_3D.HOVER_EMISSIVE,
-                HOVER_EMISSIVE_INTENSITY: settings.viewer3d.hoverEmissiveIntensity ?? CONFIG_3D.HOVER_EMISSIVE_INTENSITY,
-                HOVER_DEPTH_WRITE: settings.viewer3d.hoverDepthWrite ?? CONFIG_3D.HOVER_DEPTH_WRITE,
-                AMBIENT_LIGHT_INTENSITY: settings.viewer3d.ambientLightIntensity ?? CONFIG_3D.AMBIENT_LIGHT_INTENSITY,
-                DIRECTIONAL_LIGHT_INTENSITY: settings.viewer3d.directionalLightIntensity ?? CONFIG_3D.DIRECTIONAL_LIGHT_INTENSITY,
-                DIRECTIONAL_LIGHT_2_INTENSITY: settings.viewer3d.directionalLight2Intensity ?? CONFIG_3D.DIRECTIONAL_LIGHT_2_INTENSITY,
-                LIGHT_POSITION_SCALE: settings.viewer3d.lightPositionScale ?? CONFIG_3D.LIGHT_POSITION_SCALE,
-                CAMERA_NEAR_CLIP: settings.viewer3d.cameraNearClip ?? CONFIG_3D.CAMERA_NEAR_CLIP,
-                CAMERA_FAR_CLIP: settings.viewer3d.cameraFarClip ?? CONFIG_3D.CAMERA_FAR_CLIP,
-                DYNAMIC_CLIPPING: settings.viewer3d.dynamicClipping ?? CONFIG_3D.DYNAMIC_CLIPPING,
-                NEAR_CLIP_ZOOM_FACTOR: settings.viewer3d.nearClipZoomFactor ?? CONFIG_3D.NEAR_CLIP_ZOOM_FACTOR,
-                SHOW_TOOLTIP: settings.viewer3d.showTooltip ?? CONFIG_3D.SHOW_TOOLTIP,
-                TOOLTIP_OFFSET_X: settings.viewer3d.tooltipOffsetX ?? CONFIG_3D.TOOLTIP_OFFSET_X,
-                TOOLTIP_OFFSET_Y: settings.viewer3d.tooltipOffsetY ?? CONFIG_3D.TOOLTIP_OFFSET_Y,
-                TOOLTIP_BG_COLOR: settings.viewer3d.tooltipBgColor ?? CONFIG_3D.TOOLTIP_BG_COLOR,
-                TOOLTIP_TEXT_COLOR: settings.viewer3d.tooltipTextColor ?? CONFIG_3D.TOOLTIP_TEXT_COLOR,
-                TOOLTIP_FONT_SIZE: settings.viewer3d.tooltipFontSize ?? CONFIG_3D.TOOLTIP_FONT_SIZE,
-                TOOLTIP_PADDING: settings.viewer3d.tooltipPadding ?? CONFIG_3D.TOOLTIP_PADDING,
-                TOOLTIP_BORDER_RADIUS: settings.viewer3d.tooltipBorderRadius ?? CONFIG_3D.TOOLTIP_BORDER_RADIUS,
-                TOOLTIP_MAX_WIDTH: settings.viewer3d.tooltipMaxWidth ?? CONFIG_3D.TOOLTIP_MAX_WIDTH,
-                ENABLE_HOVER_LOGGING: settings.viewer3d.enableHoverLogging ?? CONFIG_3D.ENABLE_HOVER_LOGGING,
-                ENABLE_CLICK_LOGGING: settings.viewer3d.enableClickLogging ?? CONFIG_3D.ENABLE_CLICK_LOGGING,
-                ENABLE_CLIPPING_LOGGING: settings.viewer3d.enableClippingLogging ?? CONFIG_3D.ENABLE_CLIPPING_LOGGING,
-                SHOW_ZOOM_PIVOT: settings.viewer3d.showZoomPivot ?? CONFIG_3D.SHOW_ZOOM_PIVOT,
-                ENABLE_DROP_ANIMATION: settings.viewer3d.enableDropAnimation ?? CONFIG_3D.ENABLE_DROP_ANIMATION,
-                DROP_HEIGHT: settings.viewer3d.dropHeight ?? CONFIG_3D.DROP_HEIGHT,
-                DROP_GRAVITY: settings.viewer3d.dropGravity ?? CONFIG_3D.DROP_GRAVITY,
-                DROP_TERMINAL_VELOCITY: settings.viewer3d.dropTerminalVelocity ?? CONFIG_3D.DROP_TERMINAL_VELOCITY,
-                DROP_DELAY: settings.viewer3d.dropDelay ?? CONFIG_3D.DROP_DELAY,
-                DROP_STAGGER: settings.viewer3d.dropStagger ?? CONFIG_3D.DROP_STAGGER
+                // Note: MODEL_PATH is usually in root or not in effects, but let's check root too if needed
+                MODEL_PATH: settings.modelPath || fx.modelPath || CONFIG_3D.MODEL_PATH,
+                
+                DEFAULT_OPACITY: fx.defaultOpacity ?? CONFIG_3D.DEFAULT_OPACITY,
+                DEFAULT_COLOR: fx.defaultColor ?? CONFIG_3D.DEFAULT_COLOR,
+                DEFAULT_DEPTH_WRITE: fx.defaultDepthWrite ?? CONFIG_3D.DEFAULT_DEPTH_WRITE,
+                HOVER_OPACITY: fx.hoverOpacity ?? CONFIG_3D.HOVER_OPACITY,
+                HOVER_COLOR: fx.hoverColor ?? CONFIG_3D.HOVER_COLOR,
+                HOVER_EMISSIVE: fx.hoverEmissive ?? CONFIG_3D.HOVER_EMISSIVE,
+                HOVER_EMISSIVE_INTENSITY: fx.hoverEmissiveIntensity ?? CONFIG_3D.HOVER_EMISSIVE_INTENSITY,
+                HOVER_DEPTH_WRITE: fx.hoverDepthWrite ?? CONFIG_3D.HOVER_DEPTH_WRITE,
+                AMBIENT_LIGHT_INTENSITY: fx.ambientLightIntensity ?? CONFIG_3D.AMBIENT_LIGHT_INTENSITY,
+                DIRECTIONAL_LIGHT_INTENSITY: fx.directionalLightIntensity ?? CONFIG_3D.DIRECTIONAL_LIGHT_INTENSITY,
+                DIRECTIONAL_LIGHT_2_INTENSITY: fx.directionalLight2Intensity ?? CONFIG_3D.DIRECTIONAL_LIGHT_2_INTENSITY,
+                LIGHT_POSITION_SCALE: fx.lightPositionScale ?? CONFIG_3D.LIGHT_POSITION_SCALE,
+                CAMERA_NEAR_CLIP: fx.cameraNearClip ?? CONFIG_3D.CAMERA_NEAR_CLIP,
+                CAMERA_FAR_CLIP: fx.cameraFarClip ?? CONFIG_3D.CAMERA_FAR_CLIP,
+                DYNAMIC_CLIPPING: fx.dynamicClipping ?? CONFIG_3D.DYNAMIC_CLIPPING,
+                NEAR_CLIP_ZOOM_FACTOR: fx.nearClipZoomFactor ?? CONFIG_3D.NEAR_CLIP_ZOOM_FACTOR,
+                SHOW_TOOLTIP: fx.showTooltip ?? CONFIG_3D.SHOW_TOOLTIP,
+                TOOLTIP_OFFSET_X: fx.tooltipOffsetX ?? CONFIG_3D.TOOLTIP_OFFSET_X,
+                TOOLTIP_OFFSET_Y: fx.tooltipOffsetY ?? CONFIG_3D.TOOLTIP_OFFSET_Y,
+                TOOLTIP_BG_COLOR: fx.tooltipBgColor ?? CONFIG_3D.TOOLTIP_BG_COLOR,
+                TOOLTIP_TEXT_COLOR: fx.tooltipTextColor ?? CONFIG_3D.TOOLTIP_TEXT_COLOR,
+                TOOLTIP_FONT_SIZE: fx.tooltipFontSize ?? CONFIG_3D.TOOLTIP_FONT_SIZE,
+                TOOLTIP_PADDING: fx.tooltipPadding ?? CONFIG_3D.TOOLTIP_PADDING,
+                TOOLTIP_BORDER_RADIUS: fx.tooltipBorderRadius ?? CONFIG_3D.TOOLTIP_BORDER_RADIUS,
+                TOOLTIP_MAX_WIDTH: fx.tooltipMaxWidth ?? CONFIG_3D.TOOLTIP_MAX_WIDTH,
+                ENABLE_HOVER_LOGGING: fx.enableHoverLogging ?? CONFIG_3D.ENABLE_HOVER_LOGGING,
+                ENABLE_CLICK_LOGGING: fx.enableClickLogging ?? CONFIG_3D.ENABLE_CLICK_LOGGING,
+                ENABLE_CLIPPING_LOGGING: fx.enableClippingLogging ?? CONFIG_3D.ENABLE_CLIPPING_LOGGING,
+                SHOW_ZOOM_PIVOT: fx.showZoomPivot ?? CONFIG_3D.SHOW_ZOOM_PIVOT,
+                ENABLE_DROP_ANIMATION: fx.enableDropAnimation ?? CONFIG_3D.ENABLE_DROP_ANIMATION,
+                DROP_HEIGHT: fx.dropHeight ?? CONFIG_3D.DROP_HEIGHT,
+                DROP_GRAVITY: fx.dropGravity ?? CONFIG_3D.DROP_GRAVITY,
+                DROP_TERMINAL_VELOCITY: fx.dropTerminalVelocity ?? CONFIG_3D.DROP_TERMINAL_VELOCITY,
+                DROP_DELAY: fx.dropDelay ?? CONFIG_3D.DROP_DELAY,
+                DROP_STAGGER: fx.dropStagger ?? CONFIG_3D.DROP_STAGGER
             });
         }
         
@@ -463,79 +466,120 @@ class Viewer3D {
     }
     
     createSolidControls(container) {
-        this.createControl(container, 'Opacity', CONFIG_3D.HOVER_OPACITY, 0, 1, 0.05, (val) => {
-            CONFIG_3D.HOVER_OPACITY = val;
-        });
-        
-        // Color picker for cube color
-        const colorGroup = document.createElement('div');
-        colorGroup.className = 'effect-control-group';
-        
-        const colorLabel = document.createElement('span');
-        colorLabel.className = 'effect-control-label';
-        colorLabel.textContent = 'Color:';
-        
-        const colorInput = document.createElement('input');
-        colorInput.type = 'color';
-        colorInput.className = 'effect-color-picker';
-        // Ensure color is properly formatted (always 6 hex digits)
-        const hoverColor = CONFIG_3D.HOVER_COLOR || 0x175ddc;
-        colorInput.value = '#' + hoverColor.toString(16).padStart(6, '0').toUpperCase();
-        colorInput.addEventListener('input', (e) => {
-            const colorHex = parseInt(e.target.value.replace('#', ''), 16);
-            CONFIG_3D.HOVER_COLOR = colorHex;
-            // Update hover material for all meshes (including emissive for consistency)
-            if (this.meshes) {
-                this.meshes.forEach(mesh => {
-                    if (mesh.userData.hoverMaterial) {
-                        mesh.userData.hoverMaterial.color.setHex(colorHex);
-                        // Also update emissive to match for solid effect consistency
-                        mesh.userData.hoverMaterial.emissive.setHex(colorHex);
-                        mesh.userData.hoverMaterial.needsUpdate = true;
+        // Reuse the nice color control from uiSettingsPanel if available
+        if (window.uiSettingsPanel) {
+            // Color + Opacity Control for Hover
+            const currentColor = CONFIG_3D.HOVER_COLOR || 0x175ddc;
+            const currentOpacity = CONFIG_3D.HOVER_OPACITY !== undefined ? CONFIG_3D.HOVER_OPACITY : 0.5;
+            
+            // Convert to RGBA string for the control
+            const r = (currentColor >> 16) & 255;
+            const g = (currentColor >> 8) & 255;
+            const b = currentColor & 255;
+            const rgba = `rgba(${r}, ${g}, ${b}, ${currentOpacity})`;
+            
+            container.appendChild(window.uiSettingsPanel.createColorControl('Color & Opacity', 'solid-hover', rgba, (val) => {
+                // Parse RGBA back to Hex + Opacity
+                const match = val.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                if (match) {
+                    const r = parseInt(match[1]);
+                    const g = parseInt(match[2]);
+                    const b = parseInt(match[3]);
+                    const a = parseFloat(match[4]);
+                    
+                    const hex = (r << 16) | (g << 8) | b;
+                    
+                    CONFIG_3D.HOVER_COLOR = hex;
+                    CONFIG_3D.HOVER_OPACITY = a;
+                    
+                    // Update materials
+                     if (this.meshes) {
+                        this.meshes.forEach(mesh => {
+                            if (mesh.userData.hoverMaterial) {
+                                mesh.userData.hoverMaterial.color.setHex(hex);
+                                mesh.userData.hoverMaterial.opacity = a;
+                                if (mesh.userData.hoverMaterial.emissive) {
+                                    mesh.userData.hoverMaterial.emissive.setHex(hex);
+                                }
+                                mesh.userData.hoverMaterial.needsUpdate = true;
+                            }
+                        });
                     }
-                });
-            }
-            // Reapply effect if hovering (for immediate visual feedback)
-            if (this.hoveredObject) {
-                const currentEffect = this.currentEffect;
-                this.clearAllEffects(this.hoveredObject);
-                if (currentEffect === 'solid') {
-                    this.applySolidEffect(this.hoveredObject);
-                } else if (currentEffect === 'glow') {
-                    this.applyGlowEffect(this.hoveredObject);
-                } else {
-                    this.applyEffect(this.hoveredObject);
+                    
+                    // Reapply
+                    if (this.hoveredObject && this.currentEffect === 'solid') {
+                        this.clearAllEffects(this.hoveredObject);
+                        this.applySolidEffect(this.hoveredObject);
+                    }
+                    
+                    // Save
+                    if (window.uiSettings) window.uiSettings.saveEffectSettings();
                 }
-            }
-        });
-        
-        // Save on change (after user finishes picking color)
-        colorInput.addEventListener('change', (e) => {
-            // Save settings after color is fully changed
-            if (window.uiSettings) {
-                window.uiSettings.saveEffectSettings();
-            }
-        });
-        
-        colorGroup.appendChild(colorLabel);
-        colorGroup.appendChild(colorInput);
-        container.appendChild(colorGroup);
+            }));
+        } else {
+             // Fallback to old controls if panel not ready
+            this.createControl(container, 'Opacity', CONFIG_3D.HOVER_OPACITY, 0, 1, 0.05, (val) => {
+                CONFIG_3D.HOVER_OPACITY = val;
+            });
+        }
     }
     
     createOutlineControls(container) {
-        this.createControl(container, 'Speed', CONFIG_3D.OUTLINE_PULSE_SPEED, 0, 5, 0.1, (val) => {
+        this.createControl(container, 'Pulse Speed', CONFIG_3D.OUTLINE_PULSE_SPEED, 0, 5, 0.1, (val) => {
             CONFIG_3D.OUTLINE_PULSE_SPEED = val;
         });
+        
+        // Fill Opacity Control
+        this.createControl(container, 'Fill Opacity', CONFIG_3D.HOVER_OPACITY, 0, 1, 0.05, (val) => {
+            CONFIG_3D.HOVER_OPACITY = val;
+            // Update material immediately
+            if (this.hoveredObject && this.hoveredObject.material) {
+                this.hoveredObject.material.opacity = val;
+            }
+        });
+
+        // Outline Color & Opacity (though OutlinePass usually ignores alpha, we can store it)
+        if (window.uiSettingsPanel) {
+            const currentColor = CONFIG_3D.OUTLINE_COLOR || 0x00ff00;
+            // Outline pass doesn't really support alpha in the same way, but let's allow picking the color
+            const r = (currentColor >> 16) & 255;
+            const g = (currentColor >> 8) & 255;
+            const b = currentColor & 255;
+            const rgba = `rgba(${r}, ${g}, ${b}, 1.0)`; // Opacity ignored for outline color usually
+            
+            container.appendChild(window.uiSettingsPanel.createColorControl('Outline Color', 'outline-color', rgba, (val) => {
+                const match = val.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                 if (match) {
+                    const r = parseInt(match[1]);
+                    const g = parseInt(match[2]);
+                    const b = parseInt(match[3]);
+                    const hex = (r << 16) | (g << 8) | b;
+                    
+                    CONFIG_3D.OUTLINE_COLOR = hex;
+                    if (this.outlinePass) {
+                        this.outlinePass.visibleEdgeColor.setHex(hex);
+                        this.outlinePass.hiddenEdgeColor.setHex(hex);
+                    }
+                    
+                    // Reapply
+                    if (this.hoveredObject && this.currentEffect === 'outline') {
+                        this.clearAllEffects(this.hoveredObject);
+                        this.applyOutlineEffect(this.hoveredObject);
+                    }
+                    
+                    if (window.uiSettings) window.uiSettings.saveEffectSettings();
+                 }
+            }));
+        }
     }
     
     createGlowControls(container) {
         this.createControl(container, 'Strength', CONFIG_3D.BLOOM_STRENGTH, 0, 5, 0.1, (val) => {
             CONFIG_3D.BLOOM_STRENGTH = val;
             if (this.bloomPass) this.bloomPass.strength = val;
-            // Reapply effect if hovering
             if (this.hoveredObject) {
-                this.clearAllEffects(this.hoveredObject);
-                this.applyEffect(this.hoveredObject);
+                 this.clearAllEffects(this.hoveredObject);
+                 this.applyGlowEffect(this.hoveredObject);
             }
         });
         this.createControl(container, 'Radius', CONFIG_3D.BLOOM_RADIUS, 0, 2, 0.1, (val) => {
@@ -543,41 +587,33 @@ class Viewer3D {
             if (this.bloomPass) this.bloomPass.radius = val;
         });
         
-        // Color picker for glow color
-        const glowColorGroup = document.createElement('div');
-        glowColorGroup.className = 'effect-control-group';
-        
-        const glowColorLabel = document.createElement('span');
-        glowColorLabel.className = 'effect-control-label';
-        glowColorLabel.textContent = 'Glow Color:';
-        
-        const glowColorInput = document.createElement('input');
-        glowColorInput.type = 'color';
-        glowColorInput.className = 'effect-color-picker';
-        // Ensure glow color is properly formatted (always 6 hex digits)
-        const glowColor = CONFIG_3D.GLOW_COLOR !== undefined ? CONFIG_3D.GLOW_COLOR : (CONFIG_3D.HOVER_COLOR || 0x175ddc);
-        glowColorInput.value = '#' + glowColor.toString(16).padStart(6, '0').toUpperCase();
-        glowColorInput.addEventListener('input', (e) => {
-            const colorHex = parseInt(e.target.value.replace('#', ''), 16);
-            CONFIG_3D.GLOW_COLOR = colorHex;
-            // Reapply glow effect if hovering (for immediate visual feedback)
-            if (this.hoveredObject && this.currentEffect === 'glow') {
-                this.clearAllEffects(this.hoveredObject);
-                this.applyGlowEffect(this.hoveredObject);
-            }
-        });
-        
-        // Save on change (after user finishes picking color)
-        glowColorInput.addEventListener('change', (e) => {
-            // Save settings after color is fully changed
-            if (window.uiSettings) {
-                window.uiSettings.saveEffectSettings();
-            }
-        });
-        
-        glowColorGroup.appendChild(glowColorLabel);
-        glowColorGroup.appendChild(glowColorInput);
-        container.appendChild(glowColorGroup);
+        // Glow Color Control
+        if (window.uiSettingsPanel) {
+            const currentColor = CONFIG_3D.GLOW_COLOR !== undefined ? CONFIG_3D.GLOW_COLOR : (CONFIG_3D.HOVER_COLOR || 0x175ddc);
+            const r = (currentColor >> 16) & 255;
+            const g = (currentColor >> 8) & 255;
+            const b = currentColor & 255;
+            // Glow alpha usually affects intensity or is ignored by bloom, but let's keep it 1.0 for UI consistency
+            const rgba = `rgba(${r}, ${g}, ${b}, 1.0)`;
+            
+            container.appendChild(window.uiSettingsPanel.createColorControl('Glow Color', 'glow-color', rgba, (val) => {
+                 const match = val.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                 if (match) {
+                    const r = parseInt(match[1]);
+                    const g = parseInt(match[2]);
+                    const b = parseInt(match[3]);
+                    const hex = (r << 16) | (g << 8) | b;
+                    
+                    CONFIG_3D.GLOW_COLOR = hex;
+                    
+                     if (this.hoveredObject && this.currentEffect === 'glow') {
+                        this.clearAllEffects(this.hoveredObject);
+                        this.applyGlowEffect(this.hoveredObject);
+                    }
+                    if (window.uiSettings) window.uiSettings.saveEffectSettings();
+                 }
+            }));
+        }
     }
     
     createScanControls(container) {
@@ -1045,6 +1081,9 @@ class Viewer3D {
                         defaultCamera.position.set(0, 0, 5);
                         this.cameras.push(defaultCamera);
                     }
+
+                    // Check for mismatch between cameras and images
+                    this.checkSyncStatus();
                     
                     // Apply clipping planes to all cameras
                     this.cameras.forEach(camera => {
@@ -1068,6 +1107,7 @@ class Viewer3D {
                             child.userData.originalMaterial = child.material.clone();
                             
                             // Create transparent material - invisible by default
+                            // Create transparent material - invisible by default
                             const transparentMaterial = new THREE.MeshStandardMaterial({
                                 color: CONFIG_3D.DEFAULT_COLOR,
                                 transparent: true,
@@ -1081,15 +1121,14 @@ class Viewer3D {
                             child.userData.transparentMaterial = transparentMaterial;
                             
                             // Create hover material (uses current HOVER_COLOR from config)
-                            child.userData.hoverMaterial = new THREE.MeshStandardMaterial({
+                            // Use MeshBasicMaterial for flat, glitch-free rendering
+                            child.userData.hoverMaterial = new THREE.MeshBasicMaterial({
                                 color: CONFIG_3D.HOVER_COLOR,
                                 transparent: true,
                                 opacity: CONFIG_3D.HOVER_OPACITY,
-                                side: THREE.DoubleSide,
-                                depthWrite: CONFIG_3D.HOVER_DEPTH_WRITE,
-                                depthTest: true,
-                                emissive: CONFIG_3D.HOVER_COLOR, // Use same color for emissive in solid effect
-                                emissiveIntensity: 0.0 // No emissive for solid effect
+                                side: THREE.FrontSide, // Only draw outside faces to prevent self-conflict
+                                depthWrite: false,     // Disable depth write to prevent z-fighting
+                                depthTest: true
                             });
                         }
                     });
@@ -1412,6 +1451,62 @@ class Viewer3D {
         }
     }
     
+    checkSyncStatus() {
+        if (!this.cameras || this.cameras.length === 0) return;
+        if (!this.viewer2D || this.viewer2D.totalImages === 0) return;
+        
+        const cameraCount = this.cameras.length;
+        const imageCount = this.viewer2D.totalImages;
+        
+        // Allow a small discrepancy? No, they should match exactly for this viewer.
+        if (cameraCount !== imageCount) {
+            console.warn(`[Sync Check] Mismatch detected: ${cameraCount} cameras vs ${imageCount} images`);
+            
+            const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+            
+            // Only show alert if we haven't shown it this session
+            if (this.hasShownMismatchWarning) return;
+            this.hasShownMismatchWarning = true;
+
+            const mismatchMsg = `⚠️ Synchronization Warning\n\n` +
+                `Mismatch detected between 3D cameras and images:\n` +
+                `• 3D Cameras: ${cameraCount}\n` +
+                `• Images: ${imageCount}\n\n` +
+                `The 3D overlay might not match the product rotation correctly.`;
+                
+            if (isLocal) {
+                 // Use a small timeout to let the UI settle
+                 setTimeout(() => {
+                    const fixIt = confirm(
+                        `${mismatchMsg}\n\n` +
+                        `Would you like to auto-generate the manifest to fix this?\n` +
+                        `(This will run create-image-manifest.py on the server)`
+                    );
+                    
+                    if (fixIt) {
+                        fetch('/api/create-manifest', { method: 'POST' })
+                            .then(res => {
+                                if (res.ok) return res.json();
+                                throw new Error('Request failed');
+                            })
+                            .then(data => {
+                                alert('Manifest generation triggered! Page will reload in 3 seconds.');
+                                setTimeout(() => location.reload(), 3000);
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                alert('Failed to trigger generation. key sure server.py is running.');
+                            });
+                    }
+                 }, 1000);
+            } else {
+                 console.warn(mismatchMsg);
+            }
+        } else {
+             console.log(`[Sync Check] Sync OK: ${cameraCount} cameras matching ${imageCount} images`);
+        }
+    }
+
     onWindowResize() {
         if (!this.currentCamera) return;
         
@@ -1571,6 +1666,16 @@ class Viewer3D {
                 object.userData.outlineBoxHelper = null;
             }
             
+            // Clear glow light
+            if (object.userData.glowLightTop) {
+                 object.remove(object.userData.glowLightTop);
+                 object.userData.glowLightTop = null;
+            }
+            if (object.userData.glowLight) {
+                 object.remove(object.userData.glowLight);
+                 object.userData.glowLight = null;
+            }
+            
             // Clear outline (postprocessing - fallback)
             if (this.outlinePass) {
                 this.outlinePass.selectedObjects = [];
@@ -1636,6 +1741,15 @@ class Viewer3D {
                 object.remove(particleSystem);
                 this.particleSystems.delete(object);
             }
+            
+            // Clear glow light
+            if (object.userData.glowLight) {
+                object.remove(object.userData.glowLight);
+                if (object.userData.glowLight.dispose) {
+                    object.userData.glowLight.dispose(); 
+                }
+                object.userData.glowLight = null;
+            }
         } catch (error) {
             console.error('Error clearing effects:', error);
         }
@@ -1660,6 +1774,12 @@ class Viewer3D {
     // Outline effect - using ALIGNED Box3 helper that respects object rotation
     applyOutlineEffect(object) {
         if (!object.geometry) return;
+
+        // Make object visible as a solid fill (reuse hover material or set opacity)
+        // We use the basic material setup from the 'solid' effect to ensure glitch-free rendering
+        object.material = object.userData.hoverMaterial || object.material;
+        object.material.opacity = CONFIG_3D.HOVER_OPACITY; // Visible solid fill
+        object.material.needsUpdate = true;
         
         // Create properly aligned box using object's local bounding box
         // Note: createAlignedBoxHelper adds the box as a child of the object
@@ -1736,7 +1856,7 @@ class Viewer3D {
         return boxLines;
     }
     
-    // Glow effect - use pure emissive glow WITHOUT bloom pass to avoid scene dimming
+    // Glow effect - use pure emissive glow + pulsing internal light
     applyGlowEffect(object) {
         // Store original emissive and opacity
         if (object.userData.originalEmissive === undefined) {
@@ -1755,20 +1875,42 @@ class Viewer3D {
         object.material.emissive.setHex(glowColor); // Set emissive to same color for glow
         
         // Use VERY strong emissive intensity for visible glow effect
-        // This creates a natural glow without postprocessing (which causes dimming)
-        // Strength setting controls the intensity: multiply by 3-5 for visible glow
         object.material.emissiveIntensity = Math.max(3.0, CONFIG_3D.BLOOM_STRENGTH * 3);
         object.material.needsUpdate = true;
         
-        // CRITICAL: Disable bloom pass entirely - it processes the whole scene and causes dimming
-        // Pure emissive glow doesn't affect the background image at all
+        // Add pulsating point light ABOVE the box
+        if (object.geometry) {
+            object.geometry.computeBoundingBox();
+            const bbox = object.geometry.boundingBox;
+            const center = new THREE.Vector3();
+            bbox.getCenter(center);
+            
+            // Position light above the top face
+            const topY = bbox.max.y;
+            // Height proportional to object size
+            const size = new THREE.Vector3();
+            bbox.getSize(size);
+            const heightOffset = Math.max(size.y * 0.5, 200); // Minimum 200 units up
+            
+            const light = new THREE.PointLight(glowColor, 2, 3000); // Range 3000
+            light.position.set(center.x, topY + heightOffset, center.z);
+            light.name = 'GlowLightTop';
+            light.userData.startTime = Date.now();
+            light.userData.baseY = topY + heightOffset;
+            light.userData.isAnimating = true;
+            
+            object.add(light);
+            object.userData.glowLightTop = light;
+        }
+        
+        
         if (this.bloomPass) {
-            this.bloomPass.enabled = false; // Disabled to prevent ANY scene dimming or overlay
+            this.bloomPass.enabled = false; 
         }
         
     }
     
-    // Scanning lines effect - uses aligned box helper like outline
+    // Scanning lines effect - Corrected positioning to avoid "center of scene" issues
     applyScanEffect(object) {
         if (!object.geometry) return;
         
@@ -1779,23 +1921,18 @@ class Viewer3D {
             object.userData.scanMaterial = object.material;
         }
         
-        // Use SAME aligned box as outline (added as child of object)
+        // Use aligned box like outline (added as child of object) using SCAN_COLOR
         const alignedBox = this.createAlignedBoxHelper(object, CONFIG_3D.SCAN_COLOR);
         alignedBox.name = 'ScanBoxHelper';
         alignedBox.userData.startTime = Date.now();
-        
-        // Store reference for cleanup and animation
         object.userData.scanBoxHelper = alignedBox;
         
-        // Get geometry's local bounding box for accurate sizing and positioning
+        // Get geometry's local bounding box
         object.geometry.computeBoundingBox();
         const localBBox = object.geometry.boundingBox;
         const localSize = new THREE.Vector3();
         localBBox.getSize(localSize);
         const localMin = localBBox.min.clone();
-        const localMax = localBBox.max.clone();
-        const localCenter = new THREE.Vector3();
-        localBBox.getCenter(localCenter);
         
         // Create animated scan planes group - add as child of object so it follows transforms
         const scanPlanesGroup = new THREE.Group();
@@ -1803,22 +1940,19 @@ class Viewer3D {
         scanPlanesGroup.userData.startTime = Date.now();
         scanPlanesGroup.userData.localSize = localSize;
         scanPlanesGroup.userData.localMin = localMin;
-        scanPlanesGroup.userData.localMax = localMax;
-        scanPlanesGroup.userData.localCenter = localCenter;
         scanPlanesGroup.userData.targetObject = object;
         
-        // Set group position to geometry's bounding box center (in object's local space)
-        // This ensures planes are centered on the geometry, not the object origin
-        scanPlanesGroup.position.copy(localCenter);
+        // CRITICAL: Set group to IDENTITY transform relative to object
+        // This ensures it aligns perfectly with the object's local system
+        // The planes inside will be positioned at precise local coordinates
+        scanPlanesGroup.position.set(0, 0, 0);
         scanPlanesGroup.rotation.set(0, 0, 0);
         scanPlanesGroup.scale.set(1, 1, 1);
         
         const lineCount = Math.min(CONFIG_3D.SCAN_LINE_COUNT, 8);
         
         for (let i = 0; i < lineCount; i++) {
-            // Create horizontal scan planes - size based on LOCAL geometry size
-            // Use the larger of X/Z dimensions to ensure planes cover the object
-            // Add small margin (10%) for visual effect
+            // Create horizontal scan planes
             const planeSize = Math.max(localSize.x, localSize.z) * 1.1;
             const planeGeometry = new THREE.PlaneGeometry(planeSize, planeSize);
             const planeMaterial = new THREE.MeshBasicMaterial({
@@ -1833,38 +1967,36 @@ class Viewer3D {
             // Rotate to be horizontal (XZ plane)
             plane.rotation.x = Math.PI / 2;
             
-            // Position relative to group center (which is at geometry's bounding box center)
-            // Calculate Y position from min to max of bounding box
+            // Position relative to OBJECT ORIGIN (Group is at 0,0,0)
+            // Y = localMinY + (fraction of height)
+            // This places the plane correctly within the local geometry bounds
             const yPos = localMin.y + (i / lineCount) * localSize.y;
-            // Offset from group center (which is at localCenter.y)
-            const yOffset = yPos - localCenter.y;
-            plane.position.set(0, yOffset, 0);
+            plane.position.set(0, yPos, 0); // X, Z at 0 means center of object's LOCAL space (usually correct for centered geom)
+            
+            // If geometry is NOT centered on X/Z, we need to adjust
+            const localCenter = new THREE.Vector3();
+            localBBox.getCenter(localCenter);
+            plane.position.x = localCenter.x;
+            plane.position.z = localCenter.z;
             
             plane.userData.scanOffset = i / lineCount;
-            plane.userData.localMinY = localMin.y;
-            plane.userData.localMaxY = localMax.y;
-            plane.userData.localSizeY = localSize.y;
-            plane.userData.planeSize = planeSize;
-            plane.name = `ScanPlane${i}`;
+            // Store relative Y position (0.0 to 1.0) for animation
+            plane.userData.relativeY = i / lineCount; 
             
+            plane.name = `ScanPlane${i}`;
             scanPlanesGroup.add(plane);
         }
         
-        // Add planes group as child of object so it follows object's transforms
         object.add(scanPlanesGroup);
         object.userData.scanPlanes = scanPlanesGroup;
         
         // Add debug helpers if enabled
         if (CONFIG_3D.SCAN_DEBUG_MODE) {
-            // Add green aligned BoxHelper for reference (already added as child by createAlignedBoxHelper)
             const debugBoxHelper = this.createAlignedBoxHelper(object, 0x00ff00);
             debugBoxHelper.name = 'ScanDebugBoxHelper';
             debugBoxHelper.material.opacity = 0.5;
-            // Note: debugBoxHelper is already added as child of object by createAlignedBoxHelper
             object.userData.scanDebugBoxHelper = debugBoxHelper;
-            
         }
-        
     }
     
     // Particle effect
@@ -2290,6 +2422,16 @@ class Viewer3D {
                     const pulse = Math.sin(elapsed * CONFIG_3D.SOLID_PULSE_SPEED * Math.PI * 2) * 0.3 + 0.5;
                     mesh.material.opacity = CONFIG_3D.HOVER_OPACITY * pulse;
                 }
+                
+                // Update Glow Light Pulse
+                if (mesh.userData.glowLight) {
+                    const light = mesh.userData.glowLight;
+                    const elapsed = (Date.now() - light.userData.startTime) / 1000;
+                    // Pulse intensity
+                    // Base intensity 2.0, pulse amplitude 1.0
+                    const pulse = Math.sin(elapsed * 3.0) * 1.0 + 2.0;
+                    light.intensity = pulse;
+                }
             });
             
             // Update outline BoxHelper
@@ -2306,9 +2448,9 @@ class Viewer3D {
                 }
             });
             
-            // Update scanning effect (BoxHelper + animated planes)
+            // Update scanning effect (RESTORED)
             this.meshes.forEach(mesh => {
-                // Update scan BoxHelper (pulsing animation like outline)
+                // Update scan BoxHelper (pulsing animation)
                 if (mesh.userData.scanBoxHelper) {
                     const boxHelper = mesh.userData.scanBoxHelper;
                     const elapsed = (Date.now() - boxHelper.userData.startTime) / 1000;
@@ -2316,8 +2458,6 @@ class Viewer3D {
                     // Pulse the box opacity
                     const pulse = Math.sin(elapsed * CONFIG_3D.SCAN_SPEED * 2) * 0.2 + 0.8;
                     boxHelper.material.opacity = CONFIG_3D.SCAN_OPACITY * pulse;
-                    
-                    // No need to update position/rotation - it's a child of the object and inherits transforms automatically
                 }
                 
                 // Pulse the object material
@@ -2338,26 +2478,34 @@ class Viewer3D {
                     const localSize = new THREE.Vector3();
                     localBBox.getSize(localSize);
                     const localMin = localBBox.min.clone();
-                    const localMax = localBBox.max.clone();
                     const localCenter = new THREE.Vector3();
                     localBBox.getCenter(localCenter);
                     
-                    // Update group position to geometry's bounding box center
-                    scanGroup.position.copy(localCenter);
-                    
+                    // Update plane positions and opacity
                     scanGroup.children.forEach((plane, i) => {
                         if (plane.userData.scanOffset !== undefined) {
-                            // Animate opacity with wave pattern
+                            // Animate opacity
                             const offset = plane.userData.scanOffset;
                             const wave = Math.sin((elapsed * CONFIG_3D.SCAN_SPEED + offset * 2) * Math.PI * 2);
                             plane.material.opacity = CONFIG_3D.SCAN_OPACITY * 0.3 * (wave * 0.5 + 0.5);
                             
-                            // Update plane Y position relative to group center
-                            const yPos = localMin.y + (i / scanGroup.children.length) * localSize.y;
-                            const yOffset = yPos - localCenter.y;
-                            plane.position.y = yOffset;
+                            // Update plane Y position: MinY + (AnimatedFraction * Height)
+                            // We animate the "scan" going up and down or just looping
+                            // Simple loop:
+                            // const loopT = (elapsed * 0.5 + offset) % 1.0;
+                            // but we used static planes with wave opacity before. Let's stick to wave opacity for stability,
+                            // OR we can move them. The user wants "scan effect".
+                            // Let's stick to the previous wave opacity logic + static positions, but update positions to match X/Z center
                             
-                            // Update plane size based on local size (not world size)
+                            // Ensure X/Z center is correct (if geometry bounds change)
+                            plane.position.x = localCenter.x;
+                            plane.position.z = localCenter.z;
+                            
+                            // Keep Y relative to MinY
+                            const yPos = localMin.y + (i / scanGroup.children.length) * localSize.y;
+                            plane.position.y = yPos;
+                             
+                            // Update plane size
                             const planeSize = Math.max(localSize.x, localSize.z) * 1.1;
                             if (!plane.userData.planeSize || Math.abs(plane.userData.planeSize - planeSize) > 0.01) {
                                 plane.geometry.dispose();
@@ -2367,9 +2515,8 @@ class Viewer3D {
                         }
                     });
                 }
-                
-                // Debug BoxHelper updates automatically as child of object
             });
+
             
             // Update particles
             this.particleSystems.forEach((particleSystem, object) => {
@@ -2682,6 +2829,19 @@ class Viewer3D {
         
         // Update debug info
         this.updateDebugInfo();
+
+        // Animate Glow Effect
+        if (this.hoveredObject && this.hoveredObject.userData.glowLightTop) {
+            const light = this.hoveredObject.userData.glowLightTop;
+            const time = Date.now() * 0.003; // Animation Speed
+            
+            // Pulsate intensity
+            light.intensity = 2.0 + Math.sin(time) * 1.5; // range 0.5 to 3.5
+            
+            // Bob up and down lightly
+            const baseY = light.userData.baseY;
+            light.position.y = baseY + Math.sin(time * 0.5) * 50; // Move +/- 50 units
+        }
         
         if (this.scene && this.currentCamera) {
             // NEVER use bloom pass - it causes scene dimming/overlay

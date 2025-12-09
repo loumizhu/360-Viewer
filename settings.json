@@ -132,7 +132,7 @@
         "introPlaneColor": 65535,
         "introPlaneOpacity": 0.0,
         "introShowPlane": false,
-        "enableDropAnimation": true,
+        "enableDropAnimation": false,
         "dropHeight": 2000,
         "dropGravity": 25000.0,
         "dropTerminalVelocity": 50000.0,

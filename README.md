@@ -28,6 +28,11 @@ A simple, lightweight web-based 360° product rotation viewer - like those on e-
 
 ## How to Use
 
+### Local Development Features
+When running with the provided `server.py`, the following features are available:
+- **Automatic Manifest Creation**: Triggered via API to run `create-image-manifest.py`.
+- **Local File Saving**: The app can save reports or logs to the local filesystem via `/api/save-file`.
+
 ### Step 1: Create Light Images (First Time Setup)
 
 Before using the viewer, you need to create optimized "light" versions of your images:

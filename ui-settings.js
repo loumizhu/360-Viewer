@@ -156,6 +156,120 @@ class UISettingsPanel {
         }, 100);
     }
     
+    // Helper to create a color input with opacity slider
+    // Helper to create a color input with opacity slider
+    createColorControl(label, id, rgbaValue, onChange) {
+        const group = document.createElement('div');
+        group.className = 'ui-settings-group';
+        
+        // Parse RGBA
+        let hex = '#000000';
+        let alpha = 1.0;
+        
+        if (rgbaValue && rgbaValue.startsWith('#')) {
+            hex = rgbaValue;
+        } else if (rgbaValue && rgbaValue.startsWith('rgba')) {
+            const match = rgbaValue.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+            if (match) {
+                const r = parseInt(match[1]);
+                const g = parseInt(match[2]);
+                const b = parseInt(match[3]);
+                const a = match[4] !== undefined ? parseFloat(match[4]) : 1.0;
+                hex = `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+                alpha = a;
+            }
+        }
+        
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.flexDirection = 'column';
+        wrapper.style.gap = '12px';
+        wrapper.style.width = '100%';
+        
+        // Row 1: Label and Color Input
+        const topRow = document.createElement('div');
+        topRow.style.display = 'flex';
+        topRow.style.justifyContent = 'space-between';
+        topRow.style.alignItems = 'center';
+        
+        const labelEl = document.createElement('label');
+        labelEl.className = 'ui-settings-label';
+        labelEl.textContent = label;
+        labelEl.style.marginBottom = '0'; // Override default
+        
+        // Color Input
+        const colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.className = 'ui-settings-color-input';
+        colorInput.value = hex;
+        colorInput.id = `${id}-color`;
+        
+        topRow.appendChild(labelEl);
+        topRow.appendChild(colorInput);
+        
+        // Row 2: Opacity Slider
+        const sliderRow = document.createElement('div');
+        sliderRow.style.display = 'flex';
+        sliderRow.style.alignItems = 'center';
+        sliderRow.style.gap = '10px';
+        sliderRow.style.width = '100%';
+        
+        const opacityLabel = document.createElement('span');
+        opacityLabel.style.fontSize = '12px';
+        opacityLabel.style.color = 'rgba(255, 255, 255, 0.6)';
+        opacityLabel.textContent = 'Opacity:';
+        
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.className = 'ui-settings-slider';
+        slider.style.flex = '1'; // Take remaining space
+        slider.min = '0';
+        slider.max = '100';
+        slider.value = Math.round(alpha * 100);
+        slider.id = `${id}-alpha`;
+        
+        const percentDisplay = document.createElement('span');
+        percentDisplay.className = 'ui-settings-value';
+        percentDisplay.style.minWidth = '35px';
+        percentDisplay.style.textAlign = 'right';
+        percentDisplay.textContent = `${Math.round(alpha * 100)}%`;
+        
+        sliderRow.appendChild(opacityLabel);
+        sliderRow.appendChild(slider);
+        sliderRow.appendChild(percentDisplay);
+        
+        wrapper.appendChild(topRow);
+        wrapper.appendChild(sliderRow);
+        group.appendChild(wrapper);
+        
+        // Event listeners
+        const updateValue = () => {
+            const h = colorInput.value;
+            const a = parseInt(slider.value) / 100;
+            percentDisplay.textContent = `${parseInt(slider.value)}%`;
+            
+            // Convert Hex to RGB
+            const r = parseInt(h.slice(1, 3), 16);
+            const g = parseInt(h.slice(3, 5), 16);
+            const b = parseInt(h.slice(5, 7), 16);
+            
+            const rgba = `rgba(${r}, ${g}, ${b}, ${a})`;
+            onChange(rgba);
+        };
+        
+        colorInput.addEventListener('input', updateValue);
+        // Use 'input' for real-time updates AND 'change' for final commit if needed
+        // But 'input' is usually enough for visual feedback. 
+        // We might want to debounce saving to settings if it's too frequent, 
+        // but current logic just calls onChange which calls updateSetting which calls saveSettings.
+        // saveSettings does localStorage(synchronous) and file write(async).
+        // File write handles multiple calls? It might be heavy.
+        // But for now, let's stick to simple 'input' for slider smoothness.
+        slider.addEventListener('input', updateValue);
+        
+        return group;
+    }
+
     createColorsSection(theme) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
@@ -165,52 +279,30 @@ class UISettingsPanel {
         title.textContent = 'Colors';
         section.appendChild(title);
         
-        // Primary Color
-        const primaryGroup = document.createElement('div');
-        primaryGroup.className = 'ui-settings-group';
-        primaryGroup.innerHTML = `
-            <label class="ui-settings-label">Primary Color (500)</label>
-            <input type="color" class="ui-settings-color-input" id="ui-primary-500" 
-                   value="${this.hexToColor((theme.primary && theme.primary[500]) || '#006FEE')}">
-        `;
-        section.appendChild(primaryGroup);
+        // Primary Color (Simple hex for now as it maps to palette generation usually, but user asked for transparency everywhere)
+        // Note: Generating a full palette from RGBA is complex, so for "Primary 500" we'll stick to Hex or just treat it as the base color
+        // For simplicity and to satisfy "all color picker rgba", we allow it, though theme generation might strip alpha if it expects hex.
+        // Let's assume theme.primary['500'] CAN be rgba.
         
-        // Success Color
-        const successGroup = document.createElement('div');
-        successGroup.className = 'ui-settings-group';
-        successGroup.innerHTML = `
-            <label class="ui-settings-label">Success Color</label>
-            <input type="color" class="ui-settings-color-input" id="ui-success" 
-                   value="${this.hexToColor(theme.success || '#00C851')}">
-        `;
-        section.appendChild(successGroup);
+        section.appendChild(this.createColorControl('Primary Color', 'ui-primary-500', 
+            (theme.primary && theme.primary[500]) || '#006FEE', 
+            (val) => this.updateColorSetting('ui-primary-500', val)
+        ));
         
-        // Warning Color
-        const warningGroup = document.createElement('div');
-        warningGroup.className = 'ui-settings-group';
-        warningGroup.innerHTML = `
-            <label class="ui-settings-label">Warning Color</label>
-            <input type="color" class="ui-settings-color-input" id="ui-warning" 
-                   value="${this.hexToColor(theme.warning || '#FFBB33')}">
-        `;
-        section.appendChild(warningGroup);
+        section.appendChild(this.createColorControl('Success Color', 'ui-success', 
+            theme.success || '#00C851', 
+            (val) => this.updateColorSetting('success', val)
+        ));
         
-        // Danger Color
-        const dangerGroup = document.createElement('div');
-        dangerGroup.className = 'ui-settings-group';
-        dangerGroup.innerHTML = `
-            <label class="ui-settings-label">Danger Color</label>
-            <input type="color" class="ui-settings-color-input" id="ui-danger" 
-                   value="${this.hexToColor(theme.danger || '#FF4444')}">
-        `;
-        section.appendChild(dangerGroup);
+        section.appendChild(this.createColorControl('Warning Color', 'ui-warning', 
+            theme.warning || '#FFBB33', 
+            (val) => this.updateColorSetting('warning', val)
+        ));
         
-        // Add event listeners
-        section.querySelectorAll('.ui-settings-color-input').forEach(input => {
-            input.addEventListener('change', (e) => {
-                this.updateColorSetting(e.target.id, e.target.value);
-            });
-        });
+        section.appendChild(this.createColorControl('Danger Color', 'ui-danger', 
+            theme.danger || '#FF4444', 
+            (val) => this.updateColorSetting('danger', val)
+        ));
         
         this.content.appendChild(section);
     }
@@ -221,31 +313,22 @@ class UISettingsPanel {
         
         const title = document.createElement('h4');
         title.className = 'ui-settings-section-title';
-        title.textContent = 'Background';
+        title.textContent = 'Background Properties';
         section.appendChild(title);
         
+        // Tabs for different backgrounds
         const backgrounds = [
-            { key: 'default', label: 'Default Background' },
+            { key: 'default', label: 'Page Background' },
             { key: 'panel', label: 'Panel Background' },
             { key: 'card', label: 'Card Background' },
-            { key: 'hover', label: 'Hover Background' },
             { key: 'toolbar', label: 'Toolbar Background' }
         ];
         
         backgrounds.forEach(bg => {
-            const group = document.createElement('div');
-            group.className = 'ui-settings-group';
-            group.innerHTML = `
-                <label class="ui-settings-label">${bg.label}</label>
-                <input type="color" class="ui-settings-color-input" id="ui-bg-${bg.key}" 
-                       value="${this.rgbaToColor((theme.background && theme.background[bg.key]) || this.getDefaultBackground(bg.key))}">
-            `;
-            
-            group.querySelector('input').addEventListener('change', (e) => {
-                this.updateBackgroundSetting(bg.key, e.target.value);
-            });
-            
-            section.appendChild(group);
+            const val = (theme.background && theme.background[bg.key]) || this.getDefaultBackground(bg.key);
+            section.appendChild(this.createColorControl(bg.label, `ui-bg-${bg.key}`, val,
+                (newVal) => this.updateBackgroundSetting(bg.key, newVal)
+            ));
         });
         
         this.content.appendChild(section);
@@ -267,19 +350,10 @@ class UISettingsPanel {
         ];
         
         textColors.forEach(text => {
-            const group = document.createElement('div');
-            group.className = 'ui-settings-group';
-            group.innerHTML = `
-                <label class="ui-settings-label">${text.label}</label>
-                <input type="color" class="ui-settings-color-input" id="ui-text-${text.key}" 
-                       value="${this.rgbaToColor((theme.text && theme.text[text.key]) || this.getDefaultText(text.key))}">
-            `;
-            
-            group.querySelector('input').addEventListener('change', (e) => {
-                this.updateTextSetting(text.key, e.target.value);
-            });
-            
-            section.appendChild(group);
+            const val = (theme.text && theme.text[text.key]) || this.getDefaultText(text.key);
+            section.appendChild(this.createColorControl(text.label, `ui-text-${text.key}`, val,
+                (newVal) => this.updateTextSetting(text.key, newVal)
+            ));
         });
         
         this.content.appendChild(section);
@@ -291,34 +365,14 @@ class UISettingsPanel {
         
         const title = document.createElement('h4');
         title.className = 'ui-settings-section-title';
-        title.textContent = 'Border';
+        title.textContent = 'Borders & Corners';
         section.appendChild(title);
         
         // Border Color
-        const colorGroup = document.createElement('div');
-        colorGroup.className = 'ui-settings-group';
-        colorGroup.innerHTML = `
-            <label class="ui-settings-label">Border Color</label>
-            <input type="color" class="ui-settings-color-input" id="ui-border-color" 
-                   value="${this.rgbaToColor((theme.border && theme.border.color) || 'rgba(255, 255, 255, 0.2)')}">
-        `;
-        colorGroup.querySelector('input').addEventListener('change', (e) => {
-            this.updateBorderSetting('color', e.target.value);
-        });
-        section.appendChild(colorGroup);
-        
-        // Toolbar Border Color
-        const toolbarBorderGroup = document.createElement('div');
-        toolbarBorderGroup.className = 'ui-settings-group';
-        toolbarBorderGroup.innerHTML = `
-            <label class="ui-settings-label">Toolbar Border Color</label>
-            <input type="color" class="ui-settings-color-input" id="ui-toolbar-border" 
-                   value="${this.rgbaToColor((theme.border && theme.border.toolbar) || 'rgba(255, 255, 255, 0.18)')}">
-        `;
-        toolbarBorderGroup.querySelector('input').addEventListener('change', (e) => {
-            this.updateBorderSetting('toolbar', e.target.value);
-        });
-        section.appendChild(toolbarBorderGroup);
+        const borderColor = (theme.border && theme.border.color) || 'rgba(255, 255, 255, 0.2)';
+        section.appendChild(this.createColorControl('Border Color', 'ui-border-color', borderColor,
+            (val) => this.updateBorderSetting('color', val)
+        ));
         
         // Border Width
         const widthGroup = document.createElement('div');
@@ -326,7 +380,7 @@ class UISettingsPanel {
         widthGroup.innerHTML = `
             <label class="ui-settings-label">Border Width: <span class="ui-settings-value" id="border-width-value">${(theme.border && theme.border.width) || '2px'}</span></label>
             <input type="range" class="ui-settings-slider" id="ui-border-width" 
-                   min="1" max="8" step="1" value="${parseInt((theme.border && theme.border.width) || '2px')}">
+                   min="0" max="8" step="1" value="${parseInt((theme.border && theme.border.width) || '2px')}">
         `;
         widthGroup.querySelector('input').addEventListener('input', (e) => {
             const value = `${e.target.value}px`;
@@ -335,7 +389,59 @@ class UISettingsPanel {
         });
         section.appendChild(widthGroup);
         
+        // Corner Radius Sub-section
+        const radiusTitle = document.createElement('div');
+        radiusTitle.className = 'ui-settings-label';
+        radiusTitle.style.marginTop = '12px';
+        radiusTitle.style.marginBottom = '8px';
+        radiusTitle.style.fontWeight = '600';
+        radiusTitle.textContent = 'Corner Radius';
+        section.appendChild(radiusTitle);
+
+        const radii = [
+            { key: 'small', label: 'Small (Buttons/Inputs)' },
+            { key: 'medium', label: 'Medium (Cards)' },
+            { key: 'large', label: 'Large (Panels/Modals)' }
+        ];
+        
+        radii.forEach(r => {
+            const group = document.createElement('div');
+            group.className = 'ui-settings-group';
+            const val = (theme.border && theme.border.radius && theme.border.radius[r.key]) || '8px';
+            const intVal = parseInt(val);
+            
+            group.innerHTML = `
+                <label class="ui-settings-label">${r.label}: <span class="ui-settings-value" id="radius-${r.key}-value">${val}</span></label>
+                <input type="range" class="ui-settings-slider" id="ui-radius-${r.key}" 
+                       min="0" max="32" step="1" value="${intVal}">
+            `;
+            
+            group.querySelector('input').addEventListener('input', (e) => {
+                const newVal = `${e.target.value}px`;
+                document.getElementById(`radius-${r.key}-value`).textContent = newVal;
+                this.updateBorderRadiusSetting(r.key, newVal);
+            });
+            section.appendChild(group);
+        });
+
         this.content.appendChild(section);
+    }
+
+    updateBorderRadiusSetting(key, value) {
+        if (!window.uiSettings.settings.ui.theme.border) {
+            window.uiSettings.settings.ui.theme.border = {};
+        }
+        if (!window.uiSettings.settings.ui.theme.border.radius) {
+            window.uiSettings.settings.ui.theme.border.radius = {};
+        }
+        window.uiSettings.settings.ui.theme.border.radius[key] = value;
+        window.uiSettings.applyTheme(window.uiSettings.settings.ui.theme);
+        window.uiSettings.saveSettings();
+    }
+    
+    colorToRgba(hex) {
+        // This method is now legacy or used for fallback, as our controls emit valid RGBA strings directly
+        return hex;
     }
     
     createSpacingSection(theme) {

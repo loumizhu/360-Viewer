@@ -21,6 +21,62 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
         super().end_headers()
     
+    def do_POST(self):
+        """Handle POST requests"""
+        if self.path == '/api/create-manifest':
+            try:
+                import subprocess
+                import sys
+                
+                # Run the manifest creation script
+                print("Generating manifest via API request...")
+                subprocess.check_call([sys.executable, 'create-image-manifest.py'])
+                
+                # Send JSON response
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': True}).encode('utf-8'))
+            except Exception as e:
+                print(f"Error generating manifest: {e}")
+                self.send_error(500, f"Error generating manifest: {str(e)}")
+            return
+
+        if self.path == '/api/save-file':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+                
+                filename = data.get('filename')
+                content = data.get('content')
+                
+                if not filename or content is None:
+                    raise ValueError("Missing filename or content")
+                
+                # Basic security: Prevent path traversal
+                if '..' in filename or filename.startswith('/') or filename.startswith('\\'):
+                     raise ValueError("Invalid filename")
+                
+                # Write the file
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                    
+                print(f"Saved file via API: {filename}")
+                
+                # Send JSON response
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': True, 'message': f'File {filename} saved successfully'}).encode('utf-8'))
+                
+            except Exception as e:
+                print(f"Error saving file: {e}")
+                self.send_error(500, f"Error saving file: {str(e)}")
+            return
+
+        super().do_GET() # Fallback to GET for other POSTs if any (though usually not needed)
+
     def list_directory(self, path):
         """Override to provide JSON directory listing"""
         # Check if JSON listing is requested
