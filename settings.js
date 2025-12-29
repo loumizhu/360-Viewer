@@ -41,8 +41,8 @@ class UISettingsManager {
                     danger: '#FF4444',
                     background: {
                         default: 'rgba(0, 0, 0, 0.85)',
-                        panel: 'rgba(20, 20, 20, 0.95)',
-                        card: 'rgba(30, 30, 30, 0.9)',
+                        panel: 'rgba(20, 20, 20, 0.75)',
+                        card: 'rgba(30, 30, 30, 0.8)',
                         hover: 'rgba(40, 40, 40, 0.9)'
                     },
                     text: {
@@ -134,13 +134,14 @@ class UISettingsManager {
     }
 
     // Load settings from localStorage (fallback to JSON file)
-    loadSettings() {
+    async loadSettings() {
         try {
             // Try localStorage first (faster, no file I/O)
             const stored = localStorage.getItem('viewerSettings');
             if (stored) {
                 this.settings = JSON.parse(stored);
                 this.applySettings();
+                console.log('Settings loaded from localStorage');
                 return;
             }
         } catch (error) {
@@ -148,27 +149,67 @@ class UISettingsManager {
         }
 
         // Fallback: Try to load from JSON file
-        this.loadFromFile();
+        await this.loadFromFile();
+        
+        // After loading from file, save to localStorage for future use
+        this.saveToLocalStorage();
+        console.log('Settings loaded from file and saved to localStorage');
     }
 
     // Load settings from JSON file
     async loadFromFile() {
         try {
-            const response = await fetch(this.settingsFile);
-            if (response.ok) {
-                const data = await response.json();
-                this.settings = { ...this.settings, ...data };
-                this.applySettings();
-                this.saveToLocalStorage();
-            } else {
-                this.saveSettings(); // Create default file
+            // 1. Fetch Root Settings
+            const rootResponse = await fetch(this.settingsFile).catch(() => null);
+            let rootData = (rootResponse && rootResponse.ok) ? await rootResponse.json() : {};
+
+            // 2. Fetch Client Settings (if clientID exists in URL)
+            const urlParams = new URLSearchParams(window.location.search);
+            const clientID = urlParams.get('clientID');
+            
+            let clientData = {};
+            if (clientID) {
+                // Try to load settings from client folder
+                const clientResponse = await fetch(`${clientID}/${this.settingsFile}`).catch(() => null);
+                if (clientResponse && clientResponse.ok) {
+                    clientData = await clientResponse.json();
+                }
             }
+            
+            // 3. Merge Strategies
+            // Start with defaults (this.settings)
+            
+            // Create a merged settings object from files (Root -> Client)
+            const fileSettings = { ...rootData, ...clientData };
+            
+            // Deep merge specific objects if they exist
+            if (rootData.ui || clientData.ui) {
+                fileSettings.ui = { ...(rootData.ui || {}), ...(clientData.ui || {}) };
+            }
+            if (rootData.theme || clientData.theme) {
+                // Shallow merge theme for now, deep merge if robust theme support needed
+                fileSettings.theme = { ...(rootData.theme || {}), ...(clientData.theme || {}) };
+            }
+            if (rootData.effects || clientData.effects) {
+                fileSettings.effects = { ...(rootData.effects || {}), ...(clientData.effects || {}) };
+            }
+
+            // Apply merged file settings on top of current defaults
+            this.settings = { ...this.settings, ...fileSettings };
+            
+            this.applySettings();
+            
+            // Optional: Update localStorage to reflect the current loaded state?
+            // this.saveToLocalStorage(); 
+            
         } catch (error) {
             console.warn('Error loading settings file:', error);
-            // Create default settings file
-            this.saveSettings();
+            // If files fail, we still have defaults. 
+            // We could try to create a default file if needed, but only for root?
+            // this.saveSettings(); 
         }
     }
+
 
     // Save settings to both localStorage and JSON file
     saveSettings() {
@@ -222,20 +263,20 @@ class UISettingsManager {
         }
         
         // Apply blur settings
-        if (uiSettings.blurEnabled) {
-            document.documentElement.style.setProperty('--blur-intensity', `${uiSettings.blurIntensity}px`);
-            
-            // Update all elements with backdrop-filter
-            const elementsWithBlur = document.querySelectorAll('#controls, #loading, #debug-panel, .control-btn, .effect-dropdown, .debug-close-btn, .effect-control-group');
-            elementsWithBlur.forEach(el => {
-                if (uiSettings.blurEnabled) {
-                    el.style.backdropFilter = `blur(${uiSettings.blurIntensity}px)`;
-                    el.style.webkitBackdropFilter = `blur(${uiSettings.blurIntensity}px)`;
-                } else {
-                    el.style.backdropFilter = 'none';
-                    el.style.webkitBackdropFilter = 'none';
-                }
-            });
+        if (uiSettings.blurEnabled !== undefined) {
+             document.documentElement.style.setProperty('--blur-intensity', `${uiSettings.blurIntensity || 15}px`);
+             
+             // Update all elements with backdrop-filter
+             const elementsWithBlur = document.querySelectorAll('#controls, #loading, #debug-panel, #ui-settings-panel, #plan-image-panel, .control-btn, .effect-dropdown, .debug-close-btn, .effect-control-group');
+             elementsWithBlur.forEach(el => {
+                 if (uiSettings.blurEnabled) {
+                     el.style.backdropFilter = `blur(${uiSettings.blurIntensity || 15}px)`;
+                     el.style.webkitBackdropFilter = `blur(${uiSettings.blurIntensity || 15}px)`;
+                 } else {
+                     el.style.backdropFilter = 'none';
+                     el.style.webkitBackdropFilter = 'none';
+                 }
+             });
         }
         
         // Apply effect settings if CONFIG_3D exists
@@ -435,6 +476,18 @@ class UISettingsManager {
             this.saveSettings();
         } catch (error) {
             console.error('Error importing settings:', error);
+            throw error;
+        }
+    }
+
+    // Reset settings to file defaults (clears localStorage)
+    async resetSettings() {
+        try {
+            localStorage.removeItem('viewerSettings');
+            console.log('localStorage cleared, reloading from file...');
+            await this.loadSettings();
+        } catch (error) {
+            console.error('Error resetting settings:', error);
             throw error;
         }
     }

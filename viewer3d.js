@@ -121,16 +121,67 @@ const CONFIG_3D = {
 // Function to load settings from settings.json and image-manifest.json
 async function loadViewerSettings() {
     try {
-        const settingsPromise = fetch(`${REPO_BASE_PATH}settings.json`)
+        // Load Root Settings (Base)
+        const rootSettingsPromise = fetch(`${REPO_BASE_PATH}settings.json`)
             .then(res => res.ok ? res.json() : null)
             .catch(() => null);
+            
+        // Load Client Settings (Override)
+        let clientSettingsPromise = Promise.resolve(null);
+        if (CLIENT_ID) {
+            const clientSettingsPath = `${REPO_BASE_PATH}${CLIENT_BASE_PATH}settings.json`.replace(/\/+/g, '/');
+            clientSettingsPromise = fetch(clientSettingsPath)
+                .then(res => res.ok ? res.json() : null)
+                .catch(() => null);
+        }
+            
+        // Load Supabase Data (if available)
+        let supabaseSettingsPromise = Promise.resolve(null);
+        if (CLIENT_ID && window.db && window.db.client) {
+            supabaseSettingsPromise = window.db.client
+                .from('units')
+                .select('*')
+                .or(`client_id.eq.${CLIENT_ID},id.eq.${CLIENT_ID}`)
+                .single()
+                .then(({ data }) => data)
+                .catch(() => null);
+        }
+        
+        console.log('[Viewer3D] Loading settings and manifest...');
             
         const manifestPath = `${REPO_BASE_PATH}${CLIENT_BASE_PATH}image-manifest.json`.replace(/\/+/g, '/');
         const manifestPromise = fetch(manifestPath)
             .then(res => res.ok ? res.json() : null)
             .catch(() => null);
             
-        const [settings, manifest] = await Promise.all([settingsPromise, manifestPromise]);
+        const [rootSettings, clientSettings, manifest, supabaseData] = await Promise.all([
+            rootSettingsPromise, 
+            clientSettingsPromise, 
+            manifestPromise,
+            supabaseSettingsPromise
+        ]);
+
+        if (supabaseData) {
+            console.log('[Viewer3D] Found unit data in Supabase:', supabaseData);
+            // Store for other components to use
+            window.currentUnitData = supabaseData;
+            window.dispatchEvent(new CustomEvent('unitDataLoaded', { detail: supabaseData }));
+        }
+        
+        // Merge: Default -> Root -> Client
+        const settings = rootSettings || {};
+        
+        if (clientSettings) {
+            // Smart merge for 'effects' content to preserve base defaults if only partially overridden
+            const baseEffects = settings.effects || {};
+            const clientEffects = clientSettings.effects || {};
+            
+            // Apply top-level properties
+            Object.assign(settings, clientSettings);
+            
+            // Re-apply merged effects
+            settings.effects = { ...baseEffects, ...clientEffects };
+        }
         
         if (settings && settings.effects) {
             const fx = settings.effects;
@@ -178,8 +229,11 @@ async function loadViewerSettings() {
             });
         }
         
-        // If Model Path is still not set (or empty), try to get it from manifest
-        if (!CONFIG_3D.MODEL_PATH && manifest && manifest.model3d) {
+        // PRIORITY HIERARCHY FOR MODEL: Supabase -> manifest -> client settings -> root settings
+        if (supabaseData && supabaseData.model_url) {
+            console.log('[Viewer3D] Using model from Supabase:', supabaseData.model_url);
+            CONFIG_3D.MODEL_PATH = supabaseData.model_url;
+        } else if (!CONFIG_3D.MODEL_PATH && manifest && manifest.model3d) {
             console.log('[Viewer3D] Found model in manifest:', manifest.model3d);
             // Manifest path is usually relative to repo root (e.g. "CLIENT_ID/3D/model.glb" or "3D/model.glb")
             // We need to ensure we don't double-prefix if manifest path already includes client folder
@@ -233,8 +287,8 @@ class Viewer3D {
             showAxes: false,
             showAllBoxes: false,
             showCameraHelper: false,
-            gridSize: 10000,
-            gridDivisions: 50
+            gridSize: 200000,
+            gridDivisions: 500
         };
         
         // Intro animation state
@@ -361,6 +415,7 @@ class Viewer3D {
                 { name: 'solid', label: 'Solid Effect', createFn: (container) => this.createSolidControls(container) },
                 { name: 'outline', label: 'Outline Effect', createFn: (container) => this.createOutlineControls(container) },
                 { name: 'glow', label: 'Glow Effect', createFn: (container) => this.createGlowControls(container) },
+                { name: 'svg-glow', label: 'SVG Glow Effect', createFn: (container) => this.createSVGGlowControls(container) },
                 { name: 'scan', label: 'Scan Effect', createFn: (container) => this.createScanControls(container) },
                 { name: 'particles', label: 'Particles Effect', createFn: (container) => this.createParticleControls(container) }
             ];
@@ -616,6 +671,23 @@ class Viewer3D {
         }
     }
     
+    createSVGGlowControls(container) {
+        // Info text - uses same glow color settings
+        const info = document.createElement('div');
+        info.style.color = 'var(--ui-text-secondary)';
+        info.style.fontSize = '12px';
+        info.style.marginBottom = '8px';
+        info.textContent = 'This effect uses the Glow Color setting above.';
+        container.appendChild(info);
+        
+        const note = document.createElement('div');
+        note.style.color = 'var(--ui-text-secondary)';
+        note.style.fontSize = '11px';
+        note.style.fontStyle = 'italic';
+        note.textContent = 'SVG overlay renders as a 2D outline on top of the 3D scene.';
+        container.appendChild(note);
+    }
+    
     createScanControls(container) {
         this.createControl(container, 'Speed', CONFIG_3D.SCAN_SPEED, 0.1, 5, 0.1, (val) => {
             CONFIG_3D.SCAN_SPEED = val;
@@ -770,7 +842,7 @@ class Viewer3D {
                         <span class="debug-slider-value" id="grid-size-value">${this.debugSettings.gridSize}</span>
                     </div>
                     <input type="range" class="debug-slider" id="grid-size" 
-                           min="1000" max="50000" step="1000" value="${this.debugSettings.gridSize}">
+                           min="1000" max="200000" step="1000" value="${this.debugSettings.gridSize}">
                 </div>
                 
                 <div class="debug-slider-control">
@@ -779,7 +851,7 @@ class Viewer3D {
                         <span class="debug-slider-value" id="grid-divisions-value">${this.debugSettings.gridDivisions}</span>
                     </div>
                     <input type="range" class="debug-slider" id="grid-divisions" 
-                           min="10" max="100" step="10" value="${this.debugSettings.gridDivisions}">
+                           min="10" max="500" step="10" value="${this.debugSettings.gridDivisions}">
                 </div>
             </div>
             
@@ -985,6 +1057,28 @@ class Viewer3D {
         this.renderer.setPixelRatio(LIGHT_MODE ? Math.min(window.devicePixelRatio, 1.5) : window.devicePixelRatio);
         this.renderer.setClearColor(0x000000, 0); // Transparent background
         
+        // Create SVG overlay for 2D effects on top of 3D
+        const container = this.canvas.parentElement;
+        this.svgOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        this.svgOverlay.style.position = 'absolute';
+        this.svgOverlay.style.top = '0';
+        this.svgOverlay.style.left = '0';
+        this.svgOverlay.style.width = '100%';
+        this.svgOverlay.style.height = '100%';
+        this.svgOverlay.style.pointerEvents = 'none';
+        this.svgOverlay.style.zIndex = '10';
+        this.svgOverlay.style.overflow = 'visible';
+        container.appendChild(this.svgOverlay);
+
+        // Create reusable path for SVG outline
+        this.svgOutlinePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        this.svgOutlinePath.classList.add('svg-glow-path');
+        this.svgOutlinePath.style.fill = 'none';
+        this.svgOutlinePath.style.strokeWidth = '2';
+        this.svgOutlinePath.style.visibility = 'hidden';
+        this.svgOverlay.appendChild(this.svgOutlinePath);
+        
+
         // Load GLB file
         await this.loadGLB();
         
@@ -1031,9 +1125,9 @@ class Viewer3D {
             
             // If no model path in settings, try to find default or use hardcoded fallback
             if (!modelPath) {
-                // FALLBACK: Use the hardcoded path if nothing else found
-                modelPath = `${repoBase}${basePath}3D/Serenia Zenata Orbiting Mockup Units Boxes.glb`.replace(/\/+/g, '/');
-                console.warn('No MODEL_PATH in settings, using fallback:', modelPath);
+                // FALLBACK: Use 3D.glb if it exists in the client folder
+                modelPath = `${repoBase}${basePath}3D/3D.glb`.replace(/\/+/g, '/');
+                console.warn('No MODEL_PATH in settings, using default fallback:', modelPath);
             } else {
                  // Check if it's an absolute URL
                  if (modelPath.startsWith('http') || modelPath.startsWith('//')) {
@@ -1631,6 +1725,9 @@ class Viewer3D {
             case 'glow':
                 this.applyGlowEffect(object);
                 break;
+            case 'svg-glow':
+                this.applySVGGlowEffect(object);
+                break;
             case 'scan':
                 this.applyScanEffect(object);
                 break;
@@ -1743,12 +1840,29 @@ class Viewer3D {
             }
             
             // Clear glow light
-            if (object.userData.glowLight) {
-                object.remove(object.userData.glowLight);
-                if (object.userData.glowLight.dispose) {
-                    object.userData.glowLight.dispose(); 
+            if (object.userData.glowLightTop) {
+                object.remove(object.userData.glowLightTop);
+                if (object.userData.glowLightTop.dispose) {
+                    object.userData.glowLightTop.dispose(); 
                 }
-                object.userData.glowLight = null;
+                object.userData.glowLightTop = null;
+            }
+            
+            // Clear SVG tracker box
+            if (object.userData.svgTrackerBox) {
+                object.remove(object.userData.svgTrackerBox);
+                if (object.userData.svgTrackerBox.geometry) {
+                    object.userData.svgTrackerBox.geometry.dispose();
+                }
+                if (object.userData.svgTrackerBox.material) {
+                    object.userData.svgTrackerBox.material.dispose();
+                }
+                object.userData.svgTrackerBox = null;
+            }
+            
+            // Hide SVG outline path
+            if (this.svgOutlinePath) {
+                this.svgOutlinePath.style.visibility = 'hidden';
             }
         } catch (error) {
             console.error('Error clearing effects:', error);
@@ -1997,6 +2111,78 @@ class Viewer3D {
             debugBoxHelper.material.opacity = 0.5;
             object.userData.scanDebugBoxHelper = debugBoxHelper;
         }
+    }
+    
+    // SVG Glow Effect - draws 2D outline using SVG overlay
+    applySVGGlowEffect(object) {
+        if (!object.geometry) return;
+        
+        // Create invisible bounding box helper for tracking (reuse if exists)
+        if (!object.userData.svgTrackerBox) {
+            const alignedBox = this.createAlignedBoxHelper(object, 0x000000);
+            alignedBox.visible = false;
+            alignedBox.name = 'SVGTrackerBox';
+            object.userData.svgTrackerBox = alignedBox;
+        }
+        
+        // Show SVG path
+        if (this.svgOutlinePath) {
+            this.svgOutlinePath.style.visibility = 'visible';
+            const glowColor = CONFIG_3D.GLOW_COLOR !== undefined ? CONFIG_3D.GLOW_COLOR : CONFIG_3D.HOVER_COLOR;
+            const color = '#' +  new THREE.Color(glowColor).getHexString();
+            this.svgOutlinePath.style.stroke = color;
+            this.svgOutlinePath.style.filter = `drop-shadow(0 0 5px ${color}) drop-shadow(0 0 10px ${color})`;
+        }
+    }
+    
+    updateSVGGlowEffect(object) {
+        if (!object || !this.svgOutlinePath) return;
+        
+        // Calculate 8 corners of bounding box
+        if (!object.geometry.boundingBox) object.geometry.computeBoundingBox();
+        const min = object.geometry.boundingBox.min;
+        const max = object.geometry.boundingBox.max;
+        
+        const corners = [
+            new THREE.Vector3(min.x, min.y, min.z),
+            new THREE.Vector3(max.x, min.y, min.z),
+            new THREE.Vector3(max.x, min.y, max.z),
+            new THREE.Vector3(min.x, min.y, max.z),
+            new THREE.Vector3(min.x, max.y, min.z),
+            new THREE.Vector3(max.x, max.y, min.z),
+            new THREE.Vector3(max.x, max.y, max.z),
+            new THREE.Vector3(min.x, max.y, max.z)
+        ];
+        
+        // Transform to World Space
+        object.updateMatrixWorld();
+        corners.forEach(v => v.applyMatrix4(object.matrixWorld));
+        
+        // Project to Screen Space
+        const screenPoints = corners.map(v => this.projectToScreen(v));
+        
+        // Build SVG path (bounding box wireframe)
+        const p = screenPoints;
+        const path = `
+            M ${p[0].x} ${p[0].y} L ${p[1].x} ${p[1].y} L ${p[2].x} ${p[2].y} L ${p[3].x} ${p[3].y} Z
+            M ${p[4].x} ${p[4].y} L ${p[5].x} ${p[5].y} L ${p[6].x} ${p[6].y} L ${p[7].x} ${p[7].y} Z
+            M ${p[0].x} ${p[0].y} L ${p[4].x} ${p[4].y}
+            M ${p[1].x} ${p[1].y} L ${p[5].x} ${p[5].y}
+            M ${p[2].x} ${p[2].y} L ${p[6].x} ${p[6].y}
+            M ${p[3].x} ${p[3].y} L ${p[7].x} ${p[7].y}
+        `;
+        
+        this.svgOutlinePath.setAttribute('d', path);
+    }
+    
+    projectToScreen(position) {
+        const v = position.clone();
+        v.project(this.currentCamera);
+        
+        const x = (v.x * 0.5 + 0.5) * this.canvas.clientWidth;
+        const y = (-(v.y * 0.5) + 0.5) * this.canvas.clientHeight;
+        
+        return { x, y };
     }
     
     // Particle effect
@@ -2841,6 +3027,11 @@ class Viewer3D {
             // Bob up and down lightly
             const baseY = light.userData.baseY;
             light.position.y = baseY + Math.sin(time * 0.5) * 50; // Move +/- 50 units
+        }
+        
+        // Update SVG Glow Effect
+        if (this.currentEffect === 'svg-glow' && this.hoveredObject) {
+            this.updateSVGGlowEffect(this.hoveredObject);
         }
         
         if (this.scene && this.currentCamera) {

@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>360 Viewer - System Setup</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            overflow: auto;
+            padding: var(--ui-spacing-xl);
+            user-select: text !important;
+            -webkit-user-select: text !important;
+        }
+
+        * {
+            user-select: text !important;
+            -webkit-user-select: text !important;
+        }
+
+        .setup-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .setup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--ui-spacing-2xl);
+            background: var(--ui-bg-panel);
+            padding: var(--ui-spacing-xl);
+            border-radius: var(--ui-border-radius-lg);
+            border: var(--ui-border-width) solid var(--ui-border-color);
+            backdrop-filter: blur(20px);
+        }
+
+        .setup-title h1 {
+            color: var(--ui-text-primary);
+            margin-bottom: var(--ui-spacing-xs);
+            font-size: var(--ui-font-size-2xl);
+        }
+
+        .setup-title p {
+            color: var(--ui-text-secondary);
+        }
+
+        .client-grid {
+            display: grid;
+            gap: var(--ui-spacing-lg);
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+        }
+
+        .client-card {
+            background: var(--ui-bg-card);
+            border: var(--ui-border-width) solid var(--ui-border-color);
+            border-radius: var(--ui-border-radius-lg);
+            padding: var(--ui-spacing-lg);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .client-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--ui-primary-500);
+            box-shadow: var(--ui-shadow-lg);
+        }
+
+        .preview-section {
+            width: 100%;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: var(--ui-border-radius-md);
+            margin-bottom: var(--ui-spacing-md);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-section img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .preview-section.no-preview {
+            color: var(--ui-text-disabled);
+            font-size: 12px;
+        }
+
+        .client-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--ui-spacing-lg);
+            padding-bottom: var(--ui-spacing-md);
+            border-bottom: 1px solid var(--ui-border-color);
+        }
+
+        .client-id {
+            color: var(--ui-text-primary);
+            font-size: var(--ui-font-size-xl);
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .client-path {
+            color: var(--ui-text-disabled);
+            font-size: var(--ui-font-size-xs);
+            font-family: monospace;
+        }
+
+        .launch-btn {
+            background: var(--ui-primary-500);
+            color: white;
+            padding: 6px 16px;
+            border-radius: 99px;
+            text-decoration: none;
+            font-size: var(--ui-font-size-sm);
+            font-weight: 500;
+            transition: background 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .launch-btn:hover {
+            background: var(--ui-primary-600);
+        }
+
+        .build-btn {
+            background: var(--ui-warning);
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .build-btn:hover {
+            background: #FFD700;
+            transform: scale(1.05);
+        }
+
+        .build-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .mini-build-btn {
+            background: var(--ui-warning);
+            color: #000;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            margin-top: 4px;
+            display: inline-block;
+        }
+
+        .mini-build-btn:hover {
+            background: #FFD700;
+            transform: scale(1.05);
+        }
+
+        .mini-build-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: var(--ui-spacing-lg);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: var(--ui-border-radius-md);
+        }
+
+        .stat-item {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--ui-text-primary);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--ui-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .feature-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: var(--ui-spacing-lg);
+        }
+
+        .feature-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: var(--ui-font-size-sm);
+            color: var(--ui-text-secondary);
+            gap: 8px;
+        }
+
+        .feature-item-actions {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .status-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-ok {
+            background: rgba(0, 200, 81, 0.2);
+            color: #00C851;
+        }
+
+        .status-missing {
+            background: rgba(255, 68, 68, 0.2);
+            color: #FF4444;
+        }
+
+        .status-neutral {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--ui-text-disabled);
+        }
+
+        .extras-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: var(--ui-spacing-md);
+        }
+
+        .extra-chip {
+            padding: 4px 10px;
+            border-radius: 99px;
+            background: var(--ui-bg-panel);
+            border: 1px solid var(--ui-border-color);
+            color: var(--ui-text-secondary);
+            font-size: 11px;
+        }
+
+        .extra-chip.active {
+            border-color: var(--ui-primary-500);
+            color: var(--ui-primary-400);
+            background: rgba(0, 111, 238, 0.1);
+        }
+
+        .build-section {
+            padding-top: var(--ui-spacing-md);
+            border-top: 1px solid var(--ui-border-color);
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--ui-bg-card);
+            border-top: 4px solid var(--ui-primary-500);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 40px auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--ui-bg-panel);
+            border: 2px solid var(--ui-border-color);
+            padding: 16px 24px;
+            border-radius: var(--ui-border-radius-md);
+            backdrop-filter: blur(20px);
+            color: var(--ui-text-primary);
+            font-size: 14px;
+            box-shadow: var(--ui-shadow-xl);
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            border-color: var(--ui-success);
+        }
+
+        .toast.error {
+            border-color: var(--ui-danger);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="setup-container">
+        <div class="setup-header">
+            <div class="setup-title">
+                <h1>Backend Setup & Client Manager</h1>
+                <p>Overview of all client folders, assets, and configurations.</p>
+            </div>
+            <div>
+                <button class="control-btn" onclick="fetchClients()">🔄 Refresh Data</button>
+            </div>
+        </div>
+
+        <div id="loading-spinner" class="spinner"></div>
+        <div id="clients-list" class="client-grid"></div>
+    </div>
+
+    <script>
+        async function fetchClients() {
+            const grid = document.getElementById('clients-list');
+            const spinner = document.getElementById('loading-spinner');
+
+            grid.innerHTML = '';
+            spinner.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/scan-clients', { method: 'POST' });
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const data = await response.json();
+
+                if (data.success && data.clients) {
+                    renderClients(data.clients);
+                } else {
+                    grid.innerHTML = '<p style="color:red; text-align:center;">Failed to load client data.</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                grid.innerHTML = `<p style="color:var(--ui-danger); text-align:center;">Error loading data: ${error.message}</p>`;
+            } finally {
+                spinner.style.display = 'none';
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'slideIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        async function buildAsset(clientID, assetType, buttonEl) {
+            const originalText = buttonEl.textContent;
+            buttonEl.disabled = true;
+            buttonEl.textContent = '⏳ Building...';
+
+            try {
+                const response = await fetch(`/api/build-${assetType}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clientID })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showToast(`✅ ${data.message}`, 'success');
+                    setTimeout(() => fetchClients(), 1000);
+                } else {
+                    throw new Error(data.message || 'Build failed');
+                }
+            } catch (error) {
+                showToast(`❌ Error: ${error.message}`, 'error');
+                buttonEl.disabled = false;
+                buttonEl.textContent = originalText;
+            }
+        }
+
+        function renderClients(clients) {
+            const grid = document.getElementById('clients-list');
+
+            if (clients.length === 0) {
+                grid.innerHTML = '<p style="color:var(--ui-text-secondary); text-align:center; grid-column:1/-1;">No client folders (CLT*) found.</p>';
+                return;
+            }
+
+            clients.forEach(client => {
+                const card = document.createElement('div');
+                card.className = 'client-card';
+
+                const hasImages = client.stats.fullResCount > 0;
+                const hasModel = client.features.has3DModel;
+                const hasManifest = client.features.hasManifest;
+                const hasSettings = client.features.hasSettings;
+                const hasLight = client.stats.lightCount > 0;
+                const hasMedium = client.stats.mediumCount > 0;
+
+                card.innerHTML = `
+                ${client.previewImage ?
+                        `<div class="preview-section"><img src="${client.previewImage}" alt="Preview"></div>` :
+                        `<div class="preview-section no-preview">No Preview Available</div>`
+                    }
+                
+                <div class="client-header">
+                    <div>
+                        <span class="client-id">${client.id}</span>
+                        <span class="client-path">${client.path}</span>
+                    </div>
+                    <a href="/index.html?clientID=${client.id}" target="_blank" class="launch-btn">
+                        🚀 Launch
+                    </a>
+                </div>
+                
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <span class="stat-value" style="color: ${client.stats.fullResCount > 0 ? 'var(--ui-success)' : 'var(--ui-text-disabled)'}">${client.stats.fullResCount}</span>
+                        <span class="stat-label">Full Res</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" style="color: ${client.stats.mediumCount > 0 ? 'var(--ui-success)' : 'var(--ui-text-disabled)'}">${client.stats.mediumCount}</span>
+                        <span class="stat-label">Medium</span>
+                        ${!hasMedium && hasImages ? `<button class="mini-build-btn" onclick="buildAsset('${client.id}', 'light-images', this)">Build</button>` : ''}
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" style="color: ${client.stats.lightCount > 0 ? 'var(--ui-success)' : 'var(--ui-text-disabled)'}">${client.stats.lightCount}</span>
+                        <span class="stat-label">Light</span>
+                         ${!hasLight && hasImages ? `<button class="mini-build-btn" onclick="buildAsset('${client.id}', 'light-images', this)">Build</button>` : ''}
+                    </div>
+                </div>
+                
+                <div class="feature-list">
+                    <div class="feature-item">
+                        <span>3D Model (.glb)</span>
+                        <span class="status-badge ${hasModel ? 'status-ok' : 'status-missing'}">${hasModel ? 'FOUND' : 'MISSING'}</span>
+                    </div>
+                    <div class="feature-item">
+                        <span>Manifest (JSON)</span>
+                        <div class="feature-item-actions">
+                            <span class="status-badge ${hasManifest ? 'status-ok' : 'status-missing'}">${hasManifest ? 'OK' : 'MISSING'}</span>
+                            ${!hasManifest ? `<button class="build-btn" onclick="buildAsset('${client.id}', 'manifest', this)">Build</button>` : ''}
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <span>Settings (JSON)</span>
+                        <div class="feature-item-actions">
+                            <span class="status-badge ${hasSettings ? 'status-ok' : 'status-missing'}">${hasSettings ? 'OK' : 'MISSING'}</span>
+                            ${!hasSettings ? `<button class="build-btn" onclick="buildAsset('${client.id}', 'settings', this)">Build</button>` : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="extras-section">
+                    ${renderOptionalChip('2D Plans', client.features['2D-Plans'])}
+                    ${renderOptionalChip('3D Plans', client.features['3D-Plans'])}
+                    ${renderOptionalChip('Photos', client.features['Photos'])}
+                    ${renderOptionalChip('Visit', client.features['Virtual Visit'])}
+                    ${renderOptionalChip('Location', client.features['Location'])}
+                    ${renderOptionalChip('Contact', client.features['Contact'])}
+                </div>
+            `;
+
+                grid.appendChild(card);
+            });
+        }
+
+        function renderOptionalChip(label, isActive) {
+            return `<span class="extra-chip ${isActive ? 'active' : ''}">${label}</span>`;
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchClients);
+    </script>
+
+</body>
+
+</html>

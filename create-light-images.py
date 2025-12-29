@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
 Image Resizer for 360° Product Viewer
-Creates optimized "light" versions of images for fast loading
+Creates optimized "light" (1280px) and "medium" (1920px) versions of images
 """
 
 import os
+import sys
+import argparse
 from pathlib import Path
 
 try:
@@ -20,113 +22,116 @@ except ImportError:
     print("\nOr:")
     print("  python -m pip install Pillow")
     print("=" * 60)
+    # Don't exit yet so we can check if it's just meant to show help
+    # But usually we need PIL.
     exit(1)
 
 # Configuration
-SOURCE_DIR = "3D-Images"
-OUTPUT_DIR = "3D-Images/light"
-TARGET_WIDTH = 2000  # Maximum width for light images
-QUALITY = 85  # Image quality (1-100) - used for JPEG/WebP
-WEBP_QUALITY = 85  # WebP quality (1-100)
+LIGHT_WIDTH = 1280
+MEDIUM_WIDTH = 1920
+QUALITY = 85
+WEBP_QUALITY = 85
 
-def create_light_images():
-    """Create resized light versions of all images"""
+def process_images(client_dir="."):
+    """Create resized versions of all images in the client's 3D-Images folder"""
     
-    source_path = Path(SOURCE_DIR)
-    output_path = Path(OUTPUT_DIR)
+    # Handle client directory path
+    base_path = Path(client_dir)
+    source_dir = base_path / "3D-Images"
     
-    # Create output directory if it doesn't exist
-    output_path.mkdir(parents=True, exist_ok=True)
+    if not source_dir.exists():
+        print(f"Error: Source directory not found: {source_dir}")
+        return False
+
+    print("=" * 60)
+    print(f"Processing Images for: {client_dir}")
+    print("=" * 60)
+
+    # Output directories
+    light_dir = source_dir / "light"
+    medium_dir = source_dir / "medium"
     
-    # Get all image files (excluding the light folder itself)
+    light_dir.mkdir(parents=True, exist_ok=True)
+    medium_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Get all image files (excluding subfolders)
     image_files = []
     for ext in ['*.jpg', '*.jpeg', '*.png', '*.webp', '*.JPG', '*.JPEG', '*.PNG', '*.WEBP']:
-        for file in source_path.glob(ext):
-            # Skip if file is in the light subfolder
-            if 'light' not in file.parts:
+        for file in source_dir.glob(ext):
+            if file.is_file():
                 image_files.append(file)
     
     if not image_files:
-        print(f"\nNo images found in {SOURCE_DIR}/")
-        print("Please make sure your images are in the 3D-Images folder")
-        return
-    
-    print("=" * 60)
-    print(f"Creating Light Images for 360° Viewer")
-    print("=" * 60)
-    print(f"\nSource folder: {SOURCE_DIR}/")
-    print(f"Output folder: {OUTPUT_DIR}/")
-    print(f"Target width: {TARGET_WIDTH}px")
-    print(f"Quality: {QUALITY}%")
-    print(f"Images found: {len(image_files)}")
-    print("\nProcessing...\n")
+        print(f"No images found in root of {source_dir}")
+        return False
+        
+    print(f"Found {len(image_files)} source images.")
+    print(f"Generating Light ({LIGHT_WIDTH}px) and Medium ({MEDIUM_WIDTH}px) versions...\n")
     
     success_count = 0
     error_count = 0
     
     for i, img_file in enumerate(image_files, 1):
         try:
-            # Open image
+            print(f"[{i}/{len(image_files)}] {img_file.name}")
+            
             with Image.open(img_file) as img:
-                # Get original dimensions
                 orig_width, orig_height = img.size
                 
-                # Calculate new dimensions (maintain aspect ratio)
-                if orig_width > TARGET_WIDTH:
-                    ratio = TARGET_WIDTH / orig_width
-                    new_width = TARGET_WIDTH
-                    new_height = int(orig_height * ratio)
+                # --- PROCESS LIGHT ---
+                light_file = light_dir / (img_file.stem + '.webp')
+                if not light_file.exists():
+                    if orig_width > LIGHT_WIDTH:
+                        ratio = LIGHT_WIDTH / orig_width
+                        new_h = int(orig_height * ratio)
+                        resized_light = img.resize((LIGHT_WIDTH, new_h), Image.Resampling.LANCZOS)
+                    else:
+                        resized_light = img.copy()
+                        
+                    # Save (convert to RGB if needed, keep RGBA if valid)
+                    if resized_light.mode not in ['RGB', 'RGBA']:
+                        resized_light = resized_light.convert('RGB')
+                        
+                    resized_light.save(light_file, 'WEBP', quality=WEBP_QUALITY, method=6)
+                    print(f"  -> Light: {orig_width}px -> {resized_light.width}px")
                 else:
-                    # Image is already smaller, just copy with optimization
-                    new_width = orig_width
-                    new_height = orig_height
-                
-                # Resize image
-                if orig_width > TARGET_WIDTH:
-                    resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    print(f"  -> Light: Skipped (Exists)")
+
+                # --- PROCESS MEDIUM ---
+                medium_file = medium_dir / (img_file.stem + '.webp')
+                if not medium_file.exists():
+                    if orig_width > MEDIUM_WIDTH:
+                        ratio = MEDIUM_WIDTH / orig_width
+                        new_h = int(orig_height * ratio)
+                        resized_med = img.resize((MEDIUM_WIDTH, new_h), Image.Resampling.LANCZOS)
+                    else:
+                        resized_med = img.copy()
+                        
+                    if resized_med.mode not in ['RGB', 'RGBA']:
+                        resized_med = resized_med.convert('RGB')
+                        
+                    resized_med.save(medium_file, 'WEBP', quality=WEBP_QUALITY, method=6)
+                    print(f"  -> Medium: {orig_width}px -> {resized_med.width}px")
                 else:
-                    resized = img
-                
-                # Always save as WebP format for optimal compression
-                # Convert RGBA to RGB if necessary (WebP supports both)
-                if resized.mode == 'RGBA':
-                    # Keep RGBA for WebP (supports transparency)
-                    pass
-                elif resized.mode not in ['RGB', 'RGBA']:
-                    # Convert other modes to RGB
-                    resized = resized.convert('RGB')
-                
-                # Save as WebP with optimized quality
-                output_file = output_path / (img_file.stem + '.webp')
-                resized.save(output_file, 'WEBP', quality=WEBP_QUALITY, method=6)
-                
-                # Calculate file sizes
-                orig_size = img_file.stat().st_size / 1024  # KB
-                new_size = output_file.stat().st_size / 1024  # KB
-                reduction = ((orig_size - new_size) / orig_size * 100) if orig_size > 0 else 0
-                
-                print(f"[{i}/{len(image_files)}] {img_file.name}")
-                print(f"  {orig_width}x{orig_height} → {new_width}x{new_height}")
-                print(f"  {orig_size:.1f}KB → {new_size:.1f}KB (-{reduction:.1f}%)")
-                
+                    print(f"  -> Medium: Skipped (Exists)")
+                    
                 success_count += 1
                 
         except Exception as e:
-            print(f"[{i}/{len(image_files)}] ERROR: {img_file.name}")
-            print(f"  {str(e)}")
+            print(f"  ERROR: {str(e)}")
             error_count += 1
-    
+
     print("\n" + "=" * 60)
-    print("COMPLETE!")
+    print(f"Processed: {success_count} | Errors: {error_count}")
     print("=" * 60)
-    print(f"\n✓ Successfully processed: {success_count} images")
-    if error_count > 0:
-        print(f"✗ Errors: {error_count} images")
-    print(f"\nLight images saved to: {OUTPUT_DIR}/")
-    print("\nYou can now refresh your browser to use the new viewer!")
-    print("=" * 60)
+    return True
 
 if __name__ == "__main__":
-    create_light_images()
+    if len(sys.argv) > 1:
+        client_path = sys.argv[1]
+    else:
+        client_path = "."
+        
+    process_images(client_path)
 
 

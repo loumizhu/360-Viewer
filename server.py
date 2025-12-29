@@ -75,6 +75,188 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, f"Error saving file: {str(e)}")
             return
 
+        if self.path == '/api/build-manifest':
+            try:
+                import subprocess
+                import sys
+                
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+                client_id = data.get('clientID')
+                
+                if not client_id:
+                    raise ValueError("Missing clientID")
+                
+                print(f"Building manifest for {client_id}...")
+                subprocess.check_call([sys.executable, 'create-image-manifest.py', client_id])
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': True, 'message': f'Manifest created for {client_id}'}).encode('utf-8'))
+            except Exception as e:
+                print(f"Error building manifest: {e}")
+                self.send_error(500, f"Error: {str(e)}")
+            return
+
+        if self.path == '/api/build-settings':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+                client_id = data.get('clientID')
+                
+                if not client_id:
+                    raise ValueError("Missing clientID")
+                
+                # Create default settings.json for the client
+                settings_path = os.path.join(client_id, 'settings.json')
+                default_settings = {
+                    "effects": {
+                        "effectType": "solid",
+                        "hoverOpacity": 0.5,
+                        "hoverColor": 1531868
+                    }
+                }
+                
+                os.makedirs(client_id, exist_ok=True)
+                with open(settings_path, 'w', encoding='utf-8') as f:
+                    json.dump(default_settings, f, indent=2)
+                
+                print(f"Created settings.json for {client_id}")
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': True, 'message': f'Settings created for {client_id}'}).encode('utf-8'))
+            except Exception as e:
+                print(f"Error building settings: {e}")
+                self.send_error(500, f"Error: {str(e)}")
+            return
+
+        if self.path == '/api/build-light-images':
+            try:
+                import subprocess
+                import sys
+                
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+                client_id = data.get('clientID')
+                
+                if not client_id:
+                    raise ValueError("Missing clientID")
+                
+                print(f"Building light images for {client_id}...")
+                subprocess.check_call([sys.executable, 'create-light-images.py', client_id])
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': True, 'message': f'Light images created for {client_id}'}).encode('utf-8'))
+            except Exception as e:
+                print(f"Error building light images: {e}")
+                self.send_error(500, f"Error: {str(e)}")
+            return
+
+        if self.path == '/api/scan-clients':
+            try:
+                clients = []
+                # List all directories starting with CLT
+                root_dir = os.getcwd()
+                items = os.listdir(root_dir)
+                
+                for item in items:
+                    if os.path.isdir(item) and item.startswith('CLT'):
+                        client_data = {
+                            'id': item,
+                            'path': item,
+                            'features': {},
+                            'stats': {}
+                        }
+                        
+                        client_path = os.path.join(root_dir, item)
+                        
+                        # Check 3D-Images
+                        img_path = os.path.join(client_path, '3D-Images')
+                        if os.path.exists(img_path) and os.path.isdir(img_path):
+                            # Count High Res (in root of 3D-Images)
+                            full_res = [f for f in os.listdir(img_path) if os.path.isfile(os.path.join(img_path, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
+                            client_data['stats']['fullResCount'] = len(full_res)
+                            
+                            # Check Light
+                            light_path = os.path.join(img_path, 'light')
+                            if os.path.exists(light_path) and os.path.isdir(light_path):
+                                light_imgs = [f for f in os.listdir(light_path) if os.path.isfile(os.path.join(light_path, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
+                                client_data['stats']['lightCount'] = len(light_imgs)
+                            else:
+                                client_data['stats']['lightCount'] = 0
+                                
+                            # Check Medium
+                            medium_path = os.path.join(img_path, 'medium')
+                            if os.path.exists(medium_path) and os.path.isdir(medium_path):
+                                medium_imgs = [f for f in os.listdir(medium_path) if os.path.isfile(os.path.join(medium_path, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
+                                client_data['stats']['mediumCount'] = len(medium_imgs)
+                            else:
+                                client_data['stats']['mediumCount'] = 0
+                        else:
+                            client_data['stats']['fullResCount'] = 0
+                            client_data['stats']['lightCount'] = 0
+                            client_data['stats']['mediumCount'] = 0
+
+                        # Check 3D folder for GLB
+                        model_path = os.path.join(client_path, '3D')
+                        has_glb = False
+                        if os.path.exists(model_path) and os.path.isdir(model_path):
+                            glbs = [f for f in os.listdir(model_path) if f.lower().endswith('.glb')]
+                            has_glb = len(glbs) > 0
+                        client_data['features']['has3DModel'] = has_glb
+
+                        # Check Manifest and Settings
+                        client_data['features']['hasManifest'] = os.path.exists(os.path.join(client_path, 'image-manifest.json'))
+                        client_data['features']['hasSettings'] = os.path.exists(os.path.join(client_path, 'settings.json'))
+
+                        # Check Optional Folders
+                        optionals = ['2D-Plans', '3D-Plans', 'Photos', 'Virtual Visit', 'Location', 'Contact']
+                        for opt in optionals:
+                            opt_path = os.path.join(client_path, opt)
+                            # Check if exists and has content (files)
+                            has_content = False
+                            if os.path.exists(opt_path) and os.path.isdir(opt_path):
+                                if len(os.listdir(opt_path)) > 0:
+                                    has_content = True
+                            # For files like 'Contact', it might be a file not a folder? User said "folders" but Contact implies info.
+                            # Assuming folders as per request "check other folders if they are there"
+                            client_data['features'][opt] = has_content
+
+                        # Get preview image (first image from 3D-Images)
+                        client_data['previewImage'] = None
+                        if os.path.exists(img_path) and os.path.isdir(img_path):
+                            # Try light folder first (smaller files)
+                            for folder in ['light', 'medium', '']:
+                                search_path = os.path.join(img_path, folder) if folder else img_path
+                                if os.path.exists(search_path):
+                                    imgs = [f for f in os.listdir(search_path) if os.path.isfile(os.path.join(search_path, f)) and f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))]
+                                    if imgs:
+                                        # Return relative path from root
+                                        client_data['previewImage'] = f"{item}/3D-Images/{folder + '/' if folder else ''}{imgs[0]}"
+                                        break
+
+                        clients.append(client_data)
+
+                # Send JSON response
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': True, 'clients': clients}).encode('utf-8'))
+                return
+
+            except Exception as e:
+                print(f"Error scanning clients: {e}")
+                self.send_error(500, f"Error scanning clients: {str(e)}")
+                return
+
         super().do_GET() # Fallback to GET for other POSTs if any (though usually not needed)
 
     def list_directory(self, path):
