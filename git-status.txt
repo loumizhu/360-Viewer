@@ -1,0 +1,23 @@
+On branch main
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	new file:   OSCILLATING-PARTICLES.md
+	new file:   git-remote-output.txt
+	modified:   index.html
+	new file:   oscillating-particles.js
+	modified:   settings.json
+	modified:   viewer3d.js
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+  (commit or discard the untracked or modified content in submodules)
+	modified:   chrome-devtools-mcp (modified content)
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	git-status.txt
+

@@ -137,6 +137,60 @@
         "dropGravity": 25000.0,
         "dropTerminalVelocity": 50000.0,
         "dropDelay": 500,
-        "dropStagger": 50
+        "dropStagger": 50,
+        "oscillatingParticles": {
+            "enabled": true,
+            "borderSpacing": 500,
+            "heavy": {
+                "enabled": true,
+                "count": 500,
+                "color": 4491519,
+                "size": 80,
+                "shape": "circle",
+                "speed": 200,
+                "acceleration": 10,
+                "deceleration": 0.95,
+                "fadeTime": 2.0,
+                "glow": true,
+                "glitter": false,
+                "haze": true,
+                "opacity": 0.8
+            },
+            "medium": {
+                "enabled": true,
+                "count": 300,
+                "color": 8978244,
+                "size": 50,
+                "shape": "circle",
+                "speed": 500,
+                "acceleration": 20,
+                "deceleration": 0.98,
+                "fadeTime": 1.5,
+                "glow": true,
+                "glitter": true,
+                "haze": false,
+                "opacity": 0.7,
+                "weaveAmplitude": 200,
+                "weaveFrequency": 1.0
+            },
+            "light": {
+                "enabled": true,
+                "count": 200,
+                "color": 16777096,
+                "size": 30,
+                "shape": "circle",
+                "speed": 100,
+                "acceleration": 5,
+                "deceleration": 0.99,
+                "fadeTime": 3.0,
+                "glow": true,
+                "glitter": true,
+                "haze": true,
+                "opacity": 0.6,
+                "flowHeight": 5000,
+                "twinkleSpeed": 2.0,
+                "twinkleIntensity": 0.5
+            }
+        }
     }
 }

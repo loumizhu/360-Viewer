@@ -115,7 +115,10 @@ const CONFIG_3D = {
     DROP_GRAVITY: 25000.0,
     DROP_TERMINAL_VELOCITY: 50000.0,
     DROP_DELAY: 500,
-    DROP_STAGGER: 50
+    DROP_STAGGER: 50,
+    
+    // Oscillating Particles settings
+    OSCILLATING_PARTICLES: null // Will be loaded from settings.json
 };
 
 // Function to load settings from settings.json and image-manifest.json
@@ -225,7 +228,8 @@ async function loadViewerSettings() {
                 DROP_GRAVITY: fx.dropGravity ?? CONFIG_3D.DROP_GRAVITY,
                 DROP_TERMINAL_VELOCITY: fx.dropTerminalVelocity ?? CONFIG_3D.DROP_TERMINAL_VELOCITY,
                 DROP_DELAY: fx.dropDelay ?? CONFIG_3D.DROP_DELAY,
-                DROP_STAGGER: fx.dropStagger ?? CONFIG_3D.DROP_STAGGER
+                DROP_STAGGER: fx.dropStagger ?? CONFIG_3D.DROP_STAGGER,
+                OSCILLATING_PARTICLES: fx.oscillatingParticles ?? CONFIG_3D.OSCILLATING_PARTICLES
             });
         }
         
@@ -270,6 +274,9 @@ class Viewer3D {
         this.scanningLines = null;
         this.particleSystems = new Map(); // Map object to particle system
         this.activeEffects = [];
+        
+        // Oscillating particle system
+        this.oscillatingParticles = null;
         
         // Scene debug helpers
         this.sceneHelpers = {
@@ -1287,6 +1294,28 @@ class Viewer3D {
                     
                     // Setup drop animation positions
                     this.setupDropAnimation();
+                    
+                    // Initialize oscillating particle system
+                    if (typeof OscillatingParticleSystem !== 'undefined') {
+                        this.oscillatingParticles = new OscillatingParticleSystem(
+                            this.scene,
+                            this.currentCamera,
+                            box
+                        );
+                        
+                        // Apply settings from CONFIG_3D if available
+                        if (CONFIG_3D.OSCILLATING_PARTICLES) {
+                            this.oscillatingParticles.updateSettings(CONFIG_3D.OSCILLATING_PARTICLES);
+                        }
+                        
+                        this.oscillatingParticles.init();
+                        
+                        // Enable if settings say so
+                        const enabled = CONFIG_3D.OSCILLATING_PARTICLES?.enabled || false;
+                        this.oscillatingParticles.setEnabled(enabled);
+                        
+                        console.log('Oscillating particle system initialized');
+                    }
                     
                     resolve();
                 },
@@ -3012,6 +3041,18 @@ class Viewer3D {
         
         // Update animated effects
         this.updateEffects();
+        
+        // Update oscillating particle system
+        if (this.oscillatingParticles) {
+            const currentTime = Date.now();
+            if (!this._lastParticleUpdateTime) {
+                this._lastParticleUpdateTime = currentTime;
+            }
+            const deltaTime = (currentTime - this._lastParticleUpdateTime) / 1000; // Convert to seconds
+            this._lastParticleUpdateTime = currentTime;
+            
+            this.oscillatingParticles.update(deltaTime);
+        }
         
         // Update debug info
         this.updateDebugInfo();

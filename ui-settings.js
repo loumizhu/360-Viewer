@@ -141,6 +141,9 @@ class UISettingsPanel {
         // Performance Section
         this.createPerformanceSection();
         
+        // Oscillating Particles Section
+        this.createOscillatingParticlesSection();
+        
         // Re-initialize effect controls after UI is built
         // Make sure effect controls container exists and is populated
         setTimeout(() => {
@@ -597,6 +600,466 @@ class UISettingsPanel {
         section.appendChild(lightModeGroup);
         
         this.content.appendChild(section);
+    }
+    
+    createOscillatingParticlesSection() {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = 'Oscillating Particles';
+        section.appendChild(title);
+        
+        // Get current settings
+        const particleSettings = window.uiSettings.settings.effects?.oscillatingParticles || {};
+        
+        // Master Enable/Disable Toggle
+        const masterToggle = document.createElement('div');
+        masterToggle.className = 'ui-settings-toggle';
+        masterToggle.innerHTML = `
+            <label class="ui-settings-toggle-label">Enable Particle System</label>
+            <label class="ui-settings-switch">
+                <input type="checkbox" id="particles-enabled" ${particleSettings.enabled ? 'checked' : ''}>
+                <span class="ui-settings-switch-slider"></span>
+            </label>
+        `;
+        masterToggle.querySelector('input').addEventListener('change', (e) => {
+            this.updateParticleSetting('enabled', e.target.checked);
+            // Toggle particle system
+            if (window.viewer3D && window.viewer3D.oscillatingParticles) {
+                window.viewer3D.oscillatingParticles.setEnabled(e.target.checked);
+            }
+        });
+        section.appendChild(masterToggle);
+        
+        // Border Spacing
+        const spacingGroup = document.createElement('div');
+        spacingGroup.className = 'ui-settings-group';
+        const borderSpacing = particleSettings.borderSpacing || 500;
+        spacingGroup.innerHTML = `
+            <label class="ui-settings-label">Border Spacing: <span class="ui-settings-value" id="particle-border-spacing-value">${borderSpacing}m</span></label>
+            <input type="range" class="ui-settings-slider" id="particle-border-spacing" 
+                   min="0" max="5000" step="50" value="${borderSpacing}">
+        `;
+        spacingGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('particle-border-spacing-value').textContent = `${value}m`;
+            this.updateParticleSetting('borderSpacing', value);
+        });
+        section.appendChild(spacingGroup);
+        
+        // Create collapsible sections for each particle layer
+        this.createParticleLayerSection(section, 'heavy', 'Heavy Particles (Layer 1)', particleSettings.heavy || {});
+        this.createParticleLayerSection(section, 'medium', 'Medium Particles (Layer 2)', particleSettings.medium || {});
+        this.createParticleLayerSection(section, 'light', 'Light Particles (Layer 3)', particleSettings.light || {});
+        
+        this.content.appendChild(section);
+    }
+    
+    createParticleLayerSection(parentSection, layerKey, layerTitle, layerSettings) {
+        // Collapsible header
+        const header = document.createElement('div');
+        header.className = 'ui-settings-collapsible-header';
+        header.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-top: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+        `;
+        
+        const headerTitle = document.createElement('span');
+        headerTitle.style.fontWeight = '600';
+        headerTitle.style.fontSize = '14px';
+        headerTitle.textContent = layerTitle;
+        
+        const arrow = document.createElement('span');
+        arrow.textContent = '▼';
+        arrow.style.transition = 'transform 0.3s';
+        arrow.id = `${layerKey}-arrow`;
+        
+        header.appendChild(headerTitle);
+        header.appendChild(arrow);
+        
+        // Content container
+        const content = document.createElement('div');
+        content.id = `${layerKey}-content`;
+        content.style.cssText = `
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        `;
+        
+        // Toggle collapse/expand
+        let isExpanded = false;
+        header.addEventListener('click', () => {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+            } else {
+                content.style.maxHeight = '0';
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        });
+        
+        // Layer Enable Toggle
+        const layerToggle = document.createElement('div');
+        layerToggle.className = 'ui-settings-toggle';
+        layerToggle.style.marginTop = '12px';
+        layerToggle.innerHTML = `
+            <label class="ui-settings-toggle-label">Enable ${layerTitle}</label>
+            <label class="ui-settings-switch">
+                <input type="checkbox" id="${layerKey}-enabled" ${layerSettings.enabled ? 'checked' : ''}>
+                <span class="ui-settings-switch-slider"></span>
+            </label>
+        `;
+        layerToggle.querySelector('input').addEventListener('change', (e) => {
+            this.updateParticleLayerSetting(layerKey, 'enabled', e.target.checked);
+        });
+        content.appendChild(layerToggle);
+        
+        // Particle Count
+        const countGroup = document.createElement('div');
+        countGroup.className = 'ui-settings-group';
+        const count = layerSettings.count || 100;
+        countGroup.innerHTML = `
+            <label class="ui-settings-label">Particle Count: <span class="ui-settings-value" id="${layerKey}-count-value">${count}</span></label>
+            <input type="range" class="ui-settings-slider" id="${layerKey}-count" 
+                   min="10" max="1000" step="10" value="${count}">
+        `;
+        countGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById(`${layerKey}-count-value`).textContent = value;
+            this.updateParticleLayerSetting(layerKey, 'count', value);
+        });
+        content.appendChild(countGroup);
+        
+        // Color (convert from decimal to hex)
+        const colorHex = '#' + (layerSettings.color || 0xffffff).toString(16).padStart(6, '0');
+        const colorGroup = document.createElement('div');
+        colorGroup.className = 'ui-settings-group';
+        colorGroup.innerHTML = `
+            <label class="ui-settings-label">Color</label>
+            <input type="color" class="ui-settings-color-input" id="${layerKey}-color" value="${colorHex}">
+        `;
+        colorGroup.querySelector('input').addEventListener('input', (e) => {
+            const decimal = parseInt(e.target.value.slice(1), 16);
+            this.updateParticleLayerSetting(layerKey, 'color', decimal);
+        });
+        content.appendChild(colorGroup);
+        
+        // Size
+        const sizeGroup = document.createElement('div');
+        sizeGroup.className = 'ui-settings-group';
+        const size = layerSettings.size || 50;
+        sizeGroup.innerHTML = `
+            <label class="ui-settings-label">Size: <span class="ui-settings-value" id="${layerKey}-size-value">${size}</span></label>
+            <input type="range" class="ui-settings-slider" id="${layerKey}-size" 
+                   min="1" max="500" step="1" value="${size}">
+        `;
+        sizeGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById(`${layerKey}-size-value`).textContent = value.toFixed(0);
+            this.updateParticleLayerSetting(layerKey, 'size', value);
+        });
+        content.appendChild(sizeGroup);
+        
+        // Shape
+        const shapeGroup = document.createElement('div');
+        shapeGroup.className = 'ui-settings-group';
+        const shape = layerSettings.shape || 'circle';
+        shapeGroup.innerHTML = `
+            <label class="ui-settings-label">Shape</label>
+            <select class="ui-settings-select" id="${layerKey}-shape" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white;">
+                <option value="circle" ${shape === 'circle' ? 'selected' : ''}>Circle</option>
+                <option value="square" ${shape === 'square' ? 'selected' : ''}>Square</option>
+                <option value="triangle" ${shape === 'triangle' ? 'selected' : ''}>Triangle</option>
+                <option value="star" ${shape === 'star' ? 'selected' : ''}>Star</option>
+            </select>
+        `;
+        shapeGroup.querySelector('select').addEventListener('change', (e) => {
+            this.updateParticleLayerSetting(layerKey, 'shape', e.target.value);
+        });
+        content.appendChild(shapeGroup);
+        
+        // Speed
+        const speedGroup = document.createElement('div');
+        speedGroup.className = 'ui-settings-group';
+        const speed = layerSettings.speed || 100;
+        speedGroup.innerHTML = `
+            <label class="ui-settings-label">Speed: <span class="ui-settings-value" id="${layerKey}-speed-value">${speed.toFixed(0)}</span></label>
+            <input type="range" class="ui-settings-slider" id="${layerKey}-speed" 
+                   min="10" max="2000" step="10" value="${speed}">
+        `;
+        speedGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById(`${layerKey}-speed-value`).textContent = value.toFixed(0);
+            this.updateParticleLayerSetting(layerKey, 'speed', value);
+        });
+        content.appendChild(speedGroup);
+        
+        // Acceleration
+        const accelGroup = document.createElement('div');
+        accelGroup.className = 'ui-settings-group';
+        const accel = layerSettings.acceleration || 10;
+        accelGroup.innerHTML = `
+            <label class="ui-settings-label">Acceleration: <span class="ui-settings-value" id="${layerKey}-accel-value">${accel.toFixed(0)}</span></label>
+            <input type="range" class="ui-settings-slider" id="${layerKey}-accel" 
+                   min="0" max="100" step="1" value="${accel}">
+        `;
+        accelGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById(`${layerKey}-accel-value`).textContent = value.toFixed(0);
+            this.updateParticleLayerSetting(layerKey, 'acceleration', value);
+        });
+        content.appendChild(accelGroup);
+        
+        // Deceleration
+        const decelGroup = document.createElement('div');
+        decelGroup.className = 'ui-settings-group';
+        const decel = layerSettings.deceleration || 0.95;
+        decelGroup.innerHTML = `
+            <label class="ui-settings-label">Deceleration: <span class="ui-settings-value" id="${layerKey}-decel-value">${decel.toFixed(2)}</span></label>
+            <input type="range" class="ui-settings-slider" id="${layerKey}-decel" 
+                   min="0.8" max="1" step="0.01" value="${decel}">
+        `;
+        decelGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById(`${layerKey}-decel-value`).textContent = value.toFixed(2);
+            this.updateParticleLayerSetting(layerKey, 'deceleration', value);
+        });
+        content.appendChild(decelGroup);
+        
+        // Fade Time
+        const fadeGroup = document.createElement('div');
+        fadeGroup.className = 'ui-settings-group';
+        const fadeTime = layerSettings.fadeTime || 2.0;
+        fadeGroup.innerHTML = `
+            <label class="ui-settings-label">Fade Time: <span class="ui-settings-value" id="${layerKey}-fade-value">${fadeTime.toFixed(1)}s</span></label>
+            <input type="range" class="ui-settings-slider" id="${layerKey}-fade" 
+                   min="0.5" max="10" step="0.1" value="${fadeTime}">
+        `;
+        fadeGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById(`${layerKey}-fade-value`).textContent = `${value.toFixed(1)}s`;
+            this.updateParticleLayerSetting(layerKey, 'fadeTime', value);
+        });
+        content.appendChild(fadeGroup);
+        
+        // Opacity
+        const opacityGroup = document.createElement('div');
+        opacityGroup.className = 'ui-settings-group';
+        const opacity = layerSettings.opacity || 0.8;
+        opacityGroup.innerHTML = `
+            <label class="ui-settings-label">Opacity: <span class="ui-settings-value" id="${layerKey}-opacity-value">${Math.round(opacity * 100)}%</span></label>
+            <input type="range" class="ui-settings-slider" id="${layerKey}-opacity" 
+                   min="0" max="100" step="1" value="${Math.round(opacity * 100)}">
+        `;
+        opacityGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById(`${layerKey}-opacity-value`).textContent = `${value}%`;
+            this.updateParticleLayerSetting(layerKey, 'opacity', value / 100);
+        });
+        content.appendChild(opacityGroup);
+        
+        // Glow Toggle
+        const glowToggle = document.createElement('div');
+        glowToggle.className = 'ui-settings-toggle';
+        glowToggle.innerHTML = `
+            <label class="ui-settings-toggle-label">Glow Effect</label>
+            <label class="ui-settings-switch">
+                <input type="checkbox" id="${layerKey}-glow" ${layerSettings.glow ? 'checked' : ''}>
+                <span class="ui-settings-switch-slider"></span>
+            </label>
+        `;
+        glowToggle.querySelector('input').addEventListener('change', (e) => {
+            this.updateParticleLayerSetting(layerKey, 'glow', e.target.checked);
+        });
+        content.appendChild(glowToggle);
+        
+        // Glitter Toggle
+        const glitterToggle = document.createElement('div');
+        glitterToggle.className = 'ui-settings-toggle';
+        glitterToggle.innerHTML = `
+            <label class="ui-settings-toggle-label">Glitter Effect</label>
+            <label class="ui-settings-switch">
+                <input type="checkbox" id="${layerKey}-glitter" ${layerSettings.glitter ? 'checked' : ''}>
+                <span class="ui-settings-switch-slider"></span>
+            </label>
+        `;
+        glitterToggle.querySelector('input').addEventListener('change', (e) => {
+            this.updateParticleLayerSetting(layerKey, 'glitter', e.target.checked);
+        });
+        content.appendChild(glitterToggle);
+        
+        // Haze Toggle
+        const hazeToggle = document.createElement('div');
+        hazeToggle.className = 'ui-settings-toggle';
+        hazeToggle.innerHTML = `
+            <label class="ui-settings-toggle-label">Haze Effect</label>
+            <label class="ui-settings-switch">
+                <input type="checkbox" id="${layerKey}-haze" ${layerSettings.haze ? 'checked' : ''}>
+                <span class="ui-settings-switch-slider"></span>
+            </label>
+        `;
+        hazeToggle.querySelector('input').addEventListener('change', (e) => {
+            this.updateParticleLayerSetting(layerKey, 'haze', e.target.checked);
+        });
+        content.appendChild(hazeToggle);
+        
+        // Layer-specific parameters
+        if (layerKey === 'medium') {
+            // Weave Amplitude
+            const weaveAmpGroup = document.createElement('div');
+            weaveAmpGroup.className = 'ui-settings-group';
+            const weaveAmp = layerSettings.weaveAmplitude || 200;
+            weaveAmpGroup.innerHTML = `
+                <label class="ui-settings-label">Weave Amplitude: <span class="ui-settings-value" id="${layerKey}-weave-amp-value">${weaveAmp.toFixed(0)}</span></label>
+                <input type="range" class="ui-settings-slider" id="${layerKey}-weave-amp" 
+                       min="0" max="1000" step="10" value="${weaveAmp}">
+            `;
+            weaveAmpGroup.querySelector('input').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById(`${layerKey}-weave-amp-value`).textContent = value.toFixed(0);
+                this.updateParticleLayerSetting(layerKey, 'weaveAmplitude', value);
+            });
+            content.appendChild(weaveAmpGroup);
+            
+            // Weave Frequency
+            const weaveFreqGroup = document.createElement('div');
+            weaveFreqGroup.className = 'ui-settings-group';
+            const weaveFreq = layerSettings.weaveFrequency || 1.0;
+            weaveFreqGroup.innerHTML = `
+                <label class="ui-settings-label">Weave Frequency: <span class="ui-settings-value" id="${layerKey}-weave-freq-value">${weaveFreq.toFixed(1)}</span></label>
+                <input type="range" class="ui-settings-slider" id="${layerKey}-weave-freq" 
+                       min="0.1" max="5" step="0.1" value="${weaveFreq}">
+            `;
+            weaveFreqGroup.querySelector('input').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById(`${layerKey}-weave-freq-value`).textContent = value.toFixed(1);
+                this.updateParticleLayerSetting(layerKey, 'weaveFrequency', value);
+            });
+            content.appendChild(weaveFreqGroup);
+        }
+        
+        if (layerKey === 'light') {
+            // Flow Height
+            const flowHeightGroup = document.createElement('div');
+            flowHeightGroup.className = 'ui-settings-group';
+            const flowHeight = layerSettings.flowHeight || 5000;
+            flowHeightGroup.innerHTML = `
+                <label class="ui-settings-label">Flow Height: <span class="ui-settings-value" id="${layerKey}-flow-height-value">${flowHeight}</span></label>
+                <input type="range" class="ui-settings-slider" id="${layerKey}-flow-height" 
+                       min="100" max="20000" step="100" value="${flowHeight}">
+            `;
+            flowHeightGroup.querySelector('input').addEventListener('input', (e) => {
+                const value = parseInt(e.target.value);
+                document.getElementById(`${layerKey}-flow-height-value`).textContent = value;
+                this.updateParticleLayerSetting(layerKey, 'flowHeight', value);
+            });
+            content.appendChild(flowHeightGroup);
+            
+            // Twinkle Speed
+            const twinkleSpeedGroup = document.createElement('div');
+            twinkleSpeedGroup.className = 'ui-settings-group';
+            const twinkleSpeed = layerSettings.twinkleSpeed || 2.0;
+            twinkleSpeedGroup.innerHTML = `
+                <label class="ui-settings-label">Twinkle Speed: <span class="ui-settings-value" id="${layerKey}-twinkle-speed-value">${twinkleSpeed.toFixed(1)}</span></label>
+                <input type="range" class="ui-settings-slider" id="${layerKey}-twinkle-speed" 
+                       min="0.1" max="10" step="0.1" value="${twinkleSpeed}">
+            `;
+            twinkleSpeedGroup.querySelector('input').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById(`${layerKey}-twinkle-speed-value`).textContent = value.toFixed(1);
+                this.updateParticleLayerSetting(layerKey, 'twinkleSpeed', value);
+            });
+            content.appendChild(twinkleSpeedGroup);
+            
+            // Twinkle Intensity
+            const twinkleIntensityGroup = document.createElement('div');
+            twinkleIntensityGroup.className = 'ui-settings-group';
+            const twinkleIntensity = layerSettings.twinkleIntensity || 0.5;
+            twinkleIntensityGroup.innerHTML = `
+                <label class="ui-settings-label">Twinkle Intensity: <span class="ui-settings-value" id="${layerKey}-twinkle-intensity-value">${twinkleIntensity.toFixed(2)}</span></label>
+                <input type="range" class="ui-settings-slider" id="${layerKey}-twinkle-intensity" 
+                       min="0" max="1" step="0.01" value="${twinkleIntensity}">
+            `;
+            twinkleIntensityGroup.querySelector('input').addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                document.getElementById(`${layerKey}-twinkle-intensity-value`).textContent = value.toFixed(2);
+                this.updateParticleLayerSetting(layerKey, 'twinkleIntensity', value);
+            });
+            content.appendChild(twinkleIntensityGroup);
+        }
+        
+        parentSection.appendChild(header);
+        parentSection.appendChild(content);
+    }
+    
+    updateParticleSetting(key, value) {
+        if (!window.uiSettings.settings.effects) {
+            window.uiSettings.settings.effects = {};
+        }
+        if (!window.uiSettings.settings.effects.oscillatingParticles) {
+            window.uiSettings.settings.effects.oscillatingParticles = {};
+        }
+        window.uiSettings.settings.effects.oscillatingParticles[key] = value;
+        
+        // Update CONFIG_3D
+        if (typeof CONFIG_3D !== 'undefined') {
+            if (!CONFIG_3D.OSCILLATING_PARTICLES) {
+                CONFIG_3D.OSCILLATING_PARTICLES = {};
+            }
+            CONFIG_3D.OSCILLATING_PARTICLES[key] = value;
+        }
+        
+        // Update particle system
+        if (window.viewer3D && window.viewer3D.oscillatingParticles) {
+            const newSettings = {};
+            newSettings[key] = value;
+            window.viewer3D.oscillatingParticles.updateSettings(newSettings);
+        }
+        
+        window.uiSettings.saveSettings();
+    }
+    
+    updateParticleLayerSetting(layer, key, value) {
+        if (!window.uiSettings.settings.effects) {
+            window.uiSettings.settings.effects = {};
+        }
+        if (!window.uiSettings.settings.effects.oscillatingParticles) {
+            window.uiSettings.settings.effects.oscillatingParticles = {};
+        }
+        if (!window.uiSettings.settings.effects.oscillatingParticles[layer]) {
+            window.uiSettings.settings.effects.oscillatingParticles[layer] = {};
+        }
+        window.uiSettings.settings.effects.oscillatingParticles[layer][key] = value;
+        
+        // Update CONFIG_3D
+        if (typeof CONFIG_3D !== 'undefined') {
+            if (!CONFIG_3D.OSCILLATING_PARTICLES) {
+                CONFIG_3D.OSCILLATING_PARTICLES = {};
+            }
+            if (!CONFIG_3D.OSCILLATING_PARTICLES[layer]) {
+                CONFIG_3D.OSCILLATING_PARTICLES[layer] = {};
+            }
+            CONFIG_3D.OSCILLATING_PARTICLES[layer][key] = value;
+        }
+        
+        // Update particle system
+        if (window.viewer3D && window.viewer3D.oscillatingParticles) {
+            const newSettings = {};
+            newSettings[layer] = { ...window.uiSettings.settings.effects.oscillatingParticles[layer] };
+            window.viewer3D.oscillatingParticles.updateSettings(newSettings);
+        }
+        
+        window.uiSettings.saveSettings();
     }
     
     // Helper methods
