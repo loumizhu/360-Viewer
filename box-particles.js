@@ -1,9 +1,9 @@
 // ============================================
-// OSCILLATING PARTICLE SYSTEM
-// Mimics Briggs-Rauscher Oscillating Reaction
+// BOX PARTICLE SYSTEM
+// Particles contained within the building box
 // ============================================
 
-class OscillatingParticleSystem {
+class BoxParticleSystem {
     constructor(scene, camera, boundingBox) {
         this.scene = scene;
         this.camera = camera;
@@ -42,7 +42,7 @@ class OscillatingParticleSystem {
                 glow: true,
                 glitter: false,
                 haze: true,
-                opacity: 0.8,
+                opacity: 1.0,
                 maxHeight: 12000  // Rise to full building height
             },
             
@@ -60,7 +60,7 @@ class OscillatingParticleSystem {
                 glow: true,
                 glitter: true,
                 haze: false,
-                opacity: 0.7,
+                opacity: 1.0,
                 weaveAmplitude: 500.0, // Increased for visibility
                 weaveFrequency: 1.0,
                 maxHeight: 12000
@@ -80,7 +80,7 @@ class OscillatingParticleSystem {
                 glow: true,
                 glitter: true,
                 haze: true,
-                opacity: 0.6,
+                opacity: 1.0,
                 flowHeightMin: 3000, // Min height above ground
                 flowHeightMax: 12000, // Max height (full building)
                 twinkleSpeed: 2.0,
@@ -96,11 +96,15 @@ class OscillatingParticleSystem {
             return;
         }
         
+        if (this.heavyParticles || this.mediumParticles || this.lightParticles) {
+            this.dispose();
+        }
+
         this.createHeavyParticles();
         this.createMediumParticles();
         this.createLightParticles();
         
-        console.log('Oscillating particle system initialized');
+        console.log('Box particle system initialized');
     }
     
     // Create heavy particles (Layer 1)
@@ -116,13 +120,11 @@ class OscillatingParticleSystem {
         
         const border = this.getBorderBounds();
         
-        const maxHeight = settings.maxHeight || 12000;
-        
         for (let i = 0; i < settings.count; i++) {
             // Random position along the border perimeter
             const pos = this.getRandomBorderPosition(border);
-            // Spawn at random heights to cover full building
-            pos.y = border.groundY + Math.random() * maxHeight;
+            // Spawn at random heights within the box
+            pos.y = border.minY + Math.random() * (border.maxY - border.minY);
             positions.push(pos.x, pos.y, pos.z);
             initialPositions.push(pos.x, pos.y, pos.z);
             
@@ -145,7 +147,12 @@ class OscillatingParticleSystem {
         const material = this.createParticleMaterial(settings);
         
         this.heavyParticles = new THREE.Points(geometry, material);
+        this.heavyParticles.name = 'BoxParticles_Heavy';
         this.heavyParticles.frustumCulled = false;
+        
+        const existing = this.scene.getObjectByName('BoxParticles_Heavy');
+        if (existing) this.scene.remove(existing);
+        
         this.scene.add(this.heavyParticles);
     }
     
@@ -163,12 +170,10 @@ class OscillatingParticleSystem {
         
         const border = this.getBorderBounds();
         
-        const maxHeight = settings.maxHeight || 12000;
-        
         for (let i = 0; i < settings.count; i++) {
             const pos = this.getRandomBorderPosition(border);
-            // Spawn at random heights
-            pos.y = border.groundY + Math.random() * maxHeight;
+            // Spawn at random heights within the box
+            pos.y = border.minY + Math.random() * (border.maxY - border.minY);
             positions.push(pos.x, pos.y, pos.z);
             initialPositions.push(pos.x, pos.y, pos.z);
             
@@ -191,7 +196,12 @@ class OscillatingParticleSystem {
         const material = this.createParticleMaterial(settings);
         
         this.mediumParticles = new THREE.Points(geometry, material);
+        this.mediumParticles.name = 'BoxParticles_Medium';
         this.mediumParticles.frustumCulled = false;
+        
+        const existing = this.scene.getObjectByName('BoxParticles_Medium');
+        if (existing) this.scene.remove(existing);
+        
         this.scene.add(this.mediumParticles);
     }
     
@@ -209,13 +219,10 @@ class OscillatingParticleSystem {
         
         const border = this.getBorderBounds();
         
-        const minHeight = settings.flowHeightMin || 3000;
-        const maxHeight = settings.flowHeightMax || 12000;
-        
         for (let i = 0; i < settings.count; i++) {
             const pos = this.getRandomBorderPosition(border);
-            // Spawn across upper height range
-            pos.y = border.groundY + minHeight + Math.random() * (maxHeight - minHeight);
+            // Spawn randomly within box height
+            pos.y = border.minY + Math.random() * (border.maxY - border.minY);
             positions.push(pos.x, pos.y, pos.z);
             initialPositions.push(pos.x, pos.y, pos.z);
             
@@ -238,7 +245,12 @@ class OscillatingParticleSystem {
         const material = this.createParticleMaterial(settings);
         
         this.lightParticles = new THREE.Points(geometry, material);
+        this.lightParticles.name = 'BoxParticles_Light';
         this.lightParticles.frustumCulled = false;
+        
+        const existing = this.scene.getObjectByName('BoxParticles_Light');
+        if (existing) this.scene.remove(existing);
+        
         this.scene.add(this.lightParticles);
     }
     
@@ -358,7 +370,9 @@ class OscillatingParticleSystem {
             maxX: box.max.x + spacing,
             minZ: box.min.z - spacing,
             maxZ: box.max.z + spacing,
-            groundY: box.min.y
+            minY: box.min.y,
+            maxY: box.max.y,
+            groundY: box.min.y // Keep legacy property if needed, but rely on minY/maxY
         };
     }
     
@@ -366,7 +380,7 @@ class OscillatingParticleSystem {
     getRandomBorderPosition(border) {
         const pos = new THREE.Vector3();
         
-        pos.y = border.groundY;
+        pos.y = border.minY; // Default to ground
         
         // Random position anywhere within the expanded bounding box
         pos.x = border.minX + Math.random() * (border.maxX - border.minX);
@@ -410,12 +424,10 @@ class OscillatingParticleSystem {
             // Update lifetime
             lifetimes[i] += deltaTime;
             
-            // Reset if lifetime exceeded OR if too high
-            const maxHeight = settings.maxHeight || 12000;
-            if (lifetimes[i] > settings.fadeTime || positions[i3 + 1] > border.groundY + maxHeight) {
-                lifetimes[i] = 0;
+            // Reset if above max Y
+            if (positions[i3 + 1] > border.maxY) {
                 const newPos = this.getRandomBorderPosition(border);
-                newPos.y = border.groundY + Math.random() * maxHeight;
+                newPos.y = border.minY; // Restart at bottom
                 positions[i3] = newPos.x;
                 positions[i3 + 1] = newPos.y;
                 positions[i3 + 2] = newPos.z;
@@ -440,10 +452,11 @@ class OscillatingParticleSystem {
         }
         
         geometry.attributes.position.needsUpdate = true;
-        geometry.attributes.lifetime.needsUpdate = true;
         
-        // Update opacity based on lifetime
-        this.updateParticleOpacity(this.heavyParticles, settings);
+        // Gentle pulsating opacity (70-100%)
+        const material = this.heavyParticles.material;
+        const pulse = Math.sin(this.time * 1.5) * 0.15; // Oscillates between -0.15 and +0.15
+        material.opacity = settings.opacity * (0.85 + pulse); // Range: 0.7 to 1.0
     }
     
     // Update medium particles with weaving
@@ -462,11 +475,10 @@ class OscillatingParticleSystem {
             
             lifetimes[i] += deltaTime;
             
-            const maxHeight = settings.maxHeight || 12000;
-            if (lifetimes[i] > settings.fadeTime || positions[i3 + 1] > border.groundY + maxHeight) {
-                lifetimes[i] = 0;
+            // Reset if above max Y
+            if (positions[i3 + 1] > border.maxY) {
                 const newPos = this.getRandomBorderPosition(border);
-                newPos.y = border.groundY + Math.random() * maxHeight;
+                newPos.y = border.minY; // Restart at bottom
                 positions[i3] = newPos.x;
                 positions[i3 + 1] = newPos.y;
                 positions[i3 + 2] = newPos.z;
@@ -491,9 +503,11 @@ class OscillatingParticleSystem {
         }
         
         geometry.attributes.position.needsUpdate = true;
-        geometry.attributes.lifetime.needsUpdate = true;
         
-        this.updateParticleOpacity(this.mediumParticles, settings);
+        // Gentle pulsating opacity (70-100%)
+        const material = this.mediumParticles.material;
+        const pulse = Math.sin(this.time * 2.0) * 0.15; // Slightly faster pulse
+        material.opacity = settings.opacity * (0.85 + pulse);
     }
     
     // Update light particles with twinkling
@@ -512,13 +526,10 @@ class OscillatingParticleSystem {
             
             lifetimes[i] += deltaTime;
             
-            const minHeight = settings.flowHeightMin || 3000;
-            const maxHeight = settings.flowHeightMax || 12000;
-            
-            if (lifetimes[i] > settings.fadeTime || positions[i3 + 1] > border.groundY + maxHeight) {
-                lifetimes[i] = 0;
+            // Reset if above max Y
+            if (positions[i3 + 1] > border.maxY) {
                 const newPos = this.getRandomBorderPosition(border);
-                newPos.y = border.groundY + minHeight + Math.random() * (maxHeight - minHeight);
+                newPos.y = border.minY; // Restart at bottom
                 positions[i3] = newPos.x;
                 positions[i3 + 1] = newPos.y;
                 positions[i3 + 2] = newPos.z;
@@ -538,19 +549,19 @@ class OscillatingParticleSystem {
             positions[i3 + 1] += velocities[i3 + 1] * deltaTime;
             positions[i3 + 2] += velocities[i3 + 2] * deltaTime;
             
-            // Float within height range with variation
-            const midHeight = (minHeight + maxHeight) / 2;
+            // Float movement
             const heightVariation = Math.sin(this.time * settings.twinkleSpeed + twinklePhases[i]) * 1000;
-            const targetHeight = border.groundY + midHeight + heightVariation;
-            // Gently pull towards target height
-            positions[i3 + 1] = positions[i3 + 1] * 0.95 + targetHeight * 0.05;
+            // No longer forcing targetHeight, just letting physics + wrap logic handle it
+            // but keeping a small drift/variation effectively
+             positions[i3 + 1] += heightVariation * 0.01; 
         }
         
         geometry.attributes.position.needsUpdate = true;
-        geometry.attributes.lifetime.needsUpdate = true;
         
-        // Apply twinkling effect
-        this.updateTwinkleOpacity(this.lightParticles, settings);
+        // Gentle pulsating with twinkle (60-100%)
+        const material = this.lightParticles.material;
+        const pulse = Math.sin(this.time * settings.twinkleSpeed) * 0.2; // Oscillates between -0.2 and +0.2
+        material.opacity = settings.opacity * (0.8 + pulse); // Range: 0.6 to 1.0
     }
     
     // Update particle opacity based on lifetime
@@ -586,15 +597,40 @@ class OscillatingParticleSystem {
         if (this.lightParticles) this.lightParticles.visible = enabled && this.settings.light.enabled;
     }
     
+    // Update bounding box (for hover effects)
+    // Update bounding box (for hover effects)
+    updateBoundingBox(boundingBox) {
+        this.boundingBox = boundingBox;
+        
+        // Always re-initialize to fit new box
+        this.dispose();
+        this.init();
+        
+        // If we are enabled (visible), ensure we stay enabled
+        if (this.enabled) {
+            this.setEnabled(true);
+        }
+    }
+
     // Update settings
     updateSettings(newSettings) {
-        this.settings = { ...this.settings, ...newSettings };
+        // Deep merge for nested layer settings (heavy, medium, light)
+        for (const key in newSettings) {
+            if (['heavy', 'medium', 'light'].includes(key) && typeof newSettings[key] === 'object') {
+                this.settings[key] = { ...this.settings[key], ...newSettings[key] };
+            } else {
+                this.settings[key] = newSettings[key];
+            }
+        }
         
-        // Recreate particles if needed
-        if (this.enabled) {
+        // Always recreate particles to apply new settings (count/color/etc)
+        // Only if system is conceptually enabled via settings
+        if (this.settings.enabled) {
             this.dispose();
             this.init();
-            this.setEnabled(true);
+            if (this.enabled) {
+                this.setEnabled(true);
+            }
         }
     }
     
@@ -625,5 +661,5 @@ class OscillatingParticleSystem {
 
 // Export for use in viewer3d.js
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = OscillatingParticleSystem;
+    module.exports = BoxParticleSystem;
 }

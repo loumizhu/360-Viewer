@@ -86,6 +86,7 @@ const CONFIG_3D = {
     EFFECT_TYPE: 'solid',
     SOLID_PULSE_SPEED: 1.0,
     OUTLINE_COLOR: 0x00ff00,
+    OUTLINE_OPACITY: 1.0,
     OUTLINE_PULSE_SPEED: 8.0,
     BLOOM_STRENGTH: 2.5,
     BLOOM_RADIUS: 1.0,
@@ -117,8 +118,9 @@ const CONFIG_3D = {
     DROP_DELAY: 500,
     DROP_STAGGER: 50,
     
-    // Oscillating Particles settings
-    OSCILLATING_PARTICLES: null // Will be loaded from settings.json
+    // Particle Systems
+    BOX_PARTICLES: null, // Inside building area (formerly OSCILLATING_PARTICLES)
+    AMBIENT_PARTICLES: null // Outside building area (mouse-interactive)
 };
 
 // Function to load settings from settings.json and image-manifest.json
@@ -229,7 +231,8 @@ async function loadViewerSettings() {
                 DROP_TERMINAL_VELOCITY: fx.dropTerminalVelocity ?? CONFIG_3D.DROP_TERMINAL_VELOCITY,
                 DROP_DELAY: fx.dropDelay ?? CONFIG_3D.DROP_DELAY,
                 DROP_STAGGER: fx.dropStagger ?? CONFIG_3D.DROP_STAGGER,
-                OSCILLATING_PARTICLES: fx.oscillatingParticles ?? CONFIG_3D.OSCILLATING_PARTICLES
+                BOX_PARTICLES: fx.boxParticles ?? fx.oscillatingParticles ?? CONFIG_3D.BOX_PARTICLES,
+                AMBIENT_PARTICLES: fx.ambientParticles ?? CONFIG_3D.AMBIENT_PARTICLES
             });
         }
         
@@ -275,8 +278,9 @@ class Viewer3D {
         this.particleSystems = new Map(); // Map object to particle system
         this.activeEffects = [];
         
-        // Oscillating particle system
-        this.oscillatingParticles = null;
+        // Particle systems
+        this.boxParticles = null; // Inside building area (formerly oscillatingParticles)
+        this.ambientParticles = null; // Outside building area (mouse-interactive)
         
         // Scene debug helpers
         this.sceneHelpers = {
@@ -597,6 +601,14 @@ class Viewer3D {
             // Update material immediately
             if (this.hoveredObject && this.hoveredObject.material) {
                 this.hoveredObject.material.opacity = val;
+            }
+        });
+
+        // Outline Opacity Control
+        this.createControl(container, 'Outline Opacity', CONFIG_3D.OUTLINE_OPACITY !== undefined ? CONFIG_3D.OUTLINE_OPACITY : 1.0, 0, 1, 0.05, (val) => {
+            CONFIG_3D.OUTLINE_OPACITY = val;
+            if (this.hoveredObject && this.hoveredObject.userData.outlineBoxHelper) {
+                this.hoveredObject.userData.outlineBoxHelper.material.opacity = val;
             }
         });
 
@@ -1296,25 +1308,53 @@ class Viewer3D {
                     this.setupDropAnimation();
                     
                     // Initialize oscillating particle system
-                    if (typeof OscillatingParticleSystem !== 'undefined') {
-                        this.oscillatingParticles = new OscillatingParticleSystem(
+                    // Initialize Box Particles (inside building area)
+                    if (typeof BoxParticleSystem !== 'undefined') {
+                        this.boxParticles = new BoxParticleSystem(
                             this.scene,
                             this.currentCamera,
                             box
                         );
                         
                         // Apply settings from CONFIG_3D if available
-                        if (CONFIG_3D.OSCILLATING_PARTICLES) {
-                            this.oscillatingParticles.updateSettings(CONFIG_3D.OSCILLATING_PARTICLES);
+                        if (CONFIG_3D.BOX_PARTICLES) {
+                            this.boxParticles.updateSettings(CONFIG_3D.BOX_PARTICLES);
+                        } else if (CONFIG_3D.OSCILLATING_PARTICLES) {
+                            // Fallback to old name for backwards compatibility
+                            this.boxParticles.updateSettings(CONFIG_3D.OSCILLATING_PARTICLES);
                         }
                         
-                        this.oscillatingParticles.init();
+                        this.boxParticles.init();
+                        
+                        // Init with state from settings
+                        // If enabled in settings, they should be ready (but updateBoundingBox controls visibility location)
+                        const enabled = CONFIG_3D.BOX_PARTICLES?.enabled || false;
+                        this.boxParticles.setEnabled(enabled);
+                        
+                        console.log('Box particle system initialized (inside building)');
+                    }
+                    
+                    // Initialize Ambient Particles (outside building area, mouse-interactive)
+                    if (typeof AmbientParticleSystem !== 'undefined') {
+                        this.ambientParticles = new AmbientParticleSystem(
+                            this.scene,
+                            this.currentCamera,
+                            box,
+                            this.canvas
+                        );
+                        
+                        // Apply settings from CONFIG_3D if available
+                        if (CONFIG_3D.AMBIENT_PARTICLES) {
+                            this.ambientParticles.updateSettings(CONFIG_3D.AMBIENT_PARTICLES);
+                        }
+                        
+                        this.ambientParticles.init();
                         
                         // Enable if settings say so
-                        const enabled = CONFIG_3D.OSCILLATING_PARTICLES?.enabled || false;
-                        this.oscillatingParticles.setEnabled(enabled);
+                        const ambientEnabled = CONFIG_3D.AMBIENT_PARTICLES?.enabled || false;
+                        this.ambientParticles.setEnabled(ambientEnabled);
                         
-                        console.log('Oscillating particle system initialized');
+                        console.log('Ambient particle system initialized (outside building, mouse-interactive)');
                     }
                     
                     resolve();
@@ -1373,10 +1413,18 @@ class Viewer3D {
                     this.hoveredObject = newHovered;
                     this.applyEffect(this.hoveredObject);
                     
+                    // Update Box Particles to show ONLY on this box
+                    if (this.boxParticles && this.boxParticles.settings.enabled) {
+                        const box = new THREE.Box3().setFromObject(this.hoveredObject);
+                        this.boxParticles.updateBoundingBox(box);
+                        // Force a re-init to ensure particles spawn immediately in new box
+                        this.boxParticles.dispose();
+                        this.boxParticles.init();
+                        this.boxParticles.setEnabled(true);
+                    }
+                    
                     // Change cursor to pointer when hovering over 3D objects
                     this.canvas.style.cursor = 'pointer';
-                    
-                    // Hover logging removed for performance
                 }
                 
                 // Show tooltip with object name
@@ -1391,6 +1439,11 @@ class Viewer3D {
                 if (this.hoveredObject) {
                     this.clearAllEffects(this.hoveredObject);
                     this.hoveredObject = null;
+                }
+                
+                // Disable Box Particles when not hovering
+                if (this.boxParticles) {
+                    this.boxParticles.setEnabled(false);
                 }
                 
                 // Hide tooltip
@@ -1474,6 +1527,10 @@ class Viewer3D {
                 this.hoveredObject = null;
             }
             
+            if (this.boxParticles) {
+                this.boxParticles.setEnabled(false);
+            }
+            
             // Hide tooltip when mouse leaves canvas
             this.hideTooltip();
         });
@@ -1482,12 +1539,33 @@ class Viewer3D {
         // The 2D canvas handles all touch interactions (scrubbing/panning/pinch zoom)
         // We use pointer-events CSS to allow touches to pass through on mobile
         
-        // Click handler for 3D objects - show plan image
-        this.canvas.addEventListener('click', (e) => {
+        // Click handler for 3D objects - show plan image and fetch DB info
+        this.canvas.addEventListener('click', async (e) => {
             if (this.hoveredObject) {
                 const objectName = this.hoveredObject.name;
                 if (objectName) {
+                    // 1. Show 2D Plan
                     this.showPlanImage(objectName);
+
+                    // 2. Fetch Unit Info from Database
+                    if (window.db && window.db.getUnitDetails) {
+                        try {
+                            console.log(`[Viewer3D] Fetching details for unit: ${objectName}`);
+                            const unitData = await window.db.getUnitDetails(objectName);
+                            
+                            if (unitData) {
+                                console.log('[Viewer3D] Unit details loaded:', unitData);
+                                // Update global state
+                                window.currentUnitData = unitData;
+                                // Notify UI components (unit-database-sync.js)
+                                window.dispatchEvent(new CustomEvent('unitDataLoaded', { detail: unitData }));
+                            } else {
+                                console.warn(`[Viewer3D] No data found in DB for unit: ${objectName}`);
+                            }
+                        } catch (err) {
+                            console.error('[Viewer3D] Error fetching unit details:', err);
+                        }
+                    }
                 }
             }
         });
@@ -1536,6 +1614,11 @@ class Viewer3D {
                 const mouseX = window.productViewer.lastZoomMouseX || window.innerWidth / 2;
                 const mouseY = window.productViewer.lastZoomMouseY || window.innerHeight / 2;
                 this.syncZoomAndPan(window.productViewer.zoom, window.productViewer.panX, window.productViewer.panY, mouseX, mouseY);
+            }
+            
+            // Update particle system camera
+            if (this.ambientParticles) {
+                this.ambientParticles.setCamera(this.currentCamera);
             }
         }
         
@@ -1926,7 +2009,7 @@ class Viewer3D {
         
         // Create properly aligned box using object's local bounding box
         // Note: createAlignedBoxHelper adds the box as a child of the object
-        const alignedBox = this.createAlignedBoxHelper(object, CONFIG_3D.OUTLINE_COLOR);
+        const alignedBox = this.createAlignedBoxHelper(object, CONFIG_3D.OUTLINE_COLOR, CONFIG_3D.OUTLINE_OPACITY);
         alignedBox.name = 'OutlineBoxHelper';
         alignedBox.userData.startTime = Date.now();
         
@@ -1936,7 +2019,7 @@ class Viewer3D {
     }
     
     // Create an aligned box helper that respects object rotation
-    createAlignedBoxHelper(object, color) {
+    createAlignedBoxHelper(object, color, opacity = 1.0) {
         // Ensure geometry bounding box is computed
         object.geometry.computeBoundingBox();
         const bbox = object.geometry.boundingBox;
@@ -1972,7 +2055,7 @@ class Viewer3D {
         const material = new THREE.LineBasicMaterial({ 
             color: color,
             transparent: true,
-            opacity: 1.0,
+            opacity: opacity,
             linewidth: 2
         });
         
@@ -3042,8 +3125,8 @@ class Viewer3D {
         // Update animated effects
         this.updateEffects();
         
-        // Update oscillating particle system
-        if (this.oscillatingParticles) {
+        // Update particle systems
+        if (this.boxParticles || this.ambientParticles) {
             const currentTime = Date.now();
             if (!this._lastParticleUpdateTime) {
                 this._lastParticleUpdateTime = currentTime;
@@ -3051,7 +3134,15 @@ class Viewer3D {
             const deltaTime = (currentTime - this._lastParticleUpdateTime) / 1000; // Convert to seconds
             this._lastParticleUpdateTime = currentTime;
             
-            this.oscillatingParticles.update(deltaTime);
+            // Update box particles (inside building)
+            if (this.boxParticles) {
+                this.boxParticles.update(deltaTime);
+            }
+            
+            // Update ambient particles (outside building, mouse-interactive)
+            if (this.ambientParticles) {
+                this.ambientParticles.update(deltaTime);
+            }
         }
         
         // Update debug info

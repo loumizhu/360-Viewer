@@ -44,6 +44,12 @@ class UISettingsPanel {
             console.warn('[UI Settings] Close Button not found');
         }
         
+        // Listen for settings loaded event
+        window.addEventListener('viewerSettingsLoaded', () => {
+            console.log('[UI Settings] Settings loaded, rebuilding UI');
+            this.buildSettingsUI();
+        });
+
         // Build the settings UI
         this.buildSettingsUI();
     }
@@ -141,8 +147,11 @@ class UISettingsPanel {
         // Performance Section
         this.createPerformanceSection();
         
-        // Oscillating Particles Section
-        this.createOscillatingParticlesSection();
+        // Box Particles Section
+        this.createBoxParticlesSection();
+        
+        // Ambient Particles Section
+        this.createAmbientParticlesSection();
         
         // Re-initialize effect controls after UI is built
         // Make sure effect controls container exists and is populated
@@ -156,6 +165,9 @@ class UISettingsPanel {
             } else {
                 console.warn('Effect controls container not found');
             }
+            
+            // Sync stored settings to viewer particles
+            this.syncParticlesToViewer();
         }, 100);
     }
     
@@ -602,17 +614,18 @@ class UISettingsPanel {
         this.content.appendChild(section);
     }
     
-    createOscillatingParticlesSection() {
+    createBoxParticlesSection() {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
         const title = document.createElement('h4');
         title.className = 'ui-settings-section-title';
-        title.textContent = 'Oscillating Particles';
+        title.textContent = 'Box Particle System';
         section.appendChild(title);
         
-        // Get current settings
-        const particleSettings = window.uiSettings.settings.effects?.oscillatingParticles || {};
+        // Get current settings (support both keys, prefer boxParticles)
+        const particleSettings = window.uiSettings.settings.effects?.boxParticles || 
+                               window.uiSettings.settings.effects?.oscillatingParticles || {};
         
         // Master Enable/Disable Toggle
         const masterToggle = document.createElement('div');
@@ -625,10 +638,10 @@ class UISettingsPanel {
             </label>
         `;
         masterToggle.querySelector('input').addEventListener('change', (e) => {
-            this.updateParticleSetting('enabled', e.target.checked);
+            this.updateBoxParticleSetting('enabled', e.target.checked);
             // Toggle particle system
-            if (window.viewer3D && window.viewer3D.oscillatingParticles) {
-                window.viewer3D.oscillatingParticles.setEnabled(e.target.checked);
+            if (window.viewer3D && window.viewer3D.boxParticles) {
+                window.viewer3D.boxParticles.setEnabled(e.target.checked);
             }
         });
         section.appendChild(masterToggle);
@@ -645,7 +658,7 @@ class UISettingsPanel {
         spacingGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
             document.getElementById('particle-border-spacing-value').textContent = `${value}m`;
-            this.updateParticleSetting('borderSpacing', value);
+            this.updateBoxParticleSetting('borderSpacing', value);
         });
         section.appendChild(spacingGroup);
         
@@ -720,7 +733,7 @@ class UISettingsPanel {
             </label>
         `;
         layerToggle.querySelector('input').addEventListener('change', (e) => {
-            this.updateParticleLayerSetting(layerKey, 'enabled', e.target.checked);
+            this.updateBoxParticleLayerSetting(layerKey, 'enabled', e.target.checked);
         });
         content.appendChild(layerToggle);
         
@@ -736,7 +749,7 @@ class UISettingsPanel {
         countGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
             document.getElementById(`${layerKey}-count-value`).textContent = value;
-            this.updateParticleLayerSetting(layerKey, 'count', value);
+            this.updateBoxParticleLayerSetting(layerKey, 'count', value);
         });
         content.appendChild(countGroup);
         
@@ -750,7 +763,7 @@ class UISettingsPanel {
         `;
         colorGroup.querySelector('input').addEventListener('input', (e) => {
             const decimal = parseInt(e.target.value.slice(1), 16);
-            this.updateParticleLayerSetting(layerKey, 'color', decimal);
+            this.updateBoxParticleLayerSetting(layerKey, 'color', decimal);
         });
         content.appendChild(colorGroup);
         
@@ -766,7 +779,7 @@ class UISettingsPanel {
         sizeGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             document.getElementById(`${layerKey}-size-value`).textContent = value.toFixed(0);
-            this.updateParticleLayerSetting(layerKey, 'size', value);
+            this.updateBoxParticleLayerSetting(layerKey, 'size', value);
         });
         content.appendChild(sizeGroup);
         
@@ -784,7 +797,7 @@ class UISettingsPanel {
             </select>
         `;
         shapeGroup.querySelector('select').addEventListener('change', (e) => {
-            this.updateParticleLayerSetting(layerKey, 'shape', e.target.value);
+            this.updateBoxParticleLayerSetting(layerKey, 'shape', e.target.value);
         });
         content.appendChild(shapeGroup);
         
@@ -800,7 +813,7 @@ class UISettingsPanel {
         speedGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             document.getElementById(`${layerKey}-speed-value`).textContent = value.toFixed(0);
-            this.updateParticleLayerSetting(layerKey, 'speed', value);
+            this.updateBoxParticleLayerSetting(layerKey, 'speed', value);
         });
         content.appendChild(speedGroup);
         
@@ -816,7 +829,7 @@ class UISettingsPanel {
         accelGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             document.getElementById(`${layerKey}-accel-value`).textContent = value.toFixed(0);
-            this.updateParticleLayerSetting(layerKey, 'acceleration', value);
+            this.updateBoxParticleLayerSetting(layerKey, 'acceleration', value);
         });
         content.appendChild(accelGroup);
         
@@ -832,7 +845,7 @@ class UISettingsPanel {
         decelGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             document.getElementById(`${layerKey}-decel-value`).textContent = value.toFixed(2);
-            this.updateParticleLayerSetting(layerKey, 'deceleration', value);
+            this.updateBoxParticleLayerSetting(layerKey, 'deceleration', value);
         });
         content.appendChild(decelGroup);
         
@@ -848,7 +861,7 @@ class UISettingsPanel {
         fadeGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             document.getElementById(`${layerKey}-fade-value`).textContent = `${value.toFixed(1)}s`;
-            this.updateParticleLayerSetting(layerKey, 'fadeTime', value);
+            this.updateBoxParticleLayerSetting(layerKey, 'fadeTime', value);
         });
         content.appendChild(fadeGroup);
         
@@ -864,7 +877,7 @@ class UISettingsPanel {
         opacityGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
             document.getElementById(`${layerKey}-opacity-value`).textContent = `${value}%`;
-            this.updateParticleLayerSetting(layerKey, 'opacity', value / 100);
+            this.updateBoxParticleLayerSetting(layerKey, 'opacity', value / 100);
         });
         content.appendChild(opacityGroup);
         
@@ -879,7 +892,7 @@ class UISettingsPanel {
             </label>
         `;
         glowToggle.querySelector('input').addEventListener('change', (e) => {
-            this.updateParticleLayerSetting(layerKey, 'glow', e.target.checked);
+            this.updateBoxParticleLayerSetting(layerKey, 'glow', e.target.checked);
         });
         content.appendChild(glowToggle);
         
@@ -894,7 +907,7 @@ class UISettingsPanel {
             </label>
         `;
         glitterToggle.querySelector('input').addEventListener('change', (e) => {
-            this.updateParticleLayerSetting(layerKey, 'glitter', e.target.checked);
+            this.updateBoxParticleLayerSetting(layerKey, 'glitter', e.target.checked);
         });
         content.appendChild(glitterToggle);
         
@@ -909,7 +922,7 @@ class UISettingsPanel {
             </label>
         `;
         hazeToggle.querySelector('input').addEventListener('change', (e) => {
-            this.updateParticleLayerSetting(layerKey, 'haze', e.target.checked);
+            this.updateBoxParticleLayerSetting(layerKey, 'haze', e.target.checked);
         });
         content.appendChild(hazeToggle);
         
@@ -927,7 +940,7 @@ class UISettingsPanel {
             weaveAmpGroup.querySelector('input').addEventListener('input', (e) => {
                 const value = parseFloat(e.target.value);
                 document.getElementById(`${layerKey}-weave-amp-value`).textContent = value.toFixed(0);
-                this.updateParticleLayerSetting(layerKey, 'weaveAmplitude', value);
+                this.updateBoxParticleLayerSetting(layerKey, 'weaveAmplitude', value);
             });
             content.appendChild(weaveAmpGroup);
             
@@ -943,7 +956,7 @@ class UISettingsPanel {
             weaveFreqGroup.querySelector('input').addEventListener('input', (e) => {
                 const value = parseFloat(e.target.value);
                 document.getElementById(`${layerKey}-weave-freq-value`).textContent = value.toFixed(1);
-                this.updateParticleLayerSetting(layerKey, 'weaveFrequency', value);
+                this.updateBoxParticleLayerSetting(layerKey, 'weaveFrequency', value);
             });
             content.appendChild(weaveFreqGroup);
         }
@@ -961,7 +974,7 @@ class UISettingsPanel {
             flowHeightGroup.querySelector('input').addEventListener('input', (e) => {
                 const value = parseInt(e.target.value);
                 document.getElementById(`${layerKey}-flow-height-value`).textContent = value;
-                this.updateParticleLayerSetting(layerKey, 'flowHeight', value);
+                this.updateBoxParticleLayerSetting(layerKey, 'flowHeight', value);
             });
             content.appendChild(flowHeightGroup);
             
@@ -977,7 +990,7 @@ class UISettingsPanel {
             twinkleSpeedGroup.querySelector('input').addEventListener('input', (e) => {
                 const value = parseFloat(e.target.value);
                 document.getElementById(`${layerKey}-twinkle-speed-value`).textContent = value.toFixed(1);
-                this.updateParticleLayerSetting(layerKey, 'twinkleSpeed', value);
+                this.updateBoxParticleLayerSetting(layerKey, 'twinkleSpeed', value);
             });
             content.appendChild(twinkleSpeedGroup);
             
@@ -993,7 +1006,7 @@ class UISettingsPanel {
             twinkleIntensityGroup.querySelector('input').addEventListener('input', (e) => {
                 const value = parseFloat(e.target.value);
                 document.getElementById(`${layerKey}-twinkle-intensity-value`).textContent = value.toFixed(2);
-                this.updateParticleLayerSetting(layerKey, 'twinkleIntensity', value);
+                this.updateBoxParticleLayerSetting(layerKey, 'twinkleIntensity', value);
             });
             content.appendChild(twinkleIntensityGroup);
         }
@@ -1002,61 +1015,554 @@ class UISettingsPanel {
         parentSection.appendChild(content);
     }
     
-    updateParticleSetting(key, value) {
+    updateBoxParticleSetting(key, value) {
         if (!window.uiSettings.settings.effects) {
             window.uiSettings.settings.effects = {};
         }
-        if (!window.uiSettings.settings.effects.oscillatingParticles) {
-            window.uiSettings.settings.effects.oscillatingParticles = {};
+        // Write to boxParticles
+        if (!window.uiSettings.settings.effects.boxParticles) {
+            window.uiSettings.settings.effects.boxParticles = {};
         }
-        window.uiSettings.settings.effects.oscillatingParticles[key] = value;
+        window.uiSettings.settings.effects.boxParticles[key] = value;
         
         // Update CONFIG_3D
         if (typeof CONFIG_3D !== 'undefined') {
-            if (!CONFIG_3D.OSCILLATING_PARTICLES) {
-                CONFIG_3D.OSCILLATING_PARTICLES = {};
+            if (!CONFIG_3D.BOX_PARTICLES) {
+                CONFIG_3D.BOX_PARTICLES = {};
             }
-            CONFIG_3D.OSCILLATING_PARTICLES[key] = value;
+            CONFIG_3D.BOX_PARTICLES[key] = value;
         }
         
         // Update particle system
-        if (window.viewer3D && window.viewer3D.oscillatingParticles) {
+        if (window.viewer3D && window.viewer3D.boxParticles) {
             const newSettings = {};
             newSettings[key] = value;
-            window.viewer3D.oscillatingParticles.updateSettings(newSettings);
+            window.viewer3D.boxParticles.updateSettings(newSettings);
         }
         
         window.uiSettings.saveSettings();
     }
     
-    updateParticleLayerSetting(layer, key, value) {
+    updateBoxParticleLayerSetting(layer, key, value) {
         if (!window.uiSettings.settings.effects) {
             window.uiSettings.settings.effects = {};
         }
-        if (!window.uiSettings.settings.effects.oscillatingParticles) {
-            window.uiSettings.settings.effects.oscillatingParticles = {};
+        if (!window.uiSettings.settings.effects.boxParticles) {
+            window.uiSettings.settings.effects.boxParticles = {};
         }
-        if (!window.uiSettings.settings.effects.oscillatingParticles[layer]) {
-            window.uiSettings.settings.effects.oscillatingParticles[layer] = {};
+        if (!window.uiSettings.settings.effects.boxParticles[layer]) {
+            window.uiSettings.settings.effects.boxParticles[layer] = {};
         }
-        window.uiSettings.settings.effects.oscillatingParticles[layer][key] = value;
+        window.uiSettings.settings.effects.boxParticles[layer][key] = value;
         
         // Update CONFIG_3D
         if (typeof CONFIG_3D !== 'undefined') {
-            if (!CONFIG_3D.OSCILLATING_PARTICLES) {
-                CONFIG_3D.OSCILLATING_PARTICLES = {};
+            if (!CONFIG_3D.BOX_PARTICLES) {
+                CONFIG_3D.BOX_PARTICLES = {};
             }
-            if (!CONFIG_3D.OSCILLATING_PARTICLES[layer]) {
-                CONFIG_3D.OSCILLATING_PARTICLES[layer] = {};
+            if (!CONFIG_3D.BOX_PARTICLES[layer]) {
+                CONFIG_3D.BOX_PARTICLES[layer] = {};
             }
-            CONFIG_3D.OSCILLATING_PARTICLES[layer][key] = value;
+            
+            // Ensure types match what system expects
+            if (key === 'color' && typeof value !== 'number') {
+                 // Convert if needed, but UI sends number for color
+            }
+            
+            CONFIG_3D.BOX_PARTICLES[layer][key] = value;
         }
         
         // Update particle system
-        if (window.viewer3D && window.viewer3D.oscillatingParticles) {
+        if (window.viewer3D && window.viewer3D.boxParticles) {
             const newSettings = {};
-            newSettings[layer] = { ...window.uiSettings.settings.effects.oscillatingParticles[layer] };
-            window.viewer3D.oscillatingParticles.updateSettings(newSettings);
+            newSettings[layer] = { ...window.uiSettings.settings.effects.boxParticles[layer] };
+            window.viewer3D.boxParticles.updateSettings(newSettings);
+        }
+        
+        window.uiSettings.saveSettings();
+        window.uiSettings.saveSettings();
+    }
+
+    // Sync saved settings to viewer3D particles
+    syncParticlesToViewer() {
+        if (!window.viewer3D || !window.viewer3D.ambientParticles || !window.viewer3D.boxParticles) {
+            // Retry if viewer or particles not ready
+            setTimeout(() => this.syncParticlesToViewer(), 500);
+            return;
+        }
+
+        console.log('[UI Settings] Syncing stored particle settings to Viewer3D...');
+        const settings = window.uiSettings.settings.effects || {};
+        
+        // Sync Ambient
+        if (settings.ambientParticles) {
+            // Update all settings
+            window.viewer3D.ambientParticles.updateSettings(settings.ambientParticles);
+            // Explicitly force enabled state to override defaults
+            if (typeof settings.ambientParticles.enabled !== 'undefined') {
+                window.viewer3D.ambientParticles.setEnabled(settings.ambientParticles.enabled);
+            }
+        }
+
+        // Sync Box
+        if (settings.boxParticles) {
+            // Update all settings
+            window.viewer3D.boxParticles.updateSettings(settings.boxParticles);
+            
+            // If enabled in settings, ensure enabled in system (logic handles hover visibility)
+            if (settings.boxParticles.enabled !== undefined) {
+                window.viewer3D.boxParticles.setEnabled(settings.boxParticles.enabled);
+            }
+        }
+    }
+
+    createAmbientParticlesSection() {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = 'Ambient Particles (Exterior)';
+        section.appendChild(title);
+        
+        // Get current settings
+        const settings = window.uiSettings.settings.effects?.ambientParticles || {};
+        
+        // Enabled Toggle
+        const enableToggle = document.createElement('div');
+        enableToggle.className = 'ui-settings-toggle';
+        const isEnabled = settings.enabled !== undefined ? settings.enabled : true;
+        enableToggle.innerHTML = `
+            <label class="ui-settings-toggle-label">Enable Ambient Particles</label>
+            <label class="ui-settings-switch">
+                <input type="checkbox" id="ambient-enabled" ${isEnabled ? 'checked' : ''}>
+                <span class="ui-settings-switch-slider"></span>
+            </label>
+        `;
+        enableToggle.querySelector('input').addEventListener('change', (e) => {
+            this.updateAmbientParticleSetting('enabled', e.target.checked);
+            if (window.viewer3D && window.viewer3D.ambientParticles) {
+                window.viewer3D.ambientParticles.setEnabled(e.target.checked);
+            }
+        });
+        section.appendChild(enableToggle);
+        
+        // Global Settings Header
+        const globalTitle = document.createElement('div');
+        globalTitle.style.cssText = 'font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.7); margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;';
+        globalTitle.textContent = 'Global Interaction & Bounds';
+        section.appendChild(globalTitle);
+        
+        // Spread
+        const spreadGroup = document.createElement('div');
+        spreadGroup.className = 'ui-settings-group';
+        const spread = settings.spread || 5000;
+        spreadGroup.innerHTML = `
+            <label class="ui-settings-label">Spread (Area): <span class="ui-settings-value" id="ambient-spread-value">${spread}m</span></label>
+            <input type="range" class="ui-settings-slider" id="ambient-spread" 
+                   min="1000" max="50000" step="1000" value="${spread}">
+        `;
+        spreadGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('ambient-spread-value').textContent = value + 'm';
+            this.updateAmbientParticleSetting('spread', value);
+        });
+        section.appendChild(spreadGroup);
+        
+        // Interaction Type
+        const typeGroup = document.createElement('div');
+        typeGroup.className = 'ui-settings-group';
+        const interType = settings.mouseInteractionType || 'attract';
+        typeGroup.innerHTML = `
+            <label class="ui-settings-label">Interaction Type</label>
+            <select class="ui-settings-select" id="ambient-interaction-type">
+                <option value="attract" ${interType === 'attract' ? 'selected' : ''}>Attract (Pull)</option>
+                <option value="repel" ${interType === 'repel' ? 'selected' : ''}>Repel (Push)</option>
+            </select>
+        `;
+        typeGroup.querySelector('select').addEventListener('change', (e) => {
+            this.updateAmbientParticleSetting('mouseInteractionType', e.target.value);
+        });
+        section.appendChild(typeGroup);
+
+        // Influence Radius
+        const radiusGroup = document.createElement('div');
+        radiusGroup.className = 'ui-settings-group';
+        const radius = settings.mouseInfluenceRadius !== undefined ? settings.mouseInfluenceRadius : 15000;
+        radiusGroup.innerHTML = `
+            <label class="ui-settings-label">Influence Radius: <span class="ui-settings-value" id="ambient-radius-value">${radius}</span></label>
+            <input type="range" class="ui-settings-slider" id="ambient-radius" 
+                   min="2000" max="50000" step="1000" value="${radius}">
+        `;
+        radiusGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('ambient-radius-value').textContent = value;
+            this.updateAmbientParticleSetting('mouseInfluenceRadius', value);
+        });
+        section.appendChild(radiusGroup);
+
+        // Mouse Force (Attraction/Repulsion Strength)
+        const forceGroup = document.createElement('div');
+        forceGroup.className = 'ui-settings-group';
+        const force = settings.mouseForce !== undefined ? settings.mouseForce : 80000;
+        forceGroup.innerHTML = `
+            <label class="ui-settings-label">Attraction Force: <span class="ui-settings-value" id="ambient-force-value">${force}</span></label>
+            <input type="range" class="ui-settings-slider" id="ambient-force" 
+                   min="0" max="200000" step="5000" value="${force}">
+        `;
+        forceGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('ambient-force-value').textContent = value;
+            this.updateAmbientParticleSetting('mouseForce', value);
+        });
+        section.appendChild(forceGroup);
+        
+        // Mouse Drag
+        const dragGroup = document.createElement('div');
+        dragGroup.className = 'ui-settings-group';
+        const drag = settings.mouseDrag !== undefined ? settings.mouseDrag : 0.96;
+        dragGroup.innerHTML = `
+            <label class="ui-settings-label">Drag (Friction): <span class="ui-settings-value" id="ambient-drag-value">${Number(drag).toFixed(3)}</span></label>
+            <input type="range" class="ui-settings-slider" id="ambient-drag" 
+                   min="0.500" max="0.995" step="0.005" value="${drag}">
+        `;
+        dragGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('ambient-drag-value').textContent = value.toFixed(3);
+            this.updateAmbientParticleSetting('mouseDrag', value);
+        });
+        section.appendChild(dragGroup);
+        
+        // Return Speed (Damping for interaction recovery)
+        const returnGroup = document.createElement('div');
+        returnGroup.className = 'ui-settings-group';
+        const returnSpeed = settings.mouseReturnSpeed !== undefined ? settings.mouseReturnSpeed : 0.5;
+        returnGroup.innerHTML = `
+            <label class="ui-settings-label">Return Speed: <span class="ui-settings-value" id="ambient-return-value">${returnSpeed.toFixed(2)}</span></label>
+            <input type="range" class="ui-settings-slider" id="ambient-return" 
+                   min="0.0" max="2.0" step="0.1" value="${returnSpeed}">
+        `;
+        returnGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('ambient-return-value').textContent = value.toFixed(2);
+            this.updateAmbientParticleSetting('mouseReturnSpeed', value);
+        });
+        section.appendChild(returnGroup);
+        
+        // Min Height
+        const minHGroup = document.createElement('div');
+        minHGroup.className = 'ui-settings-group';
+        const minH = settings.minHeight !== undefined ? settings.minHeight : 0;
+        minHGroup.innerHTML = `
+            <label class="ui-settings-label">Min Height: <span class="ui-settings-value" id="ambient-minh-value">${minH}m</span></label>
+            <input type="range" class="ui-settings-slider" id="ambient-minh" 
+                   min="-5000" max="20000" step="500" value="${minH}">
+        `;
+        minHGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('ambient-minh-value').textContent = value + 'm';
+            this.updateAmbientParticleSetting('minHeight', value);
+        });
+        section.appendChild(minHGroup);
+        
+        // Max Height
+        const maxHGroup = document.createElement('div');
+        maxHGroup.className = 'ui-settings-group';
+        const maxH = settings.maxHeight !== undefined ? settings.maxHeight : 12000;
+        maxHGroup.innerHTML = `
+            <label class="ui-settings-label">Max Height: <span class="ui-settings-value" id="ambient-maxh-value">${maxH}m</span></label>
+            <input type="range" class="ui-settings-slider" id="ambient-maxh" 
+                   min="0" max="50000" step="500" value="${maxH}">
+        `;
+        maxHGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('ambient-maxh-value').textContent = value + 'm';
+            this.updateAmbientParticleSetting('maxHeight', value);
+        });
+        section.appendChild(maxHGroup);
+        
+        // Layers
+        // We use default empty objects if settings don't exist yet to ensure UI is created
+        this.createAmbientLayerSection(section, 'heavy', 'Layer 1 (Heavy)', settings.heavy || {enabled: true, count: 1500, size: 600});
+        this.createAmbientLayerSection(section, 'medium', 'Layer 2 (Medium)', settings.medium || {enabled: true, count: 1000, size: 400});
+        this.createAmbientLayerSection(section, 'light', 'Layer 3 (Light)', settings.light || {enabled: true, count: 500, size: 200});
+        
+        this.content.appendChild(section);
+    }
+    
+    // Create UI for a single ambient particle layer
+    createAmbientLayerSection(parentSection, layerKey, layerTitle, layerSettings) {
+        // Collapsible header
+        const header = document.createElement('div');
+        header.className = 'ui-settings-collapsible-header';
+        header.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-top: 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+        `;
+        
+        const headerTitle = document.createElement('span');
+        headerTitle.style.fontWeight = '600';
+        headerTitle.style.fontSize = '14px';
+        headerTitle.textContent = layerTitle;
+        
+        const arrow = document.createElement('span');
+        arrow.textContent = '▼';
+        arrow.style.transition = 'transform 0.3s';
+        
+        header.appendChild(headerTitle);
+        header.appendChild(arrow);
+        
+        // Content container
+        const content = document.createElement('div');
+        content.style.cssText = `
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        `;
+        
+        let isExpanded = false;
+        header.addEventListener('click', () => {
+            isExpanded = !isExpanded;
+            if (isExpanded) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                arrow.style.transform = 'rotate(180deg)';
+            } else {
+                content.style.maxHeight = '0';
+                arrow.style.transform = 'rotate(0deg)';
+            }
+        });
+        
+        // Layer Enable Toggle
+        const layerToggle = document.createElement('div');
+        layerToggle.className = 'ui-settings-toggle';
+        layerToggle.style.marginTop = '12px';
+        const isEnabled = layerSettings.enabled !== undefined ? layerSettings.enabled : true;
+        layerToggle.innerHTML = `
+            <label class="ui-settings-toggle-label">Enable ${layerTitle}</label>
+            <label class="ui-settings-switch">
+                <input type="checkbox" ${isEnabled ? 'checked' : ''}>
+                <span class="ui-settings-switch-slider"></span>
+            </label>
+        `;
+        layerToggle.querySelector('input').addEventListener('change', (e) => {
+            this.updateAmbientParticleLayerSetting(layerKey, 'enabled', e.target.checked);
+        });
+        content.appendChild(layerToggle);
+        
+        // Color (convert from decimal to hex)
+        const colorHex = '#' + (layerSettings.color || 0xffffff).toString(16).padStart(6, '0');
+        const colorGroup = document.createElement('div');
+        colorGroup.className = 'ui-settings-group';
+        colorGroup.innerHTML = `
+            <label class="ui-settings-label">Color</label>
+            <input type="color" class="ui-settings-color-input" value="${colorHex}">
+        `;
+        colorGroup.querySelector('input').addEventListener('input', (e) => {
+            const decimal = parseInt(e.target.value.slice(1), 16);
+            this.updateAmbientParticleLayerSetting(layerKey, 'color', decimal);
+        });
+        content.appendChild(colorGroup);
+        
+        content.appendChild(colorGroup);
+        
+        // Shape
+        const shapeGroup = document.createElement('div');
+        shapeGroup.className = 'ui-settings-group';
+        const shape = layerSettings.shape || 'circle';
+        shapeGroup.innerHTML = `
+            <label class="ui-settings-label">Shape</label>
+            <select class="ui-settings-select">
+                <option value="circle" ${shape === 'circle' ? 'selected' : ''}>Circle (Harder)</option>
+                <option value="soft" ${shape === 'soft' ? 'selected' : ''}>Soft (Haze)</option>
+                <option value="star" ${shape === 'star' ? 'selected' : ''}>Star</option>
+                <option value="diamond" ${shape === 'diamond' ? 'selected' : ''}>Diamond</option>
+            </select>
+        `;
+        shapeGroup.querySelector('select').addEventListener('change', (e) => {
+            this.updateAmbientParticleLayerSetting(layerKey, 'shape', e.target.value);
+        });
+        content.appendChild(shapeGroup);
+        
+        // Count
+        const countGroup = document.createElement('div');
+        countGroup.className = 'ui-settings-group';
+        const count = layerSettings.count || 1000;
+        countGroup.innerHTML = `
+            <label class="ui-settings-label">Count: <span class="ui-settings-value">${count}</span></label>
+            <input type="range" class="ui-settings-slider" min="100" max="10000" step="100" value="${count}">
+        `;
+        countGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            e.target.previousElementSibling.querySelector('span').textContent = value;
+            this.updateAmbientParticleLayerSetting(layerKey, 'count', value);
+        });
+        content.appendChild(countGroup);
+        
+        // Size
+        const sizeGroup = document.createElement('div');
+        sizeGroup.className = 'ui-settings-group';
+        const size = layerSettings.size || 200;
+        sizeGroup.innerHTML = `
+            <label class="ui-settings-label">Size: <span class="ui-settings-value">${size}</span></label>
+            <input type="range" class="ui-settings-slider" min="50" max="2000" step="50" value="${size}">
+        `;
+        sizeGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            e.target.previousElementSibling.querySelector('span').textContent = value;
+            this.updateAmbientParticleLayerSetting(layerKey, 'size', value);
+        });
+        content.appendChild(sizeGroup);
+        
+        // Vertical Speed (Rise)
+        const accelGroup = document.createElement('div');
+        accelGroup.className = 'ui-settings-group';
+        const accel = layerSettings.acceleration || 20;
+        accelGroup.innerHTML = `
+            <label class="ui-settings-label">Vertical Speed: <span class="ui-settings-value">${accel}</span></label>
+            <input type="range" class="ui-settings-slider" min="0" max="500" step="5" value="${accel}">
+        `;
+        accelGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            e.target.previousElementSibling.querySelector('span').textContent = value;
+            this.updateAmbientParticleLayerSetting(layerKey, 'acceleration', value);
+        });
+        content.appendChild(accelGroup);
+        
+        // Speed (Random Velocity)
+        const speedGroup = document.createElement('div');
+        speedGroup.className = 'ui-settings-group';
+        const speed = layerSettings.speed || 100;
+        speedGroup.innerHTML = `
+            <label class="ui-settings-label">Max Random Vel: <span class="ui-settings-value">${speed}</span></label>
+            <input type="range" class="ui-settings-slider" min="0" max="50000" step="50" value="${speed}">
+        `;
+        speedGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            e.target.previousElementSibling.querySelector('span').textContent = value;
+            this.updateAmbientParticleLayerSetting(layerKey, 'speed', value);
+        });
+        content.appendChild(speedGroup);
+        
+        // Opacity
+        const opacityGroup = document.createElement('div');
+        opacityGroup.className = 'ui-settings-group';
+        const opacity = layerSettings.opacity || 0.5;
+        opacityGroup.innerHTML = `
+            <label class="ui-settings-label">Opacity: <span class="ui-settings-value">${Math.round(opacity*100)}%</span></label>
+            <input type="range" class="ui-settings-slider" min="0" max="100" step="5" value="${Math.round(opacity*100)}">
+        `;
+        opacityGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            e.target.previousElementSibling.querySelector('span').textContent = value + '%';
+            this.updateAmbientParticleLayerSetting(layerKey, 'opacity', value / 100);
+        });
+        content.appendChild(opacityGroup);
+        
+        // Glow Strength
+        const glowGroup = document.createElement('div');
+        glowGroup.className = 'ui-settings-group';
+        const glow = layerSettings.glowStrength !== undefined ? layerSettings.glowStrength : 0.5;
+        glowGroup.innerHTML = `
+            <label class="ui-settings-label">Glow Strength: <span class="ui-settings-value">${glow.toFixed(2)}</span></label>
+            <input type="range" class="ui-settings-slider" min="0" max="2" step="0.1" value="${glow}">
+        `;
+        glowGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            e.target.previousElementSibling.querySelector('span').textContent = value.toFixed(2);
+            this.updateAmbientParticleLayerSetting(layerKey, 'glowStrength', value);
+        });
+        content.appendChild(glowGroup);
+        
+        // Weave (Medium Only)
+        if (layerKey === 'medium') {
+            const weaveGroup = document.createElement('div');
+            weaveGroup.className = 'ui-settings-group';
+            const weaveAmp = layerSettings.weaveAmplitude || 300;
+             weaveGroup.innerHTML = `
+                <label class="ui-settings-label">Weave Amt: <span class="ui-settings-value">${weaveAmp}</span></label>
+                <input type="range" class="ui-settings-slider" min="0" max="2000" step="50" value="${weaveAmp}">
+            `;
+            weaveGroup.querySelector('input').addEventListener('input', (e) => {
+                this.updateAmbientParticleLayerSetting(layerKey, 'weaveAmplitude', parseFloat(e.target.value));
+                 e.target.previousElementSibling.querySelector('span').textContent = e.target.value;
+            });
+            content.appendChild(weaveGroup);
+        }
+        
+        // Twinkle (Light Only)
+        if (layerKey === 'light') {
+            const twinkleGroup = document.createElement('div');
+            twinkleGroup.className = 'ui-settings-group';
+            const twinkleInt = layerSettings.twinkleIntensity || 0.8;
+             twinkleGroup.innerHTML = `
+                <label class="ui-settings-label">Twinkle: <span class="ui-settings-value">${twinkleInt}</span></label>
+                <input type="range" class="ui-settings-slider" min="0" max="2" step="0.1" value="${twinkleInt}">
+            `;
+            twinkleGroup.querySelector('input').addEventListener('input', (e) => {
+                this.updateAmbientParticleLayerSetting(layerKey, 'twinkleIntensity', parseFloat(e.target.value));
+                e.target.previousElementSibling.querySelector('span').textContent = e.target.value;
+            });
+            content.appendChild(twinkleGroup);
+        }
+
+        parentSection.appendChild(header);
+        parentSection.appendChild(content);
+    }
+
+    updateAmbientParticleLayerSetting(layer, key, value) {
+        if (!window.uiSettings.settings.effects) window.uiSettings.settings.effects = {};
+        if (!window.uiSettings.settings.effects.ambientParticles) window.uiSettings.settings.effects.ambientParticles = {};
+        if (!window.uiSettings.settings.effects.ambientParticles[layer]) window.uiSettings.settings.effects.ambientParticles[layer] = {};
+        
+        window.uiSettings.settings.effects.ambientParticles[layer][key] = value;
+        
+        // Update CONFIG_3D if needed
+        if (typeof CONFIG_3D !== 'undefined') {
+            if (!CONFIG_3D.AMBIENT_PARTICLES) CONFIG_3D.AMBIENT_PARTICLES = {};
+            if (!CONFIG_3D.AMBIENT_PARTICLES[layer]) CONFIG_3D.AMBIENT_PARTICLES[layer] = {};
+            CONFIG_3D.AMBIENT_PARTICLES[layer][key] = value;
+        }
+        
+        // Update System
+        if (window.viewer3D && window.viewer3D.ambientParticles) {
+            const updateObj = {};
+            updateObj[layer] = {};
+            updateObj[layer][key] = value;
+            window.viewer3D.ambientParticles.updateSettings(updateObj);
+        }
+        
+        window.uiSettings.saveSettings();
+    }
+
+    updateAmbientParticleSetting(key, value) {
+        if (!window.uiSettings.settings.effects) {
+            window.uiSettings.settings.effects = {};
+        }
+        if (!window.uiSettings.settings.effects.ambientParticles) {
+            window.uiSettings.settings.effects.ambientParticles = {};
+        }
+        window.uiSettings.settings.effects.ambientParticles[key] = value;
+        
+        // Update CONFIG_3D
+        if (typeof CONFIG_3D !== 'undefined') {
+            if (!CONFIG_3D.AMBIENT_PARTICLES) {
+                CONFIG_3D.AMBIENT_PARTICLES = {};
+            }
+            CONFIG_3D.AMBIENT_PARTICLES[key] = value;
+        }
+        
+        // Update particle system
+        if (window.viewer3D && window.viewer3D.ambientParticles) {
+            const newSettings = {};
+            newSettings[key] = value;
+            window.viewer3D.ambientParticles.updateSettings(newSettings);
         }
         
         window.uiSettings.saveSettings();

@@ -135,25 +135,30 @@ class UISettingsManager {
 
     // Load settings from localStorage (fallback to JSON file)
     async loadSettings() {
-        try {
-            // Try localStorage first (faster, no file I/O)
-            const stored = localStorage.getItem('viewerSettings');
-            if (stored) {
-                this.settings = JSON.parse(stored);
-                this.applySettings();
-                console.log('Settings loaded from localStorage');
-                return;
-            }
-        } catch (error) {
-            console.warn('Error loading from localStorage:', error);
-        }
-
-        // Fallback: Try to load from JSON file
+        // 1. Always try to load from server/file first (Source of Truth)
         await this.loadFromFile();
         
-        // After loading from file, save to localStorage for future use
-        this.saveToLocalStorage();
-        console.log('Settings loaded from file and saved to localStorage');
+        // 2. Optionally check localStorage for any non-persisted local overrides, 
+        // OR just rely on file if we want strict server persistence.
+        // Given the user's issue, prioritizing the file is safer.
+        try {
+            const stored = localStorage.getItem('viewerSettings');
+            if (stored) {
+                const localSettings = JSON.parse(stored);
+                // Optional: Deep merge localSettings ON TOP of file settings? 
+                // Or just use file settings if they exist?
+                // For now, let's treat the file as the primary Authority if it loaded successfully.
+                // If file load completely failed (offline), we might rely on localStorage.
+                
+                // If we simply want to ensure file settings are used:
+                console.log('Settings loaded from file (Server-side persistence)');
+            }
+        } catch (error) {
+            console.warn('Error checking localStorage:', error);
+        }
+
+        this.applySettings();
+        window.dispatchEvent(new CustomEvent('viewerSettingsLoaded'));
     }
 
     // Load settings from JSON file
@@ -198,6 +203,7 @@ class UISettingsManager {
             this.settings = { ...this.settings, ...fileSettings };
             
             this.applySettings();
+            window.dispatchEvent(new CustomEvent('viewerSettingsLoaded'));
             
             // Optional: Update localStorage to reflect the current loaded state?
             // this.saveToLocalStorage(); 
@@ -301,6 +307,19 @@ class UISettingsManager {
             if (effectSettings.particleSpeed !== undefined) CONFIG_3D.PARTICLE_SPEED = effectSettings.particleSpeed;
             if (effectSettings.particleColor !== undefined) CONFIG_3D.PARTICLE_COLOR = effectSettings.particleColor;
             if (effectSettings.particleOpacity !== undefined) CONFIG_3D.PARTICLE_OPACITY = effectSettings.particleOpacity;
+
+            // Apply Advanced Particle Systems
+            if (effectSettings.ambientParticles) {
+                if (!CONFIG_3D.AMBIENT_PARTICLES) CONFIG_3D.AMBIENT_PARTICLES = {};
+                // Deep merge/copy to ensure CONFIG_3D reflects saved state
+                CONFIG_3D.AMBIENT_PARTICLES = JSON.parse(JSON.stringify(effectSettings.ambientParticles));
+            }
+            
+            if (effectSettings.boxParticles) {
+                if (!CONFIG_3D.BOX_PARTICLES) CONFIG_3D.BOX_PARTICLES = {};
+                // Deep merge/copy to ensure CONFIG_3D reflects saved state
+                CONFIG_3D.BOX_PARTICLES = JSON.parse(JSON.stringify(effectSettings.boxParticles));
+            }
         }
     }
     
@@ -329,9 +348,25 @@ class UISettingsManager {
             this.settings.effects.particleColor = CONFIG_3D.PARTICLE_COLOR;
             this.settings.effects.particleOpacity = CONFIG_3D.PARTICLE_OPACITY;
             
+            // Sync Advanced Particle Systems
+            if (CONFIG_3D.AMBIENT_PARTICLES) {
+                this.settings.effects.ambientParticles = JSON.parse(JSON.stringify(CONFIG_3D.AMBIENT_PARTICLES));
+            }
+            if (CONFIG_3D.BOX_PARTICLES) {
+                this.settings.effects.boxParticles = JSON.parse(JSON.stringify(CONFIG_3D.BOX_PARTICLES));
+            }
+            
             // Save to localStorage and file
             this.saveSettings();
         }
+    }
+
+    // Get a setting value
+    getSetting(category, key) {
+        if (this.settings[category] && this.settings[category][key] !== undefined) {
+            return this.settings[category][key];
+        }
+        return null;
     }
 
     // Update a setting
@@ -342,76 +377,47 @@ class UISettingsManager {
             this.saveSettings();
         }
     }
-
-    // Apply theme to CSS variables
+    
+    // Apply theme settings to CSS variables
     applyTheme(theme) {
+        if (!theme) return;
+
         const root = document.documentElement;
         
-        // Apply primary colors
+        // Colors
         if (theme.primary) {
-            Object.keys(theme.primary).forEach(key => {
-                const value = theme.primary[key];
-                root.style.setProperty(`--ui-primary-${key}`, value);
+            Object.keys(theme.primary).forEach(k => {
+                root.style.setProperty(`--ui-primary-${k}`, theme.primary[k]);
             });
         }
-        
-        // Apply secondary colors
         if (theme.secondary) {
-            Object.keys(theme.secondary).forEach(key => {
-                root.style.setProperty(`--ui-secondary-${key}`, theme.secondary[key]);
+            Object.keys(theme.secondary).forEach(k => {
+                root.style.setProperty(`--ui-secondary-${k}`, theme.secondary[k]);
             });
         }
-        
-        // Apply semantic colors
         if (theme.success) root.style.setProperty('--ui-success', theme.success);
         if (theme.warning) root.style.setProperty('--ui-warning', theme.warning);
         if (theme.danger) root.style.setProperty('--ui-danger', theme.danger);
         
-        // Apply background colors
+        // Backgrounds
         if (theme.background) {
-            if (theme.background.default) {
-                root.style.setProperty('--ui-bg-default', theme.background.default);
-            }
-            if (theme.background.panel) {
-                root.style.setProperty('--ui-bg-panel', theme.background.panel);
-            }
-            if (theme.background.card) {
-                root.style.setProperty('--ui-bg-card', theme.background.card);
-            }
-            if (theme.background.hover) {
-                root.style.setProperty('--ui-bg-hover', theme.background.hover);
-            }
-            // Toolbar background can use card or a custom value
-            if (theme.background.toolbar) {
-                root.style.setProperty('--ui-toolbar-bg', theme.background.toolbar);
-            } else if (theme.background.card) {
-                // Use card background for toolbar if no specific toolbar color
-                root.style.setProperty('--ui-toolbar-bg', theme.background.card);
-            }
+            if (theme.background.default) root.style.setProperty('--ui-bg-default', theme.background.default);
+            if (theme.background.panel) root.style.setProperty('--ui-bg-panel', theme.background.panel);
+            if (theme.background.card) root.style.setProperty('--ui-bg-card', theme.background.card);
+            if (theme.background.hover) root.style.setProperty('--ui-bg-hover', theme.background.hover);
         }
         
-        // Apply text colors
+        // Text
         if (theme.text) {
             if (theme.text.primary) root.style.setProperty('--ui-text-primary', theme.text.primary);
             if (theme.text.secondary) root.style.setProperty('--ui-text-secondary', theme.text.secondary);
             if (theme.text.disabled) root.style.setProperty('--ui-text-disabled', theme.text.disabled);
         }
         
-        // Apply border settings
+        // Border
         if (theme.border) {
-            if (theme.border.color) {
-                root.style.setProperty('--ui-border-color', theme.border.color);
-                // Also update toolbar border if no specific value
-                if (!theme.border.toolbar) {
-                    root.style.setProperty('--ui-toolbar-border', theme.border.color);
-                }
-            }
-            if (theme.border.toolbar) {
-                root.style.setProperty('--ui-toolbar-border', theme.border.toolbar);
-            }
-            if (theme.border.width) {
-                root.style.setProperty('--ui-border-width', theme.border.width);
-            }
+            if (theme.border.color) root.style.setProperty('--ui-border-color', theme.border.color);
+            if (theme.border.width) root.style.setProperty('--ui-border-width', theme.border.width);
             if (theme.border.radius) {
                 if (theme.border.radius.small) root.style.setProperty('--ui-border-radius-sm', theme.border.radius.small);
                 if (theme.border.radius.medium) root.style.setProperty('--ui-border-radius-md', theme.border.radius.medium);
@@ -419,90 +425,74 @@ class UISettingsManager {
             }
         }
         
-        // Apply spacing
+        // Spacing
         if (theme.spacing) {
-            Object.keys(theme.spacing).forEach(key => {
-                root.style.setProperty(`--ui-spacing-${key}`, theme.spacing[key]);
+            Object.keys(theme.spacing).forEach(k => {
+                root.style.setProperty(`--ui-spacing-${k}`, theme.spacing[k]);
             });
         }
         
-        // Apply shadows
+        // Shadow
         if (theme.shadow) {
-            Object.keys(theme.shadow).forEach(key => {
-                root.style.setProperty(`--ui-shadow-${key}`, theme.shadow[key]);
+            Object.keys(theme.shadow).forEach(k => {
+                root.style.setProperty(`--ui-shadow-${k}`, theme.shadow[k]);
             });
         }
         
-        // Apply font settings
+        // Font
         if (theme.font) {
             if (theme.font.family) root.style.setProperty('--ui-font-family', theme.font.family);
             if (theme.font.size) {
-                Object.keys(theme.font.size).forEach(key => {
-                    root.style.setProperty(`--ui-font-size-${key}`, theme.font.size[key]);
+                Object.keys(theme.font.size).forEach(k => {
+                    root.style.setProperty(`--ui-font-size-${k}`, theme.font.size[k]);
                 });
             }
             if (theme.font.weight) {
-                Object.keys(theme.font.weight).forEach(key => {
-                    root.style.setProperty(`--ui-font-weight-${key}`, theme.font.weight[key]);
+                Object.keys(theme.font.weight).forEach(k => {
+                    root.style.setProperty(`--ui-font-weight-${k}`, theme.font.weight[k]);
                 });
             }
         }
     }
-    
-    // Get a setting
-    getSetting(category, key) {
-        return this.settings[category]?.[key];
-    }
 
-    // Export settings as JSON (for download)
-    exportSettings() {
-        const dataStr = JSON.stringify(this.settings, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = this.settingsFile;
-        link.click();
-        URL.revokeObjectURL(url);
-    }
-
-    // Import settings from JSON file
-    async importSettings(file) {
+    // Save to JSON file
+    async saveToFile() {
         try {
-            const text = await file.text();
-            const imported = JSON.parse(text);
-            this.settings = { ...this.settings, ...imported };
-            this.applySettings();
-            this.saveSettings();
-        } catch (error) {
-            console.error('Error importing settings:', error);
-            throw error;
-        }
-    }
+            const urlParams = new URLSearchParams(window.location.search);
+            const clientID = urlParams.get('clientID');
+            
+            if (!clientID) {
+                console.warn('Cannot save settings: No clientID found');
+                return;
+            }
 
-    // Reset settings to file defaults (clears localStorage)
-    async resetSettings() {
-        try {
-            localStorage.removeItem('viewerSettings');
-            console.log('localStorage cleared, reloading from file...');
-            await this.loadSettings();
+            const filename = `${clientID}/${this.settingsFile}`;
+            const content = JSON.stringify(this.settings, null, 2);
+
+            // Use the server API to save the file
+            const response = await fetch('/api/save-file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    filename: filename,
+                    content: content
+                })
+            });
+
+            if (response.ok) {
+                console.log(`Settings saved to ${filename} successfully`);
+            } else {
+                console.error(`Failed to save settings to ${filename}`);
+            }
+            
         } catch (error) {
-            console.error('Error resetting settings:', error);
-            throw error;
+            console.warn('Error saving to file:', error);
         }
     }
 }
 
-// Initialize settings manager
+// Instantiate the settings manager globally
 window.uiSettings = new UISettingsManager();
-
-// Wait for viewer3d to be loaded, then apply effect settings
-window.addEventListener('DOMContentLoaded', () => {
-    // Apply settings after a short delay to ensure CONFIG_3D is loaded
-    setTimeout(() => {
-        if (window.uiSettings && typeof CONFIG_3D !== 'undefined') {
-            window.uiSettings.applySettings();
-        }
-    }, 100);
-});
 

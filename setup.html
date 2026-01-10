@@ -344,6 +344,55 @@
             }
         }
     </style>
+    <script src="supabase-client.js"></script>
+    <style>
+        /* ... existing styles ... */
+
+        .db-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 99px;
+            font-size: 13px;
+            font-weight: 500;
+            background: var(--ui-bg-card);
+            border: 1px solid var(--ui-border-color);
+            transition: all 0.3s ease;
+        }
+
+        .db-status.online {
+            background: rgba(0, 200, 81, 0.1);
+            border-color: rgba(0, 200, 81, 0.3);
+            color: #00C851;
+        }
+
+        .db-status.offline {
+            background: rgba(255, 68, 68, 0.1);
+            border-color: rgba(255, 68, 68, 0.3);
+            color: #FF4444;
+        }
+
+        .db-status.loading {
+            background: rgba(255, 187, 51, 0.1);
+            border-color: rgba(255, 187, 51, 0.3);
+            color: #FFBB33;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+    </style>
 </head>
 
 <body>
@@ -354,7 +403,11 @@
                 <h1>Backend Setup & Client Manager</h1>
                 <p>Overview of all client folders, assets, and configurations.</p>
             </div>
-            <div>
+            <div class="header-controls">
+                <div id="db-status" class="db-status loading" title="Checking database connection...">
+                    <div class="status-dot"></div>
+                    <span id="db-status-text">Checking DB...</span>
+                </div>
                 <button class="control-btn" onclick="fetchClients()">🔄 Refresh Data</button>
             </div>
         </div>
@@ -520,7 +573,41 @@
             return `<span class="extra-chip ${isActive ? 'active' : ''}">${label}</span>`;
         }
 
-        document.addEventListener('DOMContentLoaded', fetchClients);
+        async function checkDatabaseConnection() {
+            const statusEl = document.getElementById('db-status');
+            const statusText = document.getElementById('db-status-text');
+
+            try {
+                // Ensure window.db is available (loaded from supabase-client.js)
+                if (!window.db || !window.db.client) {
+                    throw new Error('Supabase client not initialized');
+                }
+
+                const start = performance.now();
+                const { count, error } = await window.db.client
+                    .from('units')
+                    .select('*', { count: 'exact', head: true });
+
+                const latency = Math.round(performance.now() - start);
+
+                if (error) throw error;
+
+                statusEl.className = 'db-status online';
+                statusText.textContent = `Database Connected (${latency}ms)`;
+                statusEl.title = `Units count: ${count}`;
+
+            } catch (error) {
+                console.error('DB Check Error:', error);
+                statusEl.className = 'db-status offline';
+                statusText.textContent = 'Database Connection Failed';
+                statusEl.title = error.message;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchClients();
+            checkDatabaseConnection();
+        });
     </script>
 
 </body>
