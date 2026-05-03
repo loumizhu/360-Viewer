@@ -789,9 +789,21 @@ class AmbientParticleSystem {
     
     setEnabled(enabled) {
         this.enabled = enabled;
-        if (this.heavyParticles) this.heavyParticles.visible = enabled && this.settings.heavy.enabled;
-        if (this.mediumParticles) this.mediumParticles.visible = enabled && this.settings.medium.enabled;
-        if (this.lightParticles) this.lightParticles.visible = enabled && this.settings.light.enabled;
+        
+        if (enabled) {
+            // Re-initialize if particles were disposed
+            if (!this.heavyParticles && !this.mediumParticles && !this.lightParticles) {
+                this.init();
+            }
+            
+            // Set visibility based on layer settings
+            if (this.heavyParticles) this.heavyParticles.visible = this.settings.heavy.enabled;
+            if (this.mediumParticles) this.mediumParticles.visible = this.settings.medium.enabled;
+            if (this.lightParticles) this.lightParticles.visible = this.settings.light.enabled;
+        } else {
+            // Unload from memory immediately
+            this.dispose();
+        }
     }
     
     updateSettings(newSettings) {

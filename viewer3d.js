@@ -118,9 +118,11 @@ const CONFIG_3D = {
     DROP_DELAY: 500,
     DROP_STAGGER: 50,
     
+
     // Particle Systems
     BOX_PARTICLES: null, // Inside building area (formerly OSCILLATING_PARTICLES)
-    AMBIENT_PARTICLES: null // Outside building area (mouse-interactive)
+    AMBIENT_PARTICLES: null, // Outside building area (mouse-interactive)
+    CURSOR_PARTICLES: null // Following the cursor
 };
 
 // Function to load settings from settings.json and image-manifest.json
@@ -144,7 +146,7 @@ async function loadViewerSettings() {
         let supabaseSettingsPromise = Promise.resolve(null);
         if (CLIENT_ID && window.db && window.db.client) {
             supabaseSettingsPromise = window.db.client
-                .from('units')
+                .from('Units')
                 .select('*')
                 .or(`client_id.eq.${CLIENT_ID},id.eq.${CLIENT_ID}`)
                 .single()
@@ -232,7 +234,8 @@ async function loadViewerSettings() {
                 DROP_DELAY: fx.dropDelay ?? CONFIG_3D.DROP_DELAY,
                 DROP_STAGGER: fx.dropStagger ?? CONFIG_3D.DROP_STAGGER,
                 BOX_PARTICLES: fx.boxParticles ?? fx.oscillatingParticles ?? CONFIG_3D.BOX_PARTICLES,
-                AMBIENT_PARTICLES: fx.ambientParticles ?? CONFIG_3D.AMBIENT_PARTICLES
+                AMBIENT_PARTICLES: fx.ambientParticles ?? CONFIG_3D.AMBIENT_PARTICLES,
+                CURSOR_PARTICLES: fx.cursorParticles ?? CONFIG_3D.CURSOR_PARTICLES
             });
         }
         
@@ -281,6 +284,7 @@ class Viewer3D {
         // Particle systems
         this.boxParticles = null; // Inside building area (formerly oscillatingParticles)
         this.ambientParticles = null; // Outside building area (mouse-interactive)
+        this.cursorParticles = null; // Following the cursor
         
         // Scene debug helpers
         this.sceneHelpers = {
@@ -359,29 +363,154 @@ class Viewer3D {
         this.tooltip.style.fontSize = CONFIG_3D.TOOLTIP_FONT_SIZE;
         this.tooltip.style.padding = CONFIG_3D.TOOLTIP_PADDING;
         this.tooltip.style.borderRadius = CONFIG_3D.TOOLTIP_BORDER_RADIUS;
-        this.tooltip.style.maxWidth = CONFIG_3D.TOOLTIP_MAX_WIDTH;
+        this.tooltip.style.maxWidth = '300px';
         this.tooltip.style.pointerEvents = 'none';
         this.tooltip.style.zIndex = '10000';
         this.tooltip.style.display = 'none';
         this.tooltip.style.whiteSpace = 'nowrap';
-        this.tooltip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+        this.tooltip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
         this.tooltip.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+        this.tooltip.style.transformOrigin = 'top left';
+        this.tooltip.style.transition = 'transform 500ms cubic-bezier(0.68, -0.55, 0.265, 1.55), opacity 500ms ease';
         
         document.body.appendChild(this.tooltip);
     }
     
-    showTooltip(text, x, y) {
+    async showTooltip(text, x, y) {
         if (!CONFIG_3D.SHOW_TOOLTIP || !this.tooltip) return;
         
-        this.tooltip.textContent = text;
+        if (this.hideTooltipTimeout) {
+            clearTimeout(this.hideTooltipTimeout);
+            this.hideTooltipTimeout = null;
+        }
+
+        // If hovering same object and already visible, just update position
+        if (this.tooltip.dataset.unit === text && this.tooltip.style.display === 'block') {
+            this.tooltip.style.left = (x + CONFIG_3D.TOOLTIP_OFFSET_X) + 'px';
+            this.tooltip.style.top = (y + CONFIG_3D.TOOLTIP_OFFSET_Y) + 'px';
+            return;
+        }
+
+        this.tooltip.dataset.unit = text;
         this.tooltip.style.left = (x + CONFIG_3D.TOOLTIP_OFFSET_X) + 'px';
         this.tooltip.style.top = (y + CONFIG_3D.TOOLTIP_OFFSET_Y) + 'px';
+        
         this.tooltip.style.display = 'block';
+        this.tooltip.innerHTML = `<div style="font-weight:bold;margin-bottom:4px;">${text}</div><div style="font-size:12px;opacity:0.7;">Loading...</div>`;
+        
+        // Reset animation state
+        this.tooltip.style.transform = 'scale(0.5)';
+        this.tooltip.style.opacity = '0';
+        
+        // Force reflow
+        void this.tooltip.offsetWidth;
+        
+        // Start animation
+        const targetScale = window.uiSettings?.getSetting('ui', 'tooltipScale') || 1.0;
+        this.tooltip.style.transform = `scale(${targetScale})`;
+        this.tooltip.style.opacity = '1';
+        // Fetch DB info
+        let data = window.currentUnitDataCache && window.currentUnitDataCache[text];
+        if (!data && window.db && window.db.getUnitDetails) {
+            try {
+                data = await window.db.getUnitDetails(text);
+                if (!window.currentUnitDataCache) window.currentUnitDataCache = {};
+                if (data) window.currentUnitDataCache[text] = data;
+            } catch (err) {}
+        }
+
+        // Essential fast-fail check: Abort if user already moved the mouse to a different box or off completely
+        if (this.tooltip.dataset.unit !== text || this.tooltip.style.display === 'none') {
+            return;
+        }
+
+        if (data) {
+            const plan2DKeys = ['2D Plan Link', '2d_plan_link', 'plan_link', 'Plan Image', '2D Plan'];
+            let link2D = null;
+            for (const k of plan2DKeys) { if (data[k]) { link2D = data[k]; break; } }
+            
+            if (!link2D) {
+                const clientFolder = CLIENT_BASE_PATH || (data['ClientID'] || data['client_id'] || 'CLT695425') + '/';
+                link2D = `${REPO_BASE_PATH}${clientFolder}Plan 2D/${text}.jpg`.replace(/\/+/g, '/');
+            } else if (!link2D.startsWith('http') && !link2D.startsWith(REPO_BASE_PATH)) {
+                link2D = (REPO_BASE_PATH + link2D).replace(/\/+/g, '/');
+            }
+
+            // Resolve robust image path
+            link2D = await resolveWorkingImagePath(link2D);
+
+            // Check again in case the user moved the mouse during the second await
+            if (this.tooltip.dataset.unit !== text || this.tooltip.style.display === 'none') {
+                return;
+            }
+
+            let html = `
+                <div style="display:flex; flex-direction:column; gap:12px; padding:4px; min-width:220px;">
+                    <div style="font-weight:700; font-size:18px; color:#fff; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">${text}</div>
+                    
+                    <div style="width:100%; height:130px; background:rgba(255,255,255,0.05); border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); box-shadow:inset 0 0 20px rgba(0,0,0,0.4);">
+                        <img src="${link2D}" style="width:100%; height:100%; object-fit:contain; transition:transform 0.3s ease;" 
+                             onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"/>
+                    </div>
+                    
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:12px;">
+            `;
+            
+            const getVal = (keys) => {
+                for(let k of keys) { if(data[k]) return data[k]; }
+                return '-';
+            };
+            
+            const type = getVal(['Sub-type', 'Property Type', 'Type', 'Asset Class']);
+            const rooms = getVal(['Bedrooms', 'Rooms', 'Number of Rooms']);
+            const area = getVal(['Interior Area', 'surface-interior', 'Surface Area']);
+            const orientation = getVal(['Orientation', 'Facing']);
+
+            html += `
+                        <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px;">Type</div>
+                            <div style="font-weight:600; color:var(--ui-primary-300);">${type}</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px;">Rooms</div>
+                            <div style="font-weight:600; color:var(--ui-primary-400);">${rooms}</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px;">Area</div>
+                            <div style="font-weight:600;">${area} m²</div>
+                        </div>
+                        <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
+                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px;">Facing</div>
+                            <div style="font-weight:600;">${orientation}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            this.tooltip.innerHTML = html;
+        } else {
+            this.tooltip.innerHTML = `
+                <div style="padding:8px;">
+                    <div style="font-weight:700; font-size:16px; margin-bottom:4px;">${text}</div>
+                    <div style="font-size:12px; opacity:0.6; font-style:italic;">Loading unit details...</div>
+                </div>
+            `;
+        }
     }
     
     hideTooltip() {
-        if (!this.tooltip) return;
-        this.tooltip.style.display = 'none';
+        if (!this.tooltip || this.tooltip.style.display === 'none') return;
+        
+        this.tooltip.style.transform = 'scale(0.5)';
+        this.tooltip.style.opacity = '0';
+        this.tooltip.dataset.unit = '';
+        
+        if (this.hideTooltipTimeout) clearTimeout(this.hideTooltipTimeout);
+        this.hideTooltipTimeout = setTimeout(() => {
+            if (this.tooltip.style.opacity === '0') {
+               this.tooltip.style.display = 'none';
+            }
+        }, 500);
     }
     
     setupEffectSelector() {
@@ -1175,11 +1304,30 @@ class Viewer3D {
                     
                     // Extract cameras from the GLB file
                     this.cameras = [];
-                    gltf.cameras.forEach((camera, index) => {
-                        if (camera.isCamera) {
-                            this.cameras.push(camera);
-                        }
-                    });
+                    
+                    // First check the GLTF cameras array (standard)
+                    if (gltf.cameras && gltf.cameras.length > 0) {
+                        gltf.cameras.forEach((camera) => {
+                            if (camera.isCamera) this.cameras.push(camera);
+                        });
+                    }
+                    
+                    // Fallback/Reinforcement: Search the entire scene graph for camera nodes
+                    // Some exporters might not put all cameras in the top-level array
+                    if (this.cameras.length === 0 || true) { // Always double check to be safe
+                        const seen = new Set(this.cameras);
+                        this.scene.traverse((node) => {
+                            if (node.isCamera && !seen.has(node)) {
+                                this.cameras.push(node);
+                                seen.add(node);
+                            }
+                        });
+                    }
+                    
+                    // Final sort by name to ensure consistent mapping with images
+                    this.cameras.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+                    
+                    console.log(`[Viewer3D] Discovered ${this.cameras.length} cameras total`);
                     
                     
                     // If no cameras in GLB, create a default one
@@ -1355,6 +1503,24 @@ class Viewer3D {
                         this.ambientParticles.setEnabled(ambientEnabled);
                         
                         console.log('Ambient particle system initialized (outside building, mouse-interactive)');
+                    }
+
+                    // Initialize Cursor Particles
+                    if (typeof CursorParticleSystem !== 'undefined') {
+                        this.cursorParticles = new CursorParticleSystem(
+                            this.scene,
+                            this.currentCamera,
+                            this.canvas
+                        );
+                        
+                        if (CONFIG_3D.CURSOR_PARTICLES) {
+                            this.cursorParticles.setSettings(CONFIG_3D.CURSOR_PARTICLES);
+                        }
+                        
+                        const cursorEnabled = CONFIG_3D.CURSOR_PARTICLES?.enabled || false;
+                        this.cursorParticles.setEnabled(cursorEnabled);
+                        
+                        console.log('Cursor particle system initialized');
                     }
                     
                     resolve();
@@ -1541,31 +1707,68 @@ class Viewer3D {
         
         // Click handler for 3D objects - show plan image and fetch DB info
         this.canvas.addEventListener('click', async (e) => {
-            if (this.hoveredObject) {
-                const objectName = this.hoveredObject.name;
-                if (objectName) {
-                    // 1. Show 2D Plan
-                    this.showPlanImage(objectName);
+            // Suppress click if the user was actively dragging/scrubbing
+            const viewer2D = window.productViewer || window.viewer;
+            if (viewer2D && Math.abs(viewer2D.dragDistance) > 10) {
+                console.log('[Viewer3D] Click ignored due to active drag.');
+                return;
+            }
 
-                    // 2. Fetch Unit Info from Database
-                    if (window.db && window.db.getUnitDetails) {
-                        try {
-                            console.log(`[Viewer3D] Fetching details for unit: ${objectName}`);
-                            const unitData = await window.db.getUnitDetails(objectName);
-                            
-                            if (unitData) {
-                                console.log('[Viewer3D] Unit details loaded:', unitData);
-                                // Update global state
-                                window.currentUnitData = unitData;
-                                // Notify UI components (unit-database-sync.js)
-                                window.dispatchEvent(new CustomEvent('unitDataLoaded', { detail: unitData }));
-                            } else {
-                                console.warn(`[Viewer3D] No data found in DB for unit: ${objectName}`);
+            // Perform an immediate raycast to ensure we know exactly what was clicked,
+            // regardless of whether the hover state was cleared during the mouse interaction.
+            const rect = this.canvas.getBoundingClientRect();
+            const clickMouse = new THREE.Vector2();
+            clickMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            clickMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            this.raycaster.setFromCamera(clickMouse, this.currentCamera);
+            const intersects = this.raycaster.intersectObjects(this.meshes, false);
+            
+            const clickedObject = intersects.length > 0 ? intersects[0].object : null;
+
+            console.log('[Viewer3D] Click event on canvas. Clicked object:', clickedObject ? clickedObject.name : 'none');
+            
+            if (clickedObject) {
+                const objectName = clickedObject.name;
+                const targetObj = clickedObject;
+                
+                if (objectName) {
+                    this.lastClickedObjName = objectName;
+
+                    // Define the action to take after animation/immediately
+                    const loadUnitData = async () => {
+                        // 1. Show 2D Plan
+                        this.showPlanImage(objectName);
+
+                        // 2. Fetch Unit Info from Database
+                        if (window.db && window.db.getUnitDetails) {
+                            try {
+                                console.log(`[Viewer3D] Fetching details for unit: ${objectName}`);
+                                const unitData = await window.db.getUnitDetails(objectName);
+                                
+                                // Prevent race condition if user clicked another box while loading
+                                if (this.lastClickedObjName !== objectName) {
+                                    console.log(`[Viewer3D] Discarding stale data for: ${objectName}`);
+                                    return;
+                                }
+                                
+                                if (unitData) {
+                                    console.log('[Viewer3D] Unit details loaded:', unitData);
+                                    // Update global state
+                                    window.currentUnitData = unitData;
+                                    // Notify UI components (unit-database-sync.js)
+                                    window.dispatchEvent(new CustomEvent('unitDataLoaded', { detail: unitData }));
+                                } else {
+                                    console.warn(`[Viewer3D] No data found in DB for unit: ${objectName}`);
+                                }
+                            } catch (err) {
+                                console.error('[Viewer3D] Error fetching unit details:', err);
                             }
-                        } catch (err) {
-                            console.error('[Viewer3D] Error fetching unit details:', err);
                         }
-                    }
+                    };
+
+                    // Load unit data immediately
+                    loadUnitData();
                 }
             }
         });
@@ -1587,7 +1790,9 @@ class Viewer3D {
             viewer2DCanvas.dispatchEvent(wheelEvent);
         }, { passive: false });
     }
-    
+
+
+
     switchCamera(index) {
         if (index < 0 || index >= this.cameras.length) return;
         
@@ -1619,6 +1824,9 @@ class Viewer3D {
             // Update particle system camera
             if (this.ambientParticles) {
                 this.ambientParticles.setCamera(this.currentCamera);
+            }
+            if (this.cursorParticles) {
+                this.cursorParticles.setCamera(this.currentCamera);
             }
         }
         
@@ -1664,9 +1872,10 @@ class Viewer3D {
         const cameraCount = this.cameras.length;
         const imageCount = this.viewer2D.totalImages;
         
-        // Allow a small discrepancy? No, they should match exactly for this viewer.
+        console.log(`[Sync Check] Comparing ${cameraCount} cameras with ${imageCount} images.`);
         if (cameraCount !== imageCount) {
             console.warn(`[Sync Check] Mismatch detected: ${cameraCount} cameras vs ${imageCount} images`);
+            console.log(`[Sync Check] Detected camera names:`, this.cameras.map((c, i) => `[${i}] ${c.name}`).join(', '));
             
             const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
             
@@ -2627,54 +2836,23 @@ class Viewer3D {
         }
     }
     
-    showPlanImage(objectName) {
-        const planImagePath = `${REPO_BASE_PATH}${CLIENT_BASE_PATH}Plan 2D/${objectName}.png`.replace(/\/+/g, '/');
+    async showPlanImage(objectName) {
+        let planImagePath = `${REPO_BASE_PATH}${CLIENT_BASE_PATH}Plan 2D/${objectName}.jpg`.replace(/\/+/g, '/');
+        
+        // Resolve working image path (try alternatives like .jpg, .webp)
+        planImagePath = await resolveWorkingImagePath(planImagePath);
         
         const panel = document.getElementById('plan-image-panel');
         const planImage = document.getElementById('plan-image');
         const closeBtn = document.getElementById('planCloseBtn');
-        const contentDiv = planImage ? planImage.parentElement : null;
+        // Viewer3D.js - Plan Image Loading
+        // Image handling is now fully managed by `unit-database-sync.js`
+        // which fetches the correct URL from the Supabase database.
+        // We only handle OPENING the panel here.
         
-        if (!panel || !planImage || !contentDiv) {
-            console.warn('Plan image panel elements not found');
-            return;
-        }
-        
-        // Clear any previous error messages
-        const existingErrors = contentDiv.querySelectorAll('.plan-error-message');
-        existingErrors.forEach(el => el.remove());
-        
-        // Reset image
-        planImage.style.display = 'none';
-        planImage.onload = null;
-        planImage.onerror = null;
-        
-        // Create a promise to wait for image load
-        const imageLoadPromise = new Promise((resolve, reject) => {
-            planImage.onload = () => {
-                planImage.style.display = 'block';
-                resolve();
-            };
-            
-            planImage.onerror = () => {
-                console.warn(`Plan image not found: ${planImagePath}`);
-                planImage.style.display = 'none';
-                
-                // Show error message
-                const errorMsg = document.createElement('div');
-                errorMsg.className = 'plan-error-message';
-                errorMsg.style.cssText = 'color: var(--ui-text-primary); text-align: center; padding: 20px; font-size: 18px; margin: auto;';
-                errorMsg.textContent = `Plan image not found: ${objectName}.png`;
-                contentDiv.appendChild(errorMsg);
-                
-                reject(new Error(`Plan image not found: ${planImagePath}`));
-            };
-            
-            // Set image source (this triggers load or error)
-            planImage.src = planImagePath;
-        });
-        
-        // Show panel immediately, image will appear when loaded
+        if (!panel) return;
+
+        // Show panel immediately
         panel.classList.remove('hidden');
         panel.classList.add('visible');
         
@@ -2693,6 +2871,8 @@ class Viewer3D {
             }
         };
         document.addEventListener('keydown', escapeHandler);
+        
+        return Promise.resolve();
     }
     
     hidePlanImage() {
@@ -3143,6 +3323,11 @@ class Viewer3D {
             if (this.ambientParticles) {
                 this.ambientParticles.update(deltaTime);
             }
+            
+            // Update cursor particles
+            if (this.cursorParticles) {
+                this.cursorParticles.update(deltaTime);
+            }
         }
         
         // Update debug info
@@ -3402,10 +3587,11 @@ window.addEventListener('DOMContentLoaded', () => {
             // Hook into the 2D viewer's image switching
             const originalShowImage = window.productViewer.showImage.bind(window.productViewer);
             window.productViewer.showImage = function(index, forceTier) {
-                originalShowImage(index, forceTier);
+                const result = originalShowImage(index, forceTier);
                 if (window.viewer3D) {
                     window.viewer3D.syncWithImageIndex(this.currentImageIndex);
                 }
+                return result;
             };
             
             // Hook into the 2D viewer's redraw to sync zoom and pan

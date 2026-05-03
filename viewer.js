@@ -23,8 +23,103 @@ function getRepoBasePath() {
         }
     }
     
-    // Default to root for local development
+// Default to root for local development
     return '/';
+}
+
+/**
+ * Checks if an image exists at the given path.
+ * @param {string} path Path to the image
+ * @param {number} timeout Timeout in milliseconds
+ * @returns {Promise<boolean>}
+ */
+async function testImageExists(path, timeout = 2000) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        let resolved = false;
+        
+        img.onload = () => {
+            if (!resolved) {
+                resolved = true;
+                resolve(true);
+            }
+        };
+        
+        img.onerror = () => {
+            if (!resolved) {
+                resolved = true;
+                resolve(false);
+            }
+        };
+        
+        img.src = path;
+        
+        // Timeout
+        setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                resolve(false);
+            }
+        }, timeout);
+    });
+}
+
+// Global cache for resolved image paths to prevent redundant network requests
+const imagePathCache = new Map();
+// Heuristic: Keep track of the most recently successful extension to try it first
+let lastSuccessfulExtension = null;
+
+async function resolveWorkingImagePath(originalPath) {
+    if (!originalPath) return originalPath;
+
+    // 1. Check cache first
+    if (imagePathCache.has(originalPath)) {
+        return imagePathCache.get(originalPath);
+    }
+
+    // 2. Try original path first (minimal timeout)
+    if (await testImageExists(originalPath, 600)) {
+        imagePathCache.set(originalPath, originalPath);
+        return originalPath;
+    }
+
+    // 3. Fallback discovery
+    const extensions = ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.JPG', '.JPEG', '.PNG', '.WEBP', '.SVG', '.GIF'];
+    
+    // Sort extensions to try the 'last successful' one immediately after the original
+    const orderedExtensions = [...extensions];
+    if (lastSuccessfulExtension) {
+        const index = orderedExtensions.indexOf(lastSuccessfulExtension);
+        if (index > -1) {
+            orderedExtensions.splice(index, 1);
+            orderedExtensions.unshift(lastSuccessfulExtension);
+        }
+    }
+    
+    const lastDotIndex = originalPath.lastIndexOf('.');
+    const lastSlashIndex = originalPath.lastIndexOf('/');
+    let basePath = originalPath;
+    if (lastDotIndex > lastSlashIndex) {
+        basePath = originalPath.substring(0, lastDotIndex);
+    }
+
+    const currentExt = originalPath.substring(lastDotIndex).toLowerCase();
+
+    for (const ext of orderedExtensions) {
+        if (ext.toLowerCase() === currentExt) continue;
+        
+        const testPath = basePath + ext;
+        if (await testImageExists(testPath, 500)) {
+            console.log(`[Utils] Resolved alternative path (Cached): ${testPath}`);
+            lastSuccessfulExtension = ext;
+            imagePathCache.set(originalPath, testPath);
+            return testPath;
+        }
+    }
+
+    // If nothing found, cache null to permanently avoid redundant requests for this session
+    imagePathCache.set(originalPath, null);
+    return null;
 }
 
 // 360° Product Viewer - Drag to rotate through images
@@ -60,8 +155,7 @@ class ProductViewer {
         this.startX = 0;
         this.currentX = 0;
         this.dragDistance = 0;
-        this.sensitivity = 15; // Pixels to drag before switching image
-        
+        this.sensitivity = 15; // Set dynamically later from settings
         // Touch/pinch zoom controls
         this.touchStartDistance = 0;
         this.touchStartZoom = 1.0;
@@ -85,6 +179,21 @@ class ProductViewer {
         
         // Check for light mode setting
         this.lightMode = window.uiSettings?.getSetting('performance', 'lightMode') || false;
+        
+        // Initial control settings
+        const initialScrubSpeed = window.uiSettings?.getSetting('controls', 'scrubSpeed') || 16;
+        // Map 1-30 speed to 30-1 sensitivity pixels (lower pixel value = faster scrub)
+        this.sensitivity = Math.max(1, 31 - initialScrubSpeed);
+        
+        // Settings loaded/updated event
+        window.addEventListener('viewerSettingsLoaded', () => {
+            if (window.uiSettings) {
+                this.lightMode = window.uiSettings.getSetting('performance', 'lightMode') || false;
+                
+                const scrubSpeed = window.uiSettings.getSetting('controls', 'scrubSpeed') || 16;
+                this.sensitivity = Math.max(1, 31 - scrubSpeed);
+            }
+        });
         
         // Start loading immediately with most likely pattern, then continue discovery
         this.startImmediateLoading();
@@ -421,37 +530,6 @@ class ProductViewer {
         
         // Convert sets to arrays and match
         this.matchImagePairs(Array.from(discoveredFull), Array.from(discoveredLight));
-    }
-    
-    async testImageExists(path, timeout = 2000) {
-        return new Promise((resolve) => {
-            const img = new Image();
-            let resolved = false;
-            
-            img.onload = () => {
-                if (!resolved) {
-                    resolved = true;
-                    resolve(true);
-                }
-            };
-            
-            img.onerror = () => {
-                if (!resolved) {
-                    resolved = true;
-                    resolve(false);
-                }
-            };
-            
-            img.src = path;
-            
-            // Timeout (default 2 seconds for GitHub Pages, can be shorter for immediate loading)
-            setTimeout(() => {
-                if (!resolved) {
-                    resolved = true;
-                    resolve(false);
-                }
-            }, timeout);
-        });
     }
     
     matchImagePairs(fullImages, lightImages) {
@@ -960,18 +1038,25 @@ class ProductViewer {
             
             // Check if we've dragged enough to change image
             if (Math.abs(this.dragDistance) >= this.sensitivity) {
-                const targetIndex = this.dragDistance > 0 ? 
-                    (this.currentImageIndex - 1 + this.totalImages) % this.totalImages :
-                    (this.currentImageIndex + 1) % this.totalImages;
+                let framesToShift = Math.floor(Math.abs(this.dragDistance) / this.sensitivity);
                 
-                if (this.dragDistance > 0) {
-                    // Dragging right - go to previous image (rotate left)
-                    this.previousImage(false).catch(err => console.warn('[Scrubbing] Error loading previous image:', err));
-                } else {
-                    // Dragging left - go to next image (rotate right)
-                    this.nextImage(false).catch(err => console.warn('[Scrubbing] Error loading next image:', err));
+                // Cap extreme skips
+                framesToShift = Math.min(framesToShift, Math.floor(this.totalImages / 2));
+                
+                // Keep remainder for perfectly smooth scrubbing
+                const direction = this.dragDistance > 0 ? -1 : 1;
+                const remainder = Math.abs(this.dragDistance) - (framesToShift * this.sensitivity);
+                this.dragDistance = this.dragDistance > 0 ? remainder : -remainder;
+                
+                // Calculate target index directly
+                let targetIndex = (this.currentImageIndex + (direction * framesToShift)) % this.totalImages;
+                if (targetIndex < 0) targetIndex += this.totalImages;
+                
+                this.currentImageIndex = targetIndex;
+                const showResult = this.showImage(targetIndex, 'light');
+                if (showResult && typeof showResult.catch === 'function') {
+                    showResult.catch(err => console.warn('[Scrubbing] Error showing image:', err));
                 }
-                this.dragDistance = 0; // Reset after switching
             }
         }
         // Cursor is updated via event listeners and zoom changes
@@ -986,7 +1071,6 @@ class ProductViewer {
         if (this.isRotating) {
             this.isRotating = false;
             this.isDragging = false;
-            this.dragDistance = 0;
             this.updateCursor(false); // Not grabbing
             
             // Load full-res version after a short delay (300ms) - skip in light mode
@@ -1211,14 +1295,21 @@ class ProductViewer {
                 this.currentX = touch.clientX;
                 
                 if (Math.abs(this.dragDistance) >= this.sensitivity) {
-                    if (this.dragDistance > 0) {
-                        // Dragging right - go to previous image
-                        this.previousImage(false).catch(err => console.warn('[Scrubbing] Error loading previous image:', err));
-                    } else {
-                        // Dragging left - go to next image
-                        this.nextImage(false).catch(err => console.warn('[Scrubbing] Error loading next image:', err));
+                    let framesToShift = Math.floor(Math.abs(this.dragDistance) / this.sensitivity);
+                    framesToShift = Math.min(framesToShift, Math.floor(this.totalImages / 2));
+                    
+                    const direction = this.dragDistance > 0 ? -1 : 1;
+                    const remainder = Math.abs(this.dragDistance) - (framesToShift * this.sensitivity);
+                    this.dragDistance = this.dragDistance > 0 ? remainder : -remainder;
+                    
+                    let targetIndex = (this.currentImageIndex + (direction * framesToShift)) % this.totalImages;
+                    if (targetIndex < 0) targetIndex += this.totalImages;
+                    
+                    this.currentImageIndex = targetIndex;
+                    const showResult = this.showImage(targetIndex, 'light');
+                    if (showResult && typeof showResult.catch === 'function') {
+                        showResult.catch(err => console.warn('[Scrubbing] Error showing image:', err));
                     }
-                    this.dragDistance = 0;
                 }
             }
         } else if (e.touches.length === 2) {

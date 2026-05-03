@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Update Units List</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #222;
+            color: #fff;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+        }
+
+        .success {
+            color: #4f4;
+        }
+
+        .error {
+            color: #f44;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Updating Units...</h1>
+    <div id="logs"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://exxkpokuewxvpixrmofo.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_WSIAr3oQA_EwTO-L1D9baA_MfRYeBCX';
+        const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const logDiv = document.getElementById('logs');
+        function log(msg, type = 'info') {
+            const el = document.createElement('div');
+            el.className = 'log-entry ' + type;
+            el.textContent = msg;
+            logDiv.appendChild(el);
+            console.log(msg);
+        }
+
+        const unitList = [
+            "A003", "A004", "A009", "A010", "A012", "A013", "A014", "A015",
+            "A016", "A017", "A018", "A019", "A020", "A021", "A022", "A023",
+            "A024", "A025", "A026", "A027", "A028", "A029", "A030", "A031",
+            "A032", "A033", "A034", "A035"
+        ];
+
+        // Client ID from user request
+        const CLIENT_ID = 'CLT695425';
+
+        async function updateUnits() {
+            log('Preparing update for ' + unitList.length + ' units...', 'info');
+
+            // Construct rows
+            // Mapping provided names to:
+            // ID: The name itself (to confirm uniqueness)
+            // Independent of column case, we use exact column names from previous inspection logs
+            // "ClientID", "ID", "Unit Number"
+            const rows = unitList.map(name => ({
+                "ClientID": CLIENT_ID,   // Match exact case from inspection
+                "ID": name,              // Match exact case from inspection
+                "Unit Number": name      // Match exact case from inspection
+            }));
+
+            // Upsert
+            const { data, error } = await client
+                .from('Units')
+                .upsert(rows)
+                .select();
+
+            if (error) {
+                log('Error updating units: ' + error.message, 'error');
+                log('Details: ' + JSON.stringify(error), 'error');
+            } else {
+                log('Successfully upserted ' + data.length + ' units.', 'success');
+                log('First few IDs: ' + data.slice(0, 5).map(u => u.ID).join(', '), 'info');
+            }
+
+            // Signal completion
+            const doneEl = document.createElement('div');
+            doneEl.id = 'done-signal';
+            doneEl.textContent = 'DONE';
+            document.body.appendChild(doneEl);
+        }
+
+        updateUnits();
+    </script>
+</body>
+
+</html>

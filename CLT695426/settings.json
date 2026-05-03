@@ -227,6 +227,12 @@
         "size": 50
       }
     },
+    "clickAnimationEnabled": true,
+    "clickAnimationSwirlDuration": 800,
+    "clickAnimationSwirlSpeed": 720,
+    "clickAnimationMoveDuration": 600,
+    "clickAnimationFinalScale": 0.1,
+    "clickAnimationEasing": "easeOutQuart",
     "scanLineCount": 15,
     "scanColor": 65535,
     "scanOpacity": 0.8,
@@ -234,6 +240,30 @@
     "particleSize": 0.05,
     "particleSpeed": 10,
     "particleColor": 16776960,
-    "particleOpacity": 0.8
-  }
+    "particleOpacity": 0.8,
+    "cursorParticles": {
+      "enabled": true,
+      "birthRate": 13,
+      "lifeSpan": 1.1,
+      "radiusX": 1,
+      "radiusY": 5,
+      "emissionMode": "Directional",
+      "velocity": 2,
+      "sprayAngle": 1.3,
+      "gravity": -5,
+      "resistance": 0.5,
+      "colors": [
+        11184810,
+        6710886,
+        2236962,
+        0
+      ],
+      "gradientBias": 1,
+      "velocityVariation": 73,
+      "birthSize": 14,
+      "maxOpacity": 0.75,
+      "sizeVariation": 86
+    }
+  },
+  "_comment": "SETTINGS CONFIGURATION: These settings are specific to CLT695426 and override the default root settings. This file controls UI appearance, 3D effects, and particle systems for this specific client instance."
 }

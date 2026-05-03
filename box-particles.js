@@ -592,9 +592,19 @@ class BoxParticleSystem {
     setEnabled(enabled) {
         this.enabled = enabled;
         
-        if (this.heavyParticles) this.heavyParticles.visible = enabled && this.settings.heavy.enabled;
-        if (this.mediumParticles) this.mediumParticles.visible = enabled && this.settings.medium.enabled;
-        if (this.lightParticles) this.lightParticles.visible = enabled && this.settings.light.enabled;
+        if (enabled) {
+             // Re-initialize if particles were disposed
+            if (!this.heavyParticles && !this.mediumParticles && !this.lightParticles) {
+                this.init();
+            }
+            
+            if (this.heavyParticles) this.heavyParticles.visible = this.settings.heavy.enabled;
+            if (this.mediumParticles) this.mediumParticles.visible = this.settings.medium.enabled;
+            if (this.lightParticles) this.lightParticles.visible = this.settings.light.enabled;
+        } else {
+            // Unload from memory immediately
+            this.dispose();
+        }
     }
     
     // Update bounding box (for hover effects)
@@ -602,12 +612,12 @@ class BoxParticleSystem {
     updateBoundingBox(boundingBox) {
         this.boundingBox = boundingBox;
         
-        // Always re-initialize to fit new box
+        // Always dispose old resources
         this.dispose();
-        this.init();
         
-        // If we are enabled (visible), ensure we stay enabled
+        // Only re-initialize if currently enabled
         if (this.enabled) {
+            this.init();
             this.setEnabled(true);
         }
     }

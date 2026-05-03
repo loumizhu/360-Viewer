@@ -7,6 +7,7 @@ class UISettingsManager {
             ui: {
                 blurEnabled: true,
                 blurIntensity: 15,
+                tooltipScale: 1.0,
                 glowEnabled: true,
                 glowColor: 'rgba(100, 200, 255, 0.8)',
                 glowDuration: 500,
@@ -95,6 +96,9 @@ class UISettingsManager {
             performance: {
                 // Light mode for low CPU/RAM usage
                 lightMode: false
+            },
+            controls: {
+                scrubSpeed: 16
             },
             effects: {
                 // Effect type
@@ -188,8 +192,9 @@ class UISettingsManager {
             const fileSettings = { ...rootData, ...clientData };
             
             // Deep merge specific objects if they exist
-            if (rootData.ui || clientData.ui) {
-                fileSettings.ui = { ...(rootData.ui || {}), ...(clientData.ui || {}) };
+            fileSettings.ui = { ...this.settings.ui, ...(rootData.ui || {}), ...(clientData.ui || {}) };
+            if (fileSettings.ui.theme) {
+                 fileSettings.ui.theme = { ...this.settings.ui.theme, ...(rootData.theme || {}), ...(clientData.theme || {}) };
             }
             if (rootData.theme || clientData.theme) {
                 // Shallow merge theme for now, deep merge if robust theme support needed
@@ -307,7 +312,7 @@ class UISettingsManager {
             if (effectSettings.particleSpeed !== undefined) CONFIG_3D.PARTICLE_SPEED = effectSettings.particleSpeed;
             if (effectSettings.particleColor !== undefined) CONFIG_3D.PARTICLE_COLOR = effectSettings.particleColor;
             if (effectSettings.particleOpacity !== undefined) CONFIG_3D.PARTICLE_OPACITY = effectSettings.particleOpacity;
-
+            
             // Apply Advanced Particle Systems
             if (effectSettings.ambientParticles) {
                 if (!CONFIG_3D.AMBIENT_PARTICLES) CONFIG_3D.AMBIENT_PARTICLES = {};

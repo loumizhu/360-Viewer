@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="style.css">
     <script src="client-check.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <script src="viewer-pan-zoom.js"></script>
 </head>
 
 <body>
@@ -104,7 +106,33 @@
                 <div class="plan-panel-content">
                     <!-- Left side: Image viewer -->
                     <div class="plan-image-viewer">
-                        <img id="plan-image" src="" alt="Plan view">
+                        <!-- Zoom UI Controls -->
+                        <div class="zoom-controls">
+                            <button id="zoom-in" title="Zoom In">+</button>
+                            <button id="zoom-out" title="Zoom Out">-</button>
+                            <button id="zoom-reset" title="Reset Zoom">⟲</button>
+                        </div>
+
+                        <div id="plan-image-viewport">
+                            <img id="plan-image" src="" alt="Plan view">
+                        </div>
+
+                        <!-- Photo Gallery Strip -->
+                        <div id="photo-gallery-strip" class="hidden">
+                            <!-- Thumbnails will be injected here -->
+                        </div>
+
+                        <!-- Sci-fi Image Loader -->
+                        <div id="image-loader-overlay">
+                            <div class="loader-grid"></div>
+                            <div class="loader-scan-line"></div>
+                            <div class="loader-label">in progress...</div>
+                            <div class="loader-dots">
+                                <div class="loader-dot"></div>
+                                <div class="loader-dot"></div>
+                                <div class="loader-dot"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Right side: Contact form and info -->
@@ -127,31 +155,31 @@
                             <div class="info-grid">
                                 <div class="info-item">
                                     <span class="info-label">Unit:</span>
-                                    <span class="info-value" id="unit-value">A-205</span>
+                                    <span class="info-value" id="unit-value">Select a Unit</span>
                                 </div>
                                 <div class="info-item">
                                     <span class="info-label">Surface Interior:</span>
-                                    <span class="info-value" id="surface-interior-value">85 m²</span>
+                                    <span class="info-value" id="surface-interior-value">-</span>
                                 </div>
                                 <div class="info-item">
                                     <span class="info-label">Surface Exterior:</span>
-                                    <span class="info-value" id="surface-exterior-value">15 m²</span>
+                                    <span class="info-value" id="surface-exterior-value">-</span>
                                 </div>
                                 <div class="info-item">
                                     <span class="info-label">Terrace:</span>
-                                    <span class="info-value" id="terrace-value">12 m²</span>
+                                    <span class="info-value" id="terrace-value">-</span>
                                 </div>
                                 <div class="info-item">
                                     <span class="info-label">Type:</span>
-                                    <span class="info-value" id="type-value">Apartment</span>
+                                    <span class="info-value" id="type-value">-</span>
                                 </div>
                                 <div class="info-item">
                                     <span class="info-label">Rooms:</span>
-                                    <span class="info-value" id="rooms-value">3 Bedrooms</span>
+                                    <span class="info-value" id="rooms-value">-</span>
                                 </div>
                                 <div class="info-item">
                                     <span class="info-label">Orientation:</span>
-                                    <span class="info-value" id="orientation-value">South-West</span>
+                                    <span class="info-value" id="orientation-value">-</span>
                                 </div>
                             </div>
                         </div>
@@ -211,6 +239,7 @@
     <script src="viewer.js"></script>
     <script src="box-particles.js"></script>
     <script src="ambient-particles.js"></script>
+    <script src="cursor-particles.js"></script>
     <script src="viewer3d.js"></script>
     <script src="loader-integration.js"></script>
     <script src="ui-interactions.js"></script>

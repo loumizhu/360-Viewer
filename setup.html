@@ -35,6 +35,8 @@
             border-radius: var(--ui-border-radius-lg);
             border: var(--ui-border-width) solid var(--ui-border-color);
             backdrop-filter: blur(20px);
+            position: relative;
+            z-index: 100;
         }
 
         .setup-title h1 {
@@ -346,8 +348,6 @@
     </style>
     <script src="supabase-client.js"></script>
     <style>
-        /* ... existing styles ... */
-
         .db-status {
             display: flex;
             align-items: center;
@@ -379,6 +379,100 @@
             color: #FFBB33;
         }
 
+        /* Rich Tooltip */
+        .rich-tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .rich-tooltip {
+            visibility: hidden;
+            width: 320px;
+            background-color: var(--ui-bg-panel);
+            color: var(--ui-text-primary);
+            text-align: left;
+            border-radius: var(--ui-border-radius-md);
+            padding: var(--ui-spacing-lg);
+            position: absolute;
+            z-index: 9999; /* Increased z-index */
+            top: 100%; /* Changed from 125% to 100% to reduce gap */
+            margin-top: 12px; /* Controlled gap */
+            right: 0;
+            opacity: 0;
+            transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.3s; /* Delay visibility change on exit */
+            transform: translateY(-10px);
+            border: var(--ui-border-width) solid var(--ui-border-color);
+            box-shadow: var(--ui-shadow-xl);
+            backdrop-filter: blur(20px);
+            font-size: 13px;
+            line-height: 1.6;
+            pointer-events: none;
+        }
+
+        /* Bridge the gap between trigger and tooltip so it doesn't close on the way */
+        .rich-tooltip::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 0;
+            width: 100%;
+            height: 15px;
+            background: transparent;
+        }
+
+        .rich-tooltip-container:hover .rich-tooltip {
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+            transition-delay: 0s; /* No delay when appearing */
+        }
+
+        .rich-tooltip h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .rich-tooltip p {
+            margin: 0 0 12px 0;
+            color: var(--ui-text-secondary);
+        }
+
+        .rich-tooltip .proposal-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: var(--ui-border-radius-sm);
+            margin-bottom: 15px;
+            border-left: 3px solid var(--ui-primary-500);
+        }
+
+        .rich-tooltip .action-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: var(--ui-primary-500);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 99px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 12px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .rich-tooltip .action-link:hover {
+            background: var(--ui-primary-600);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 111, 238, 0.3);
+        }
+
         .status-dot {
             width: 8px;
             height: 8px;
@@ -392,6 +486,109 @@
             align-items: center;
             gap: 16px;
         }
+
+        /* Database Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background-color: var(--ui-bg-panel);
+            margin: 5vh auto;
+            padding: 20px;
+            border: 1px solid var(--ui-border-color);
+            width: 90%;
+            max-width: 1200px;
+            height: 90vh;
+            border-radius: var(--ui-border-radius-lg);
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--ui-shadow-2xl);
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--ui-border-color);
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow: auto;
+        }
+
+        .close-btn {
+            font-size: 28px;
+            font-weight: bold;
+            color: var(--ui-text-secondary);
+            cursor: pointer;
+            background: none;
+            border: none;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: var(--ui-text-primary);
+        }
+
+        /* Database Table */
+        .db-table-container {
+            overflow-x: auto;
+        }
+
+        .db-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            color: var(--ui-text-primary);
+        }
+
+        .db-table th {
+            text-align: left;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid var(--ui-border-color);
+        }
+
+        .db-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--ui-border-color);
+            min-width: 100px;
+        }
+
+        .db-table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .editable-cell {
+            cursor: cell;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .editable-cell:hover {
+            background: rgba(0, 111, 238, 0.1);
+        }
+
+        .editable-cell:focus {
+            outline: 2px solid var(--ui-primary-500);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+        }
     </style>
 </head>
 
@@ -404,16 +601,45 @@
                 <p>Overview of all client folders, assets, and configurations.</p>
             </div>
             <div class="header-controls">
-                <div id="db-status" class="db-status loading" title="Checking database connection...">
-                    <div class="status-dot"></div>
-                    <span id="db-status-text">Checking DB...</span>
+                <div class="rich-tooltip-container">
+                    <div id="db-status" class="db-status loading">
+                        <div class="status-dot"></div>
+                        <span id="db-status-text">Checking DB...</span>
+                    </div>
+                    <div id="db-tooltip" class="rich-tooltip">
+                        <h4>Database Connection</h4>
+                        <p>Scanning network for Supabase connectivity...</p>
+                    </div>
                 </div>
-                <button class="control-btn" onclick="fetchClients()">🔄 Refresh Data</button>
             </div>
+            <button class="control-btn" onclick="openDbModal()">🗄️ Manage Database</button>
+            <button class="control-btn" onclick="fetchClients()">🔄 Refresh Data</button>
         </div>
-
+        
         <div id="loading-spinner" class="spinner"></div>
         <div id="clients-list" class="client-grid"></div>
+    </div>
+
+    <div id="db-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 style="color:var(--ui-text-primary); margin:0;">Database Manager (Units) <span id="db-record-count"
+                        style="font-size:0.6em; opacity:0.7"></span></h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="control-btn" onclick="refreshDbTable()">🔄 Refresh</button>
+                    <button class="close-btn" onclick="closeDbModal()">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                <div id="db-loading" class="spinner" style="display:none; margin: 20px auto;"></div>
+                <div class="db-table-container">
+                    <table class="db-table" id="units-table">
+                        <thead></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -576,31 +802,321 @@
         async function checkDatabaseConnection() {
             const statusEl = document.getElementById('db-status');
             const statusText = document.getElementById('db-status-text');
+            const tooltipEl = document.getElementById('db-tooltip');
 
             try {
-                // Ensure window.db is available (loaded from supabase-client.js)
                 if (!window.db || !window.db.client) {
-                    throw new Error('Supabase client not initialized');
+                    throw new Error('Supabase client was not initialized. This usually means the script at "supabase-client.js" failed to load or has an invalid configuration.');
                 }
 
                 const start = performance.now();
-                const { count, error } = await window.db.client
-                    .from('units')
+                
+                // We perform a light head request to check connectivity and auth
+                const { count, error, status } = await window.db.client
+                    .from('Units')
                     .select('*', { count: 'exact', head: true });
 
                 const latency = Math.round(performance.now() - start);
 
-                if (error) throw error;
+                if (error) {
+                    // Check for specific Supabase error codes
+                    if (error.code === 'PGRST301' || error.message?.includes('JWT')) {
+                        throw new Error('Supabase Auth failure: The API key or JWT token is invalid or expired.');
+                    } else if (status === 404) {
+                        throw new Error('Table not found: The "Units" table does not exist in your Supabase database.');
+                    } else {
+                        throw error;
+                    }
+                }
 
                 statusEl.className = 'db-status online';
                 statusText.textContent = `Database Connected (${latency}ms)`;
-                statusEl.title = `Units count: ${count}`;
+                
+                tooltipEl.innerHTML = `
+                    <h4 style="color: var(--ui-success)">✅ Database Connected</h4>
+                    <p>Connection established successfully with your Supabase backend.</p>
+                    <div class="proposal-box" style="border-left-color: var(--ui-success)">
+                        <strong>Status:</strong> Healthy<br>
+                        <strong>Latency:</strong> ${latency}ms<br>
+                        <strong>Total Records:</strong> ${count} units synced.
+                    </div>
+                    <div style="font-size: 11px; opacity: 0.7; font-family: monospace;">
+                        ID: exxkpokuewxvpixrmofo
+                    </div>
+                `;
 
             } catch (error) {
                 console.error('DB Check Error:', error);
                 statusEl.className = 'db-status offline';
                 statusText.textContent = 'Database Connection Failed';
-                statusEl.title = error.message;
+                
+                const projectId = window.db.client.supabaseUrl ? window.db.client.supabaseUrl.split('.')[0].split('//')[1] : 'exxkpokuewxvpixrmofo';
+                const dashboardUrl = `https://supabase.com/dashboard/project/${projectId}`;
+                
+                let title = '❌ Connection Failed';
+                let message = error.message || 'An unknown error occurred while connecting to Supabase.';
+                let proposal = "Verify your internet connection and ensure the Supabase project URL is correct in <code>supabase-client.js</code>.";
+                
+                // Detect "Paused" or "Network Error"
+                // Usually TypeError: Failed to fetch means the server is down or project is paused
+                if (error instanceof TypeError || message.includes('fetch') || message.includes('NetworkError') || message.includes('Failed to fetch')) {
+                    title = '⏸️ Project Paused?';
+                    message = "Could not establish a network connection to the Supabase API.";
+                    proposal = "On the Supabase Free Tier, projects are <strong>automatically paused</strong> after 1 week of inactivity. You must manually restore it through the dashboard.";
+                } else if (message.includes('Auth failure') || message.includes('JWT') || error.code === 'PGRST301') {
+                    title = '🔑 Authentication Error';
+                    proposal = "Your <code>SUPABASE_ANON_KEY</code> might be incorrect or has been rotated. Please check your project settings.";
+                } else if (message.includes('Table not found') || status === 404) {
+                    title = '📂 Schema Error';
+                    proposal = "The connection is working, but the <code>Units</code> table was not found. Please ensure you have created the table correctly.";
+                }
+
+                tooltipEl.innerHTML = `
+                    <h4 style="color: var(--ui-danger)">${title}</h4>
+                    <p>${message}</p>
+                    <div class="proposal-box">
+                        <strong>Proposed Solution:</strong><br>
+                        ${proposal}
+                    </div>
+                    <a href="${dashboardUrl}" target="_blank" class="action-link">
+                        🌐 Restore in Supabase Dashboard
+                    </a>
+                `;
+            }
+        }
+
+        // Database Manager Logic
+        const dbModal = document.getElementById('db-modal');
+
+        function openDbModal() {
+            dbModal.style.display = 'block';
+            refreshDbTable();
+        }
+
+        function closeDbModal() {
+            dbModal.style.display = 'none';
+        }
+
+        // Close on click outside
+        window.onclick = function (event) {
+            if (event.target == dbModal) {
+                closeDbModal();
+            }
+        }
+
+        async function refreshDbTable() {
+            const table = document.getElementById('units-table');
+            const spinner = document.getElementById('db-loading');
+
+            table.style.opacity = '0.5';
+            spinner.style.display = 'block';
+
+            try {
+                // Ensure we have the function available
+                if (!window.db || !window.db.fetchUnits) {
+                    throw new Error("Database client not ready");
+                }
+
+                const units = await window.db.fetchUnits();
+                renderDbTable(units);
+            } catch (e) {
+                console.error(e);
+                showToast('Failed to load database: ' + e.message, 'error');
+            } finally {
+                table.style.opacity = '1';
+                spinner.style.display = 'none';
+            }
+        }
+
+        function renderDbTable(units) {
+            const table = document.getElementById('units-table');
+            const recordCount = document.getElementById('db-record-count');
+
+            if (recordCount) {
+                recordCount.textContent = units ? `(${units.length} records)` : '(0 records)';
+            }
+
+            if (!units || units.length === 0) {
+                table.querySelector('thead').innerHTML = '';
+                table.querySelector('tbody').innerHTML = '<tr><td style="text-align:center; padding: 20px;">No data found in "Units" table.</td></tr>';
+                return;
+            }
+
+            // Dynamically get columns from the first object, but prioritize 'id' and 'unit_name'
+            let columns = Object.keys(units[0]);
+
+            // Detect Primary Key (fallback logic)
+            // We need a unique way to identify rows for updates.
+            // Priority: ID -> id -> uuid -> Unit Number -> unit_number
+            let pkColumn = 'ID'; // Default to uppercase ID based on user logs
+
+            // Check what columns we actually have
+            if (columns.includes('ID')) pkColumn = 'ID';
+            else if (columns.includes('id')) pkColumn = 'id';
+            else if (columns.includes('uuid')) pkColumn = 'uuid';
+            else if (columns.includes('Unit Number')) pkColumn = 'Unit Number';
+            else if (columns.includes('unit_number')) pkColumn = 'unit_number';
+            else pkColumn = columns[0]; // Desperate fallback
+
+            console.log('[DB] Detected Primary Key column:', pkColumn);
+
+            // Optional: Sort particular columns to the front
+            const priority = ['id', 'unit_number', 'unit_name', 'status', 'price'];
+            columns.sort((a, b) => {
+                const idxA = priority.indexOf(a);
+                const idxB = priority.indexOf(b);
+                if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+                if (idxA !== -1) return -1;
+                if (idxB !== -1) return 1;
+                return 0;
+            });
+
+            // Header
+            let thead = '<tr>';
+            columns.forEach(col => thead += `<th>${col}</th>`);
+            thead += '</tr>';
+            table.querySelector('thead').innerHTML = thead;
+
+            // Body
+            const tbody = table.querySelector('tbody');
+            tbody.innerHTML = '';
+
+            units.forEach(unit => {
+                const tr = document.createElement('tr');
+                // Store the PK value for the row
+                const rowId = unit[pkColumn];
+
+                columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.className = 'editable-cell';
+                    // Make it editable
+                    td.contentEditable = true;
+
+                    const val = unit[col];
+                    // Handle objects/arrays if any (stringify them)
+                    if (typeof val === 'object' && val !== null) {
+                        td.textContent = JSON.stringify(val);
+                        td.title = "Complex object editing not fully supported inline";
+                        td.dataset.isComplex = "true";
+                    } else {
+                        td.textContent = val === null || val === undefined ? '' : val;
+                    }
+
+                    td.dataset.id = rowId; // The value of the PK
+                    td.dataset.pk = pkColumn; // The name of the PK column
+                    td.dataset.field = col;
+
+                    // Simple save on blur
+                    td.addEventListener('blur', async (e) => {
+                        // Skip if complex object
+                        if (td.dataset.isComplex === "true") return;
+
+                        const newVal = e.target.textContent.trim();
+                        const oldVal = unit[col] === null || unit[col] === undefined ? '' : String(unit[col]);
+
+                        // Only save if changed
+                        if (newVal !== oldVal) {
+                            // Pass the full unit object to help with identification (e.g. ClientID)
+                            await updateUnitField(unit, td.dataset.pk, col, newVal, td);
+                            // Update local object
+                            unit[col] = newVal;
+
+                            // If we just updated the PK column itself, we must update the rowId for all cells in this row!
+                            if (col === pkColumn) {
+                                const newId = newVal;
+                                Array.from(tr.children).forEach(child => child.dataset.id = newId);
+                            }
+                        }
+                    });
+
+                    // Handle Enter key to blur (save)
+                    td.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            td.blur();
+                        }
+                    });
+
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function updateUnitField(unit, pkColumn, field, value, cellElement) {
+            const originalColor = cellElement.style.color;
+            cellElement.style.color = 'var(--ui-warning)'; // Pending color
+
+            // Extract IDs and Trim whitespace to avoid common matching errors
+            const id = String(unit[pkColumn]).trim();
+            const clientId = unit['ClientID'] || unit['client_id'];
+            const cleanClientId = clientId ? String(clientId).trim() : null;
+
+            try {
+                // PostgREST treats unquoted identifiers as lowercase.
+                const needsQuotes = (col) => col.includes(' ') || /[A-Z]/.test(col);
+
+                // Keep body keys raw (library handles JSON)
+                const updateFieldKey = field;
+
+                // Quote URL params
+                const updatePK = needsQuotes(pkColumn) ? `"${pkColumn}"` : pkColumn;
+
+                // --- DIAGNOSTIC STEP 1: Verify Row Exists (Read) ---
+                let checkQuery = window.db.client
+                    .from('Units')
+                    .select(updatePK); // Just select ID
+
+                checkQuery = checkQuery.eq(updatePK, id);
+                if (cleanClientId) {
+                    const clientCol = needsQuotes('ClientID') ? '"ClientID"' : 'ClientID';
+                    checkQuery = checkQuery.eq(clientCol, cleanClientId);
+                }
+
+                const { data: checkData, error: checkError } = await checkQuery;
+
+                if (checkError) throw checkError;
+                if (!checkData || checkData.length === 0) {
+                    throw new Error(`Row NOT found before update. ID mismatch.\nLooking for: ${updatePK}="${id}" (Length: ${id.length})`);
+                }
+
+                // --- STEP 2: Perform Update (Write) ---
+                let query = window.db.client
+                    .from('Units')
+                    .update({ [updateFieldKey]: value })
+                    .eq(updatePK, id);
+
+                // If we have a ClientID, add it to the filter to satisfy potential RLS/partitioning
+                if (cleanClientId) {
+                    const clientCol = needsQuotes('ClientID') ? '"ClientID"' : 'ClientID';
+                    query = query.eq(clientCol, cleanClientId);
+                }
+
+                const { data, error } = await query.select();
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    // Row existed (Check passed) but Update modified 0 rows.
+                    // This guarantees it is an RLS Policy issue blocking the WRITE (or user is anon and policy requires auth).
+                    throw new Error(`[v2] Update blocked by Policy/Mismatch.\nRow exists (ID match checked), but Update modified 0 rows.\nThis is likely an RLS Policy issue or Supabase anon role restriction.`);
+                }
+
+                cellElement.style.color = '#00C851'; // Success green
+                showToast(`Updated ${field}`, 'success');
+
+                // FORCE REFRESH TO PROVE SAVE
+                await refreshDbTable();
+
+                setTimeout(() => {
+                    if (cellElement.style.color === 'rgb(0, 200, 81)' || cellElement.style.color === '#00C851') {
+                        cellElement.style.color = '';
+                    }
+                }, 2000);
+            } catch (err) {
+                console.error(err);
+                cellElement.style.color = '#FF4444'; // Error red
+                showToast(err.message, 'error');
             }
         }
 

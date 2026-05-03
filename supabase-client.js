@@ -18,8 +18,10 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 async function fetchUnitsFromDatabase() {
     try {
         const { data, error } = await supabaseClient
-            .from('units')
-            .select('*');
+            .from('Units')
+            .select('*')
+            // Add deterministic sorting so rows don't jump around after updates
+            .order('ID', { ascending: true });
 
         if (error) {
             console.error('[Supabase] Error fetching units:', error.message);
@@ -34,16 +36,84 @@ async function fetchUnitsFromDatabase() {
     }
 }
 
+// Cache the resolved column name to avoid repeated discovery
+let cachedUnitColumn = null;
+
 /**
- * Example function to get a specific unit by ID
+ * Helper to find the column that holds the unit identifier (e.g. "A009")
+ */
+async function resolveUnitColumn() {
+    if (cachedUnitColumn) return cachedUnitColumn;
+
+    console.log('[Supabase] Resolving unit column name...');
+    try {
+        // Fetch one row to inspect keys
+        const { data, error } = await supabaseClient
+            .from('Units')
+            .select('*')
+            .limit(1)
+            .single();
+
+        if (error || !data) {
+            console.warn('[Supabase] Could not fetch sample row to resolve column:', error);
+            // Fallback
+            return 'unit_number';
+        }
+
+        const keys = Object.keys(data);
+        console.log('[Supabase] Available columns:', keys);
+
+        // Candidates in order of likelihood based on user feedback and common naming
+        // User's DB has "Unit Number" (with space) or "Property Name"
+        const candidates = ['Unit Number', 'Property Name', 'unit_number', 'unit', 'name', 'code', 'title', 'formatted_name', 'unit_name'];
+        
+        for (const candidate of candidates) {
+            if (keys.includes(candidate)) {
+                console.log(`[Supabase] Resolved unit column as: '${candidate}'`);
+                // If the column has spaces, we need to handle it carefully in queries
+                cachedUnitColumn = candidate;
+                return candidate;
+            }
+        }
+        
+        // If we still haven't found a match, check for *any* column containing 'unit'
+        const wildCard = keys.find(k => k.includes('unit') && k !== 'id');
+        if (wildCard) {
+            console.log(`[Supabase] resolved wildcard unit column as: '${wildCard}'`);
+            cachedUnitColumn = wildCard;
+            return wildCard;
+        }
+
+        console.warn('[Supabase] Could not identify unit column, defaulting to unit_number');
+        return 'unit_number';
+
+    } catch (err) {
+        console.error('[Supabase] Error resolving column:', err);
+        return 'unit_number';
+    }
+}
+
+/**
+ * Example function to get a specific unit by ID or Unit Number
  * @param {string} unitId 
  */
 async function getUnitDetails(unitId) {
+    console.log(`[Supabase] Fetching details for: "${unitId}"`);
+    
+    const targetColumn = await resolveUnitColumn();
+    
+    // We search by the resolved column (case-insensitive)
+    // If the column has spaces (e.g. "Unit Number"), we must quote it for the query builder
+    const queryColumn = targetColumn.includes(' ') ? `"${targetColumn}"` : targetColumn;
+    
     const { data, error } = await supabaseClient
-        .from('units')
+        .from('Units')
         .select('*')
-        .eq('id', unitId)
+        .ilike(queryColumn, unitId)
         .single();
+    
+    if (data) console.log('[Supabase] Match found:', data);
+    else console.warn(`[Supabase] No match found for: ${unitId} in column: ${targetColumn}`);
 
     if (error) {
         console.error(`[Supabase] Error fetching unit ${unitId}:`, error.message);
@@ -53,7 +123,7 @@ async function getUnitDetails(unitId) {
     return data;
 }
 
-// Export for use in other scripts if needed (though we're using global scope here for simplicity in a static site)
+// Export for use in other scripts
 window.db = {
     client: supabaseClient,
     fetchUnits: fetchUnitsFromDatabase,

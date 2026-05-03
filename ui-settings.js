@@ -147,11 +147,22 @@ class UISettingsPanel {
         // Performance Section
         this.createPerformanceSection();
         
+        // Controls Section
+        this.createControlsSection();
+        
+        // Tooltip Settings Section
+        this.createTooltipSection();
+        
         // Box Particles Section
         this.createBoxParticlesSection();
         
         // Ambient Particles Section
         this.createAmbientParticlesSection();
+
+        // Cursor Particles Section
+        this.createCursorParticlesSection();
+
+
         
         // Re-initialize effect controls after UI is built
         // Make sure effect controls container exists and is populated
@@ -611,6 +622,75 @@ class UISettingsPanel {
         lightModeGroup.appendChild(toggleGroup);
         section.appendChild(lightModeGroup);
         
+        this.content.appendChild(section);
+    }
+    
+    createControlsSection() {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = 'Controls & Navigation';
+        section.appendChild(title);
+        
+        // Scrub Speed Slider
+        const scrubGroup = document.createElement('div');
+        scrubGroup.className = 'ui-settings-group';
+        
+        const scrubSpeed = window.uiSettings.getSetting('controls', 'scrubSpeed') || 16;
+        
+        scrubGroup.innerHTML = `
+            <label class="ui-settings-label">Scrub Speed: <span class="ui-settings-value" id="scrub-speed-value">${scrubSpeed}</span></label>
+            <p class="ui-settings-description" style="font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 4px; margin-bottom: 8px;">Controls the sensitivity of dragging to rotate images.</p>
+            <input type="range" class="ui-settings-slider" id="controls-scrub-speed" 
+                   min="1" max="30" step="1" value="${scrubSpeed}">
+        `;
+        
+        scrubGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('scrub-speed-value').textContent = value;
+            window.uiSettings.updateSetting('controls', 'scrubSpeed', value);
+            if (window.productViewer) {
+                window.productViewer.sensitivity = Math.max(1, 31 - value);
+            }
+        });
+        
+        section.appendChild(scrubGroup);
+        this.content.appendChild(section);
+    }
+    
+    createTooltipSection() {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = 'Tooltip Options';
+        section.appendChild(title);
+        
+        // Tooltip Scale Slider
+        const scaleGroup = document.createElement('div');
+        scaleGroup.className = 'ui-settings-group';
+        
+        const tooltipScale = window.uiSettings.getSetting('ui', 'tooltipScale') || 1.0;
+        
+        scaleGroup.innerHTML = `
+            <label class="ui-settings-label">Tooltip Size: <span class="ui-settings-value" id="tooltip-scale-value">${(tooltipScale * 100).toFixed(0)}%</span></label>
+            <input type="range" class="ui-settings-slider" id="ui-tooltip-scale" 
+                   min="0.5" max="2.0" step="0.1" value="${tooltipScale}">
+        `;
+        
+        scaleGroup.querySelector('input').addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            document.getElementById('tooltip-scale-value').textContent = `${(value * 100).toFixed(0)}%`;
+            window.uiSettings.updateSetting('ui', 'tooltipScale', value);
+            if (window.viewer3D && window.viewer3D.tooltip && window.viewer3D.tooltip.style.display === 'block') {
+                window.viewer3D.tooltip.style.transform = `scale(${value})`;
+            }
+        });
+        
+        section.appendChild(scaleGroup);
         this.content.appendChild(section);
     }
     
@@ -1114,6 +1194,16 @@ class UISettingsPanel {
                 window.viewer3D.boxParticles.setEnabled(settings.boxParticles.enabled);
             }
         }
+
+        // Sync Cursor
+        if (settings.cursorParticles) {
+            if (window.viewer3D && window.viewer3D.cursorParticles) {
+                window.viewer3D.cursorParticles.setSettings(settings.cursorParticles);
+                if (settings.cursorParticles.enabled !== undefined) {
+                    window.viewer3D.cursorParticles.setEnabled(settings.cursorParticles.enabled);
+                }
+            }
+        }
     }
 
     createAmbientParticlesSection() {
@@ -1568,6 +1658,357 @@ class UISettingsPanel {
         window.uiSettings.saveSettings();
     }
     
+    createCursorParticlesSection() {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = 'Cursor Particles (CC Model)';
+        section.appendChild(title);
+        
+        const settings = window.uiSettings.settings.effects?.cursorParticles || {};
+        
+        // Helper to create a control
+        const createControl = (label, key, min, max, step, defaultValue, suffix='') => {
+            const group = document.createElement('div');
+            group.className = 'ui-settings-group';
+            const value = settings[key] !== undefined ? settings[key] : defaultValue;
+            
+            group.innerHTML = `
+                <div class="ui-settings-label-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <label class="ui-settings-label" style="margin:0;">${label}</label>
+                    <input type="number" class="ui-settings-number-input" 
+                           min="${min}" max="${max}" step="${step}" value="${value}" 
+                           style="width: 60px; padding: 2px 5px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; text-align: right;">
+                </div>
+                <input type="range" class="ui-settings-slider" min="${min}" max="${max}" step="${step}" value="${value}" style="width: 100%;">
+            `;
+            
+            const numberInput = group.querySelector('input[type="number"]');
+            const slider = group.querySelector('input[type="range"]');
+            
+            const updateValue = (val) => {
+                let parsed = parseFloat(val);
+                this.updateCursorParticleSetting(key, parsed);
+                numberInput.value = parsed;
+                slider.value = parsed;
+            };
+            
+            numberInput.addEventListener('change', (e) => updateValue(e.target.value));
+            slider.addEventListener('input', (e) => {
+                 numberInput.value = e.target.value;
+                 this.updateCursorParticleSetting(key, parseFloat(e.target.value)); 
+            });
+            
+            return group;
+        };
+
+        const createDropdown = (label, key, options) => {
+            const group = document.createElement('div');
+            group.className = 'ui-settings-group';
+            const currentVal = settings[key] || options[0];
+            
+            let optionsHtml = '';
+            options.forEach(opt => {
+                const sel = (opt === currentVal) ? 'selected' : '';
+                optionsHtml += `<option value="${opt}" ${sel}>${opt}</option>`;
+            });
+            
+            group.innerHTML = `
+                <div class="ui-settings-label-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                    <label class="ui-settings-label" style="margin:0;">${label}</label>
+                    <select class="ui-settings-dropdown" style="padding: 2px 5px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+            `;
+            
+            const select = group.querySelector('select');
+            select.addEventListener('change', (e) => {
+                this.updateCursorParticleSetting(key, e.target.value);
+            });
+            
+            return group;
+        };
+
+        // Create Presets Container
+        const presetsContainer = document.createElement('div');
+        presetsContainer.style.marginBottom = '15px';
+        presetsContainer.style.padding = '10px';
+        presetsContainer.style.background = '#2a2a2a';
+        presetsContainer.style.borderRadius = '4px';
+        
+        presetsContainer.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <label style="color:#eee; font-size:12px;">Presets</label>
+                <div style="display:flex; gap:5px;">
+                    <select id="cpPresetSelect" style="background:#333; color:#fff; border:1px solid #444; padding:2px 5px; border-radius:3px; max-width:100px;">
+                        <option value="default">Default</option>
+                        <option value="rocket">Blue Rocket</option>
+                        <option value="sparkler">Sparkler (Omni)</option>
+                        <option value="fire">Fire Trail</option>
+                        <option value="smoke">Smoke</option>
+                        <option value="custom">Custom...</option>
+                    </select>
+                    <button id="cpSavePresetBtn" style="background:#444; color:#fff; border:none; border-radius:3px; cursor:pointer; font-size:10px; padding:3px 6px;">SAVE</button>
+                </div>
+            </div>
+        `;
+        
+        section.appendChild(presetsContainer);
+        
+        // Preset Logic
+        const presetSelect = presetsContainer.querySelector('#cpPresetSelect');
+        const savePresetBtn = presetsContainer.querySelector('#cpSavePresetBtn');
+        
+        const presets = {
+            'default': {
+                birthRate: 50, lifeSpan: 1.5, radiusX: 2, radiusY: 2, emissionMode: 'Omni',
+                velocity: 20, sprayAngle: 0.5, gravity: 0, resistance: 0.1,
+                colors: [0x00ffff, 0x0088ff, 0xff00ff, 0x5500ff], gradientBias: 1.0
+            },
+            'rocket': {
+                birthRate: 100, lifeSpan: 1.0, radiusX: 1, radiusY: 1, emissionMode: 'Directional',
+                velocity: 60, sprayAngle: 0.1, gravity: 0, resistance: 0.5,
+                colors: [0x00ffff, 0x0000ff, 0x000000], gradientBias: 0.5
+            },
+            'sparkler': {
+                birthRate: 40, lifeSpan: 2.0, radiusX: 2, radiusY: 2, emissionMode: 'Omni',
+                velocity: 10, sprayAngle: 2.0, gravity: -10, resistance: 0.0,
+                colors: [0xffff00, 0xffaa00, 0xffffff], gradientBias: 1.0
+            },
+            'fire': {
+                birthRate: 200, lifeSpan: 0.8, radiusX: 5, radiusY: 1, emissionMode: 'Directional',
+                velocity: 15, sprayAngle: 0.5, gravity: 20, resistance: 0.0,
+                colors: [0xffaa00, 0xff3300, 0x550000], gradientBias: 1.2
+            },
+            'smoke': {
+                birthRate: 50, lifeSpan: 3.0, radiusX: 5, radiusY: 5, emissionMode: 'Directional',
+                velocity: 5, sprayAngle: 1.0, gravity: -5, resistance: 0.5,
+                colors: [0xaaaaaa, 0x666666, 0x222222, 0x000000], gradientBias: 1.0
+            }
+        };
+
+        // Load Custom Presets
+        const storedPresets = JSON.parse(localStorage.getItem('cursor_particle_presets') || '{}');
+        Object.keys(storedPresets).forEach(key => {
+            presets[key] = storedPresets[key];
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.innerText = key + ' (Custom)';
+            // Insert before 'custom' option if possible, or just append
+            presetSelect.appendChild(opt);
+        });
+        
+        savePresetBtn.addEventListener('click', () => {
+            const name = prompt("Enter a name for this preset:");
+            if (name && name.trim() !== "") {
+                const safeName = name.trim();
+                
+                // Capture current settings (clone)
+                // We want to skip 'enabled' usually, but user asked for all controls.
+                // We typically filter out unused keys or system keys.
+                const current = JSON.parse(JSON.stringify(this.settings.cursorParticles));
+                delete current.enabled; // Don't save enabled state usually? Or yes? User choice. Let's keep it pure data.
+                
+                presets[safeName] = current;
+                storedPresets[safeName] = current;
+                localStorage.setItem('cursor_particle_presets', JSON.stringify(storedPresets));
+                
+                // Add to list if new
+                if (!presetSelect.querySelector(`option[value="${safeName}"]`)) {
+                    const opt = document.createElement('option');
+                    opt.value = safeName;
+                    opt.innerText = safeName + ' (Custom)';
+                    presetSelect.appendChild(opt);
+                }
+                
+                presetSelect.value = safeName;
+                alert(`Preset "${safeName}" saved!`);
+            }
+        });
+        
+        presetSelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            if (presets[val]) {
+                const p = presets[val];
+                // Apply all settings
+                Object.keys(p).forEach(k => {
+                    this.updateCursorParticleSetting(k, p[k]);
+                });
+                
+                // Reload UI
+                this.content.innerHTML = '';
+                this.content.appendChild(this.createCursorParticlesSection());
+            }
+        });
+
+        // Enable
+        const enableToggle = document.createElement('div');
+        enableToggle.className = 'ui-settings-toggle';
+        enableToggle.style.marginBottom = '15px';
+        const isEnabled = settings.enabled || false;
+        enableToggle.innerHTML = `
+            <label class="ui-settings-toggle-label">Enable System</label>
+            <label class="ui-settings-switch">
+                <input type="checkbox" ${isEnabled ? 'checked' : ''}>
+                <span class="ui-settings-switch-slider"></span>
+            </label>
+        `;
+        enableToggle.querySelector('input').addEventListener('change', (e) => {
+            this.updateCursorParticleSetting('enabled', e.target.checked);
+            if (window.viewer3D && window.viewer3D.cursorParticles) {
+                window.viewer3D.cursorParticles.setEnabled(e.target.checked);
+            }
+        });
+        section.appendChild(enableToggle);
+        
+        // --- 1. PRODUCER ---
+        const producerHeader = document.createElement('div');
+        producerHeader.innerHTML = '<h5 style="color:#aaa; margin: 10px 0 5px; border-bottom:1px solid #444;">Producer</h5>';
+        section.appendChild(producerHeader);
+        
+        section.appendChild(createControl('Birth Rate', 'birthRate', 1, 500, 1, 50));
+        section.appendChild(createControl('Trail Length (Life)', 'lifeSpan', 0.1, 10.0, 0.1, 1.5));
+        section.appendChild(createControl('Radius X', 'radiusX', 0, 50, 1, 2));
+        section.appendChild(createControl('Radius Y', 'radiusY', 0, 50, 1, 2));
+        section.appendChild(createDropdown('Emission Mode', 'emissionMode', ['Omni', 'Directional']));
+        
+        // --- 2. PHYSICS ---
+        const physicsHeader = document.createElement('div');
+        physicsHeader.innerHTML = '<h5 style="color:#aaa; margin: 15px 0 5px; border-bottom:1px solid #444;">Physics</h5>';
+        section.appendChild(physicsHeader);
+        
+        section.appendChild(createControl('Velocity', 'velocity', 0, 100, 1, 10));
+        section.appendChild(createControl('Velocity Variation %', 'velocityVariation', 0, 100, 1, 50));
+        section.appendChild(createControl('Inherit Velocity %', 'inheritVelocity', -200, 200, 5, 0));
+        section.appendChild(createControl('Gravity', 'gravity', -100, 100, 1, 0));
+        section.appendChild(createControl('Air Resistance (Slowdown)', 'resistance', 0, 5.0, 0.1, 0.1));
+        section.appendChild(createControl('Spray Angle (Cone)', 'sprayAngle', 0, 2.0, 0.1, 0.5));
+        
+        // --- 3. PARTICLE ---
+        const particleHeader = document.createElement('div');
+        particleHeader.innerHTML = '<h5 style="color:#aaa; margin: 15px 0 5px; border-bottom:1px solid #444;">Particle</h5>';
+        section.appendChild(particleHeader);
+        
+        // Shape
+        const shapeGroup = document.createElement('div');
+        shapeGroup.className = 'ui-settings-group';
+        const shape = settings.shape || 'soft';
+        shapeGroup.innerHTML = `
+            <label class="ui-settings-label">Particle Type</label>
+            <select class="ui-settings-select" style="width: 100%; margin-top: 5px; padding: 5px; background: #333; color: white; border: none; border-radius: 4px;">
+                <option value="star" ${shape === 'star' ? 'selected' : ''}>Star</option>
+                <option value="circle" ${shape === 'circle' ? 'selected' : ''}>Sphere</option>
+                <option value="soft" ${shape === 'soft' ? 'selected' : ''}>Faded Sphere</option>
+                <option value="diamond" ${shape === 'diamond' ? 'selected' : ''}>Diamond</option>
+            </select>
+        `;
+        shapeGroup.querySelector('select').addEventListener('change', (e) => {
+            this.updateCursorParticleSetting('shape', e.target.value);
+        });
+        section.appendChild(shapeGroup);
+        
+        section.appendChild(createControl('Birth Size', 'birthSize', 1, 200, 1, 40));
+        section.appendChild(createControl('Death Size', 'deathSize', 0, 200, 1, 0));
+        section.appendChild(createControl('Size Variation %', 'sizeVariation', 0, 100, 1, 50));
+        section.appendChild(createControl('Max Opacity', 'maxOpacity', 0, 1.0, 0.05, 1.0));
+        
+        // Colors (Multi-stop Gradient)
+        const colorContainer = document.createElement('div');
+        colorContainer.className = 'ui-settings-group';
+        colorContainer.style.marginTop = '15px';
+        colorContainer.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label class="ui-settings-label" style="margin:0;">Color Map (Birth -> Death)</label>
+                <div class="ui-settings-buttons">
+                    <button class="ui-settings-button-small" id="addColorBtn" style="padding: 2px 8px;">+</button>
+                    <button class="ui-settings-button-small" id="removeColorBtn" style="padding: 2px 8px;">-</button>
+                </div>
+            </div>
+            <div id="cursorColorList" style="display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap;"></div>
+        `;
+        
+        let currentColors = (settings.colors || [0xffff00, 0xff0000, 0xff00ff, 0x0000ff]).slice();
+        
+        const renderColors = () => {
+            const list = colorContainer.querySelector('#cursorColorList');
+            list.innerHTML = '';
+            
+            currentColors.forEach((colorInt, index) => {
+                const hex = '#' + colorInt.toString(16).padStart(6, '0');
+                const input = document.createElement('input');
+                input.type = 'color';
+                input.value = hex;
+                input.style.cssText = 'flex: 1; height: 30px; min-width: 40px; border: none; padding: 0; cursor: pointer;';
+                input.title = `Color ${index + 1}`;
+                
+                input.addEventListener('input', (e) => {
+                    const decimal = parseInt(e.target.value.slice(1), 16);
+                    currentColors[index] = decimal;
+                    this.updateCursorParticleSetting('colors', currentColors);
+                });
+                
+                list.appendChild(input);
+            });
+        };
+        
+        colorContainer.querySelector('#addColorBtn').addEventListener('click', () => {
+            if (currentColors.length < 5) {
+                const last = currentColors[currentColors.length-1];
+                currentColors.push(last);
+                renderColors();
+                this.updateCursorParticleSetting('colors', currentColors);
+            }
+        });
+        
+        colorContainer.querySelector('#removeColorBtn').addEventListener('click', () => {
+            if (currentColors.length > 2) {
+                currentColors.pop();
+                renderColors();
+                this.updateCursorParticleSetting('colors', currentColors);
+            }
+        });
+        
+        renderColors();
+        section.appendChild(colorContainer);
+        
+        // Gradient Bias
+        section.appendChild(createControl('Gradient Shift (Bias)', 'gradientBias', 0.1, 5.0, 0.1, 1.0));
+
+        this.content.appendChild(section);
+    }
+    
+    updateCursorParticleSetting(key, value) {
+        if (!window.uiSettings.settings.effects) {
+            window.uiSettings.settings.effects = {};
+        }
+        if (!window.uiSettings.settings.effects.cursorParticles) {
+            window.uiSettings.settings.effects.cursorParticles = {};
+        }
+        window.uiSettings.settings.effects.cursorParticles[key] = value;
+        
+        // Update CONFIG_3D
+        if (typeof CONFIG_3D !== 'undefined') {
+            if (!CONFIG_3D.CURSOR_PARTICLES) {
+                CONFIG_3D.CURSOR_PARTICLES = {};
+            }
+            CONFIG_3D.CURSOR_PARTICLES[key] = value;
+        }
+        
+        // Update System
+        if (window.viewer3D && window.viewer3D.cursorParticles) {
+            const updateObj = {};
+            updateObj[key] = value;
+            window.viewer3D.cursorParticles.setSettings(updateObj);
+        }
+        
+        window.uiSettings.saveSettings();
+    }
+    
+
+
     // Helper methods
     hexToColor(hex) {
         if (hex.startsWith('#')) return hex;
