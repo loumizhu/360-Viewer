@@ -219,13 +219,14 @@
       "maxHeight": 28000,
       "spread": 40000,
       "heavy": {
-        "count": 5800,
+        "count": 7600,
         "speed": 16900,
-        "size": 400,
-        "color": 52479,
+        "size": 1350,
+        "color": 2424827,
         "enabled": true,
         "opacity": 0.6,
-        "glowStrength": 1.2
+        "glowStrength": 1.2,
+        "acceleration": 5
       },
       "light": {
         "count": 5200,

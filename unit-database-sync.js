@@ -26,6 +26,28 @@
         }
     }
 
+    /**
+     * Scan an Axonometrics unit subfolder (e.g. /CLT695425/Axonometrics/A003/)
+     * for a sequence of images.  Returns a sorted array of URLs or [] if the
+     * folder does not exist / contains no images.
+     */
+    async function scanAxoFolder(folderPath) {
+        if (!folderPath) return [];
+        try {
+            const cleanPath = folderPath.replace(/\/$/, '');
+            const response = await fetch(cleanPath + '/?json=1');
+            if (!response.ok) return [];
+            const files = await response.json();
+            const images = files
+                .filter(f => f.type === 'file' && f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i))
+                .map(f => cleanPath + '/' + f.name)
+                .sort();
+            return images;
+        } catch (e) {
+            return [];
+        }
+    }
+
     function updateGalleryStrip(mode, galleryPhotos, currentSrc) {
         const galleryStrip = document.getElementById('photo-gallery-strip');
         if (!galleryStrip) return;
@@ -255,10 +277,23 @@
             link2D = `/${clientId}/Plan 2D/${uNum}.jpg`;
         }
         // Assuming 3D follows similar structure if missing
+        // Also check if the Axonometrics subfolder (sequence mode) exists
+        let axoSequenceImages = [];
+        if (uNum) {
+            const axoSubFolder = `/${clientId}/Axonometrics/${uNum}`;
+            axoSequenceImages = await scanAxoFolder(axoSubFolder);
+        }
+
         if (!link3D && uNum) {
-            // Try "Axonometrics" folder as requested, then fallback to "Plan 3D"
-            link3D = await resolveWorkingImagePath(`/${clientId}/Axonometrics/${uNum}.jpg`) ||
-                     await resolveWorkingImagePath(`/${clientId}/Plan 3D/${uNum}.jpg`);
+            if (axoSequenceImages.length > 0) {
+                // Sequence detected — use the first frame as the static fallback URL
+                // (the scrubber will replace the <img> entirely)
+                link3D = axoSequenceImages[0];
+            } else {
+                // No subfolder — fall back to a single axonometric image
+                link3D = await resolveWorkingImagePath(`/${clientId}/Axonometrics/${uNum}.jpg`) ||
+                         await resolveWorkingImagePath(`/${clientId}/Plan 3D/${uNum}.jpg`);
+            }
         }
 
         if (!linkPhotos && uNum) {
@@ -325,17 +360,29 @@
             planImg.setAttribute('data-link3d', link3D || '');
             planImg.setAttribute('data-linkphotos', linkPhotos || '');
             planImg.setAttribute('data-gallery', JSON.stringify(galleryPhotos));
+
+            // Save axonometric sequence (may be empty [] for single-image units)
+            planImg.setAttribute('data-axo-sequence', JSON.stringify(axoSequenceImages));
             
             // Determine which tab is active newly
             const mode = activeTab ? activeTab.dataset.tab : 'none';
-            
+
+            // Always deactivate scrubber before deciding what to show
+            if (window.axoScrubber) window.axoScrubber.deactivate();
+
             // Set source based on active tab
             let targetSrc = '';
             if (mode === '3d-plan') targetSrc = link3D;
             else if (mode === '2d-plan') targetSrc = link2D;
             else if (mode === 'photos') targetSrc = linkPhotos;
-            
-            if (targetSrc) {
+
+            // If landing on 3D plan tab and we have a sequence → activate scrubber
+            if (mode === '3d-plan' && axoSequenceImages.length > 0) {
+                console.log(`[Axo] Activating scrubber with ${axoSequenceImages.length} frames for ${uNum}`);
+                const loader = document.getElementById('image-loader-overlay');
+                if (loader) loader.classList.add('hidden');
+                if (window.axoScrubber) window.axoScrubber.activate(axoSequenceImages);
+            } else if (targetSrc) {
                 // Show loader
                 const loader = document.getElementById('image-loader-overlay');
                 if (loader) {
@@ -344,6 +391,7 @@
                     if (label) label.textContent = 'in progress';
                 }
                 planImg.classList.remove('loaded');
+                planImg.style.display = 'block';
                 
                 const preload = new Image();
                 preload.onload = () => {
@@ -362,7 +410,6 @@
                 };
                 
                 console.log(`[UI] updateUI Starting preload for: ${targetSrc}`);
-                // Append timestamp just in case
                 preload.src = targetSrc + '?t=' + new Date().getTime();
                 
                 // Update gallery strip
@@ -398,11 +445,29 @@
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
                 
-                // 2. Switch Image
+                // 2. Always deactivate the scrubber when switching tabs
+                if (window.axoScrubber) window.axoScrubber.deactivate();
+
+                // 3. Switch Image
                 if (planImg) {
                     const mode = tab.dataset.tab;
                     const loader = document.getElementById('image-loader-overlay');
-                    
+
+                    // ── 3D Plan: check for axonometric sequence ──
+                    if (mode === '3d-plan') {
+                        const axoRaw = planImg.getAttribute('data-axo-sequence');
+                        let axoSeq = [];
+                        try { axoSeq = axoRaw ? JSON.parse(axoRaw) : []; } catch (e) {}
+
+                        if (axoSeq.length > 0 && window.axoScrubber) {
+                            // Sequence mode → activate scrubber
+                            console.log(`[Axo] Tab switch to 3D-plan: activating scrubber (${axoSeq.length} frames)`);
+                            if (loader) loader.classList.add('hidden');
+                            window.axoScrubber.activate(axoSeq);
+                            return; // Done — scrubber takes over
+                        }
+                    }
+
                     let targetSrc = '';
                     if (mode === '2d-plan') targetSrc = planImg.getAttribute('data-link2d');
                     else if (mode === '3d-plan') targetSrc = planImg.getAttribute('data-link3d');
@@ -423,6 +488,7 @@
                             if (label) label.textContent = 'in progress';
                         }
                         planImg.classList.remove('loaded');
+                        planImg.style.display = 'block';
                         
                         const preload = new Image();
                         preload.onload = () => {
@@ -441,7 +507,6 @@
                         };
                         
                         console.log(`[UI] Tab Switch Starting preload for: ${targetSrc}`);
-                        // Append timestamp just in case
                         preload.src = targetSrc + '?t=' + new Date().getTime();
                     } else {
                         console.log(`[UI] targetSrc is empty for mode: ${mode}, hiding loader.`);

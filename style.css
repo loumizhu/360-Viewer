@@ -1138,10 +1138,11 @@ body {
 }
 
 .plan-image-viewer {
+    position: relative;            /* anchor for .zoom-controls position:absolute */
     flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: stretch;          /* make #plan-image-viewport fill full height */
+    justify-content: stretch;
     background: rgba(0, 0, 0, 0.3);
     border-radius: var(--ui-border-radius-lg);
     overflow: hidden;
@@ -2306,6 +2307,7 @@ body {
 }
 
 #plan-image-viewport {
+    position: relative;            /* anchor for axo-scrubber-container's absolute positioning */
     width: 100%;
     height: 100%;
     display: flex;
@@ -2533,5 +2535,162 @@ body {
 }
 
 .gallery-thumb.active img {
+    opacity: 1;
+}
+
+/* ============================================================
+   AXONOMETRIC SCRUB IMAGE VIEWER
+   ============================================================ */
+
+/* Fill the entire #plan-image-viewport — same approach as #plan-image */
+.axo-scrubber-container {
+    position: absolute;
+    inset: 0;                          /* top/right/bottom/left: 0 */
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: hidden;
+    background: transparent;
+    cursor: ew-resize;
+    user-select: none;
+    -webkit-user-select: none;
+    z-index: 1;                        /* above #plan-image, below loader overlay */
+}
+
+/* While dragging, use the grabbing variant */
+.axo-scrubber-container.axo-dragging {
+    cursor: grabbing;
+}
+
+/* The image fills the entire container.
+   ImagePanZoom applies CSS transform (translate + scale) with transform-origin 0 0
+   directly on this element — same as it does for #plan-image. */
+#axo-scrubber-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    pointer-events: none;        /* drag falls through to container */
+    transform-origin: 0 0;       /* matches ImagePanZoom.applyTransform() */
+    will-change: transform;
+}
+
+/* ── Progress bar (thin strip at the bottom) ── */
+.axo-scrubber-progress-track {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0 0 var(--ui-border-radius-md) var(--ui-border-radius-md);
+    overflow: hidden;
+}
+
+.axo-scrubber-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--ui-primary-400, #4fa3ff), var(--ui-primary-600, #006feb));
+    border-radius: 2px;
+    transition: width 0.05s linear;
+    box-shadow: 0 0 8px rgba(79, 163, 255, 0.7);
+}
+
+/* ── Frame counter label ── */
+.axo-scrubber-label {
+    position: absolute;
+    bottom: 10px;
+    right: 14px;
+    font-size: 11px;
+    font-family: var(--ui-font-family, system-ui, sans-serif);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Drag-hint overlay ── */
+.axo-scrubber-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 50px;
+    padding: 10px 22px;
+    pointer-events: none;
+    opacity: 1;
+    transition: opacity 0.8s ease;
+    z-index: 5;
+}
+
+.axo-scrubber-hint.axo-hint-fade {
+    opacity: 0;
+}
+
+.axo-hint-arrow {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1;
+}
+
+.axo-hint-text {
+    font-size: 13px;
+    font-family: var(--ui-font-family, system-ui, sans-serif);
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* Left / Right cursor-arrows overlaid on hover (decorative) */
+.axo-scrubber-container::before,
+.axo-scrubber-container::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 4;
+}
+
+.axo-scrubber-container::before {
+    left: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M11 3.5L5.5 8 11 12.5V3.5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 16px;
+}
+
+.axo-scrubber-container::after {
+    right: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M5 3.5L10.5 8 5 12.5V3.5z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 16px;
+}
+
+.axo-scrubber-container:hover::before,
+.axo-scrubber-container:hover::after {
     opacity: 1;
 }
