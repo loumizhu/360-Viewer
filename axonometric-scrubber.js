@@ -169,6 +169,8 @@
         const loader  = document.getElementById('image-loader-overlay');
         if (planImg) planImg.style.display = 'none';
         if (loader)  loader.classList.add('hidden');
+        const galleryStrip = document.getElementById('photo-gallery-strip');
+        if (galleryStrip) galleryStrip.classList.add('hidden');
     }
 
     function _refreshHint() {

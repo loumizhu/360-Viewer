@@ -381,6 +381,8 @@
                 console.log(`[Axo] Activating scrubber with ${axoSequenceImages.length} frames for ${uNum}`);
                 const loader = document.getElementById('image-loader-overlay');
                 if (loader) loader.classList.add('hidden');
+                const galleryStrip = document.getElementById('photo-gallery-strip');
+                if (galleryStrip) galleryStrip.classList.add('hidden');
                 if (window.axoScrubber) window.axoScrubber.activate(axoSequenceImages);
             } else if (targetSrc) {
                 // Show loader
@@ -463,6 +465,8 @@
                             // Sequence mode → activate scrubber
                             console.log(`[Axo] Tab switch to 3D-plan: activating scrubber (${axoSeq.length} frames)`);
                             if (loader) loader.classList.add('hidden');
+                            const galleryStrip = document.getElementById('photo-gallery-strip');
+                            if (galleryStrip) galleryStrip.classList.add('hidden');
                             window.axoScrubber.activate(axoSeq);
                             return; // Done — scrubber takes over
                         }
