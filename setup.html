@@ -274,12 +274,33 @@
             border: 1px solid var(--ui-border-color);
             color: var(--ui-text-secondary);
             font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-block;
+        }
+
+        .extra-chip:hover {
+            border-color: var(--ui-primary-400);
+            color: var(--ui-text-primary);
+            transform: scale(1.05);
         }
 
         .extra-chip.active {
             border-color: var(--ui-primary-500);
             color: var(--ui-primary-400);
             background: rgba(0, 111, 238, 0.1);
+        }
+
+        .extra-chip.active:hover {
+            background: rgba(0, 111, 238, 0.2);
+            color: var(--ui-primary-300);
+        }
+
+        .glow-highlight {
+            background: rgba(0, 111, 238, 0.08) !important;
+            box-shadow: inset 0 0 12px rgba(0, 111, 238, 0.15);
+            border-left: 1px solid rgba(0, 111, 238, 0.3) !important;
+            border-right: 1px solid rgba(0, 111, 238, 0.3) !important;
         }
 
         .build-section {
@@ -589,6 +610,48 @@
             background: rgba(0, 0, 0, 0.5);
             color: white;
         }
+
+        /* Audit Dashboard Premium Styling */
+        .audit-row-trigger {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .audit-row-trigger:hover {
+            background: rgba(0, 111, 238, 0.05) !important;
+        }
+        .audit-detail-row {
+            background: rgba(0, 0, 0, 0.2) !important;
+        }
+        .audit-detail-box {
+            padding: var(--ui-spacing-lg);
+            border-top: 1px solid var(--ui-border-color);
+            border-bottom: 1px solid var(--ui-border-color);
+            animation: fadeInDetail 0.2s ease-out;
+        }
+        @keyframes fadeInDetail {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .badge-status-complete {
+            background: rgba(0, 200, 81, 0.12) !important;
+            color: #00C851 !important;
+            border: 1px solid rgba(0, 200, 81, 0.25) !important;
+        }
+        .badge-status-missing-local {
+            background: rgba(255, 68, 68, 0.12) !important;
+            color: #FF4444 !important;
+            border: 1px solid rgba(255, 68, 68, 0.25) !important;
+        }
+        .badge-status-partial {
+            background: rgba(255, 187, 51, 0.12) !important;
+            color: #FFBB33 !important;
+            border: 1px solid rgba(255, 187, 51, 0.25) !important;
+        }
+        .badge-status-mismatch {
+            background: rgba(170, 102, 204, 0.12) !important;
+            color: #BB86FC !important;
+            border: 1px solid rgba(170, 102, 204, 0.25) !important;
+        }
     </style>
 </head>
 
@@ -637,6 +700,138 @@
                         <thead></thead>
                         <tbody></tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project Asset Audit Modal -->
+    <div id="audit-modal" class="modal">
+        <div class="modal-content" style="max-width: 1350px; height: 92vh; margin: 4vh auto;">
+            <div class="modal-header">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <h2 style="color:var(--ui-text-primary); margin:0; display: flex; align-items: center; gap: 10px;">
+                        <span>🔍 Project Asset Audit Dashboard</span> 
+                        <span id="audit-client-tag" style="background: rgba(0, 111, 238, 0.15); color: var(--ui-primary-400); border: 1px solid rgba(0, 111, 238, 0.3); font-size: 13px; padding: 2px 10px; border-radius: 99px; font-weight: 600;">CLTXXXXXX</span>
+                    </h2>
+                    <p style="margin: 0; font-size: 13px; color: var(--ui-text-secondary);">Cross-referencing database records with physical files to verify full integrity.</p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="control-btn" id="btn-copy-report" onclick="copyAuditReport()">📋 Copy Report</button>
+                    <button class="control-btn" id="btn-export-report" onclick="exportAuditReport()">📥 Export JSON</button>
+                    <button class="close-btn" onclick="closeAuditModal()">&times;</button>
+                </div>
+            </div>
+            
+            <div class="modal-body" style="display: flex; flex-direction: column; gap: 20px;">
+                <!-- Loading Spinner / Indicator -->
+                <div id="audit-loading" class="spinner" style="margin: 40px auto; display: none;"></div>
+                
+                <!-- Main Audit Container -->
+                <div id="audit-dashboard-container" style="display: none; flex-direction: column; gap: 20px; height: 100%;">
+                    
+                    <!-- Overview Summary Panel -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px;">
+                        
+                        <!-- Total Units -->
+                        <div onclick="filterAuditTable('all')" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--ui-border-color); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255, 255, 255, 0.06)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.02)'">
+                            <span style="font-size: 11px; color: var(--ui-text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Total Audited Units</span>
+                            <span id="audit-stat-total" style="font-size: 28px; font-weight: 800; color: var(--ui-text-primary);">0</span>
+                            <span style="font-size: 11px; color: var(--ui-text-disabled);">Combined DB & Folder scan</span>
+                        </div>
+                        
+                        <!-- Fully Complete -->
+                        <div onclick="filterAuditTable('complete')" style="background: rgba(0, 200, 81, 0.03); border: 1px solid rgba(0, 200, 81, 0.2); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(0, 200, 81, 0.08)'" onmouseout="this.style.background='rgba(0, 200, 81, 0.03)'">
+                            <span style="font-size: 11px; color: #00C851; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">✅ Fully Complete Units</span>
+                            <span id="audit-stat-complete" style="font-size: 28px; font-weight: 800; color: #00C851;">0</span>
+                            <span style="font-size: 11px; color: var(--ui-text-disabled);">All local assets found</span>
+                        </div>
+                        
+                        <!-- Incomplete -->
+                        <div onclick="filterAuditTable('incomplete')" style="background: rgba(255, 68, 68, 0.03); border: 1px solid rgba(255, 68, 68, 0.2); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255, 68, 68, 0.08)'" onmouseout="this.style.background='rgba(255, 68, 68, 0.03)'">
+                            <span style="font-size: 11px; color: #FF4444; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">⚠️ Missing Local Assets</span>
+                            <span id="audit-stat-missing" style="font-size: 28px; font-weight: 800; color: #FF4444;">0</span>
+                            <span style="font-size: 11px; color: var(--ui-text-disabled);">Missing 2D/3D/Photos</span>
+                        </div>
+                        
+                        <!-- Mismatches -->
+                        <div onclick="filterAuditTable('mismatch')" style="background: rgba(255, 187, 51, 0.03); border: 1px solid rgba(255, 187, 51, 0.2); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255, 187, 51, 0.08)'" onmouseout="this.style.background='rgba(255, 187, 51, 0.03)'">
+                            <span style="font-size: 11px; color: #FFBB33; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">❓ Mismatch Anomalies</span>
+                            <span id="audit-stat-mismatch" style="font-size: 28px; font-weight: 800; color: #FFBB33;">0</span>
+                            <span id="audit-stat-mismatch-sub" style="font-size: 11px; color: var(--ui-text-disabled);">DB or Folder only</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Core Configuration Checks -->
+                    <div style="display: flex; gap: 15px; background: rgba(255, 255, 255, 0.01); border: 1px solid var(--ui-border-color); border-radius: 8px; padding: 12px 18px; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+                        <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                            <span style="font-size: 12px; font-weight: 700; color: var(--ui-text-secondary); text-transform: uppercase;">Config Files Check:</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 13px; color: var(--ui-text-primary);">image-manifest.json</span>
+                                <span id="audit-badge-manifest" class="status-badge status-neutral">CHECKING</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 13px; color: var(--ui-text-primary);">settings.json</span>
+                                <span id="audit-badge-settings" class="status-badge status-neutral">CHECKING</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 13px; color: var(--ui-text-primary);">3D Model (.glb)</span>
+                                <span id="audit-badge-model3d" class="status-badge status-neutral">CHECKING</span>
+                            </div>
+                        </div>
+                        <span id="audit-config-desc" style="font-size: 12px; color: var(--ui-text-disabled); font-family: monospace;">CLTXXXXXX/3D/model.glb</span>
+                    </div>
+
+                    <!-- 3D Rotation Images Deep Audit Box -->
+                    <div id="audit-3d-rotation-alert" style="display: none; background: rgba(255, 68, 68, 0.05); border: 1px solid rgba(255, 68, 68, 0.25); border-radius: 8px; padding: 15px; flex-direction: column; gap: 8px;">
+                        <span style="font-weight: 700; color: #FF4444; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                            ⚠️ 3D Rotation Frame Integrity Alert
+                        </span>
+                        <p style="margin: 0; font-size: 12px; color: var(--ui-text-secondary); line-height: 1.4;">
+                            The main 3D Rotation feature relies on a continuous sequence of frame images. We cross-referenced <strong>image-manifest.json</strong> with the files physically present in your <code>3D-Images</code> folders. The following referenced frames were not found on disk:
+                        </p>
+                        <div id="audit-3d-rotation-gaps" style="background: rgba(0, 0, 0, 0.25); border-radius: 6px; padding: 12px; font-family: monospace; font-size: 11px; max-height: 110px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;">
+                            <!-- Populated with missing frames -->
+                        </div>
+                    </div>
+                    
+                    <!-- Search & Filter Controls -->
+                    <div style="display: flex; justify-content: space-between; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <!-- Filter Tabs -->
+                        <div style="display: flex; gap: 6px; background: rgba(0, 0, 0, 0.3); padding: 4px; border-radius: 8px; border: 1px solid var(--ui-border-color); flex-wrap: wrap;">
+                            <button id="tab-audit-all" class="control-btn" style="border:none; margin:0; background:var(--ui-primary-500); padding: 6px 14px; font-size: 12px; border-radius: 6px; color: white;" onclick="filterAuditTable('all')">All Units</button>
+                            <button id="tab-audit-incomplete" class="control-btn" style="border:none; margin:0; background:transparent; padding: 6px 14px; font-size: 12px; border-radius: 6px; color: var(--ui-text-secondary);" onclick="filterAuditTable('incomplete')">⚠️ Missing Any</button>
+                            <button id="tab-audit-incomplete-2d" class="control-btn" style="border:none; margin:0; background:transparent; padding: 6px 14px; font-size: 12px; border-radius: 6px; color: var(--ui-text-secondary);" onclick="filterAuditTable('incomplete-2d')">🖼️ Missing 2D</button>
+                            <button id="tab-audit-incomplete-3d" class="control-btn" style="border:none; margin:0; background:transparent; padding: 6px 14px; font-size: 12px; border-radius: 6px; color: var(--ui-text-secondary);" onclick="filterAuditTable('incomplete-3d')">📐 Missing 3D</button>
+                            <button id="tab-audit-incomplete-photos" class="control-btn" style="border:none; margin:0; background:transparent; padding: 6px 14px; font-size: 12px; border-radius: 6px; color: var(--ui-text-secondary);" onclick="filterAuditTable('incomplete-photos')">📸 Missing Photos</button>
+                            <button id="tab-audit-mismatches" class="control-btn" style="border:none; margin:0; background:transparent; padding: 6px 14px; font-size: 12px; border-radius: 6px; color: var(--ui-text-secondary);" onclick="filterAuditTable('mismatch')">🗄️ DB Mismatches</button>
+                        </div>
+                        
+                        <!-- Search Bar -->
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <span style="position: absolute; left: 10px; color: var(--ui-text-disabled); font-size: 12px;">🔍</span>
+                            <input id="audit-search-input" type="text" placeholder="Search Unit Number..." style="background: rgba(0,0,0,0.3); border: 1px solid var(--ui-border-color); border-radius: 6px; padding: 6px 10px 6px 28px; color: white; font-size: 13px; width: 220px; outline: none; transition: border-color 0.2s;" oninput="onAuditSearch()">
+                        </div>
+                    </div>
+                    
+                    <!-- Audit Table View -->
+                    <div style="flex: 1; overflow: auto; border: 1px solid var(--ui-border-color); border-radius: 8px;">
+                        <table class="db-table" style="font-size: 13px;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 140px;" id="col-header-unit">Unit ID</th>
+                                    <th style="width: 180px;" id="col-header-2d">2D Plan</th>
+                                    <th style="width: 260px;" id="col-header-3d">3D Plan / Sequence</th>
+                                    <th style="width: 180px;" id="col-header-photos">Photos Gallery</th>
+                                    <th id="col-header-verdict">Audit Status Verdict</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
                 </div>
             </div>
         </div>
@@ -782,12 +977,18 @@
                 </div>
                 
                 <div class="extras-section">
-                    ${renderOptionalChip('2D Plans', client.features['2D-Plans'])}
-                    ${renderOptionalChip('3D Plans', client.features['3D-Plans'])}
-                    ${renderOptionalChip('Photos', client.features['Photos'])}
-                    ${renderOptionalChip('Visit', client.features['Virtual Visit'])}
-                    ${renderOptionalChip('Location', client.features['Location'])}
-                    ${renderOptionalChip('Contact', client.features['Contact'])}
+                    ${renderOptionalChip('2D Plans', client.features['2D-Plans'], client.id)}
+                    ${renderOptionalChip('3D Plans', client.features['3D-Plans'], client.id)}
+                    ${renderOptionalChip('Photos', client.features['Photos'], client.id)}
+                    ${renderOptionalChip('Visit', client.features['Virtual Visit'], client.id)}
+                    ${renderOptionalChip('Location', client.features['Location'], client.id)}
+                    ${renderOptionalChip('Contact', client.features['Contact'], client.id)}
+                </div>
+                
+                <div class="build-section">
+                    <button class="launch-btn" style="background: var(--ui-primary-600); width: 100%; justify-content: center; font-weight: 600;" onclick="openAuditModal('${client.id}')">
+                        🔍 Audit Assets & Units
+                    </button>
                 </div>
             `;
 
@@ -795,7 +996,15 @@
             });
         }
 
-        function renderOptionalChip(label, isActive) {
+        function renderOptionalChip(label, isActive, clientID) {
+            let assetType = '';
+            if (label === '2D Plans') assetType = '2d';
+            else if (label === '3D Plans') assetType = '3d';
+            else if (label === 'Photos') assetType = 'photos';
+            
+            if (assetType && clientID) {
+                return `<button class="extra-chip ${isActive ? 'active' : ''}" onclick="openAuditModalWithFilter('${clientID}', '${assetType}')">${label}</button>`;
+            }
             return `<span class="extra-chip ${isActive ? 'active' : ''}">${label}</span>`;
         }
 
@@ -899,8 +1108,12 @@
 
         // Close on click outside
         window.onclick = function (event) {
+            const dbModal = document.getElementById('db-modal');
+            const auditModal = document.getElementById('audit-modal');
             if (event.target == dbModal) {
                 closeDbModal();
+            } else if (event.target == auditModal) {
+                closeAuditModal();
             }
         }
 
@@ -1118,6 +1331,820 @@
                 cellElement.style.color = '#FF4444'; // Error red
                 showToast(err.message, 'error');
             }
+        }
+
+        // ==========================================
+        // PROJECT ASSET AUDIT DASHBOARD LOGIC
+        // ==========================================
+        let currentClientID = null;
+        let auditData = [];
+        let currentFilterMode = 'all';
+
+        function naturalSort(a, b) {
+            return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        function openAuditModal(clientID) {
+            openAuditModalWithFilter(clientID, 'all');
+        }
+
+        function openAuditModalWithFilter(clientID, assetType) {
+            currentClientID = clientID;
+            const modal = document.getElementById('audit-modal');
+            modal.style.display = 'block';
+            
+            document.getElementById('audit-client-tag').textContent = clientID;
+            document.getElementById('audit-search-input').value = '';
+            
+            document.getElementById('audit-loading').style.display = 'block';
+            document.getElementById('audit-dashboard-container').style.display = 'none';
+            
+            // Map assetType to filter modes
+            let filterMode = 'all';
+            if (assetType === '2d') filterMode = 'incomplete-2d';
+            else if (assetType === '3d') filterMode = 'incomplete-3d';
+            else if (assetType === 'photos') filterMode = 'incomplete-photos';
+            
+            currentFilterMode = filterMode;
+            
+            // Set the tab button highlight styles immediately
+            const buttons = {
+                'all': document.getElementById('tab-audit-all'),
+                'incomplete': document.getElementById('tab-audit-incomplete'),
+                'incomplete-2d': document.getElementById('tab-audit-incomplete-2d'),
+                'incomplete-3d': document.getElementById('tab-audit-incomplete-3d'),
+                'incomplete-photos': document.getElementById('tab-audit-incomplete-photos'),
+                'mismatch': document.getElementById('tab-audit-mismatches')
+            };
+            
+            Object.keys(buttons).forEach(key => {
+                const btn = buttons[key];
+                if (!btn) return;
+                if (key === filterMode) {
+                    btn.style.background = 'var(--ui-primary-500)';
+                    btn.style.color = 'white';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'var(--ui-text-secondary)';
+                }
+            });
+            
+            runUnitAudit(clientID);
+        }
+
+        function closeAuditModal() {
+            const modal = document.getElementById('audit-modal');
+            modal.style.display = 'none';
+            currentClientID = null;
+            auditData = [];
+        }
+
+        async function runUnitAudit(clientID) {
+            const tableBody = document.getElementById('audit-table-body');
+            tableBody.innerHTML = '';
+            
+            try {
+                const unitColumn = await window.db.resolveUnitColumn();
+                console.log('[Audit] Using unit column:', unitColumn);
+                
+                let dbUnits = [];
+                try {
+                    const allUnits = await window.db.fetchUnits();
+                    dbUnits = allUnits.filter(u => {
+                        const cid = String(u.ClientID || u.client_id || '').trim();
+                        return cid.toLowerCase() === clientID.toLowerCase();
+                    });
+                    console.log(`[Audit] Found ${dbUnits.length} database units for client ${clientID}`);
+                } catch (dbErr) {
+                    console.error('[Audit] Failed to fetch database units:', dbErr);
+                    showToast('Supabase connection failed. Displaying folder-only audit.', 'error');
+                }
+                
+                const response = await fetch('/api/audit-client-assets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clientID })
+                });
+                
+                if (!response.ok) throw new Error('Failed to fetch local assets audit');
+                const resData = await response.json();
+                if (!resData.success) throw new Error(resData.message || 'Audit backend failed');
+                
+                const report = resData.report;
+                console.log('[Audit] Filesystem report:', report);
+                
+                updateConfigBadges(report, clientID);
+                
+                // Handle 3D Rotation images deep audit warning box
+                const alertEl = document.getElementById('audit-3d-rotation-alert');
+                const gapsEl = document.getElementById('audit-3d-rotation-gaps');
+                
+                if (report.images3d && report.images3d.has_gaps) {
+                    alertEl.style.display = 'flex';
+                    gapsEl.innerHTML = '';
+                    
+                    if (report.images3d.missing_light.length > 0) {
+                        const lightTitle = document.createElement('div');
+                        lightTitle.style.fontWeight = 'bold';
+                        lightTitle.style.color = '#FF8800';
+                        lightTitle.style.marginBottom = '4px';
+                        lightTitle.textContent = 'Missing Light resolution frames (total: ' + report.images3d.missing_light.length + '):';
+                        gapsEl.appendChild(lightTitle);
+                        
+                        report.images3d.missing_light.forEach(rel_p => {
+                            const item = document.createElement('div');
+                            item.style.color = '#FF4444';
+                            item.style.paddingLeft = '15px';
+                            item.innerHTML = `❌ Missing: <code>${rel_p}</code>`;
+                            gapsEl.appendChild(item);
+                        });
+                    }
+                    
+                    if (report.images3d.missing_full.length > 0) {
+                        const fullTitle = document.createElement('div');
+                        fullTitle.style.fontWeight = 'bold';
+                        fullTitle.style.color = '#FF8800';
+                        fullTitle.style.marginTop = '6px';
+                        fullTitle.style.marginBottom = '4px';
+                        fullTitle.textContent = 'Missing Full resolution frames (total: ' + report.images3d.missing_full.length + '):';
+                        gapsEl.appendChild(fullTitle);
+                        
+                        report.images3d.missing_full.forEach(rel_p => {
+                            const item = document.createElement('div');
+                            item.style.color = '#FF4444';
+                            item.style.paddingLeft = '15px';
+                            item.innerHTML = `❌ Missing: <code>${rel_p}</code>`;
+                            gapsEl.appendChild(item);
+                        });
+                    }
+                } else if (report.images3d && report.images3d.manifest_errors.length > 0) {
+                    alertEl.style.display = 'flex';
+                    gapsEl.innerHTML = `<span style="color:#FF4444; font-weight:700;">Manifest Read Error:</span><br>` + 
+                        report.images3d.manifest_errors.map(err => `<code style="color:#FF4444;">${err}</code>`).join('<br>');
+                } else {
+                    alertEl.style.display = 'none';
+                    gapsEl.innerHTML = '';
+                }
+                
+                // Keep a reference to the latest raw images3d audit on current report
+                window.latestImages3dReport = report.images3d;
+                
+                const uniqueUnitNums = new Set();
+                dbUnits.forEach(u => {
+                    const val = u[unitColumn];
+                    if (val) uniqueUnitNums.add(String(val).trim());
+                });
+                
+                Object.keys(report.plans2d).forEach(k => uniqueUnitNums.add(k));
+                Object.keys(report.axonometrics_single).forEach(k => uniqueUnitNums.add(k));
+                Object.keys(report.axonometrics_sequences).forEach(k => uniqueUnitNums.add(k));
+                Object.keys(report.photos).forEach(k => uniqueUnitNums.add(k));
+                
+                const sortedUnitNums = Array.from(uniqueUnitNums).sort(naturalSort);
+                
+                auditData = [];
+                let totalCount = sortedUnitNums.length;
+                let completeCount = 0;
+                let missingCount = 0;
+                let mismatchCount = 0;
+                
+                sortedUnitNums.forEach(unitNum => {
+                    const dbUnit = dbUnits.find(u => String(u[unitColumn] || '').trim() === unitNum);
+                    const plan2d = report.plans2d[unitNum];
+                    const axoSingle = report.axonometrics_single[unitNum];
+                    const axoSeq = report.axonometrics_sequences[unitNum];
+                    const photos = report.photos[unitNum];
+                    
+                    const has2d = !!plan2d;
+                    const has3d = !!(axoSingle || axoSeq);
+                    const hasPhotos = !!photos;
+                    const inDb = !!dbUnit;
+                    const inFolder = has2d || has3d || hasPhotos;
+                    
+                    let status = 'complete';
+                    let verdict = 'COMPLETE';
+                    
+                    if (inDb && inFolder) {
+                        if (has2d && has3d && hasPhotos) {
+                            status = 'complete';
+                            verdict = '✅ COMPLETE';
+                            completeCount++;
+                        } else {
+                            status = 'partial_missing';
+                            verdict = '⚠️ PARTIAL MISSING';
+                            missingCount++;
+                        }
+                    } else if (inDb && !inFolder) {
+                        status = 'mismatch_db_only';
+                        verdict = '❌ FOLDER MISMATCH';
+                        mismatchCount++;
+                    } else if (!inDb && inFolder) {
+                        status = 'mismatch_folder_only';
+                        verdict = '❓ DATABASE MISMATCH';
+                        mismatchCount++;
+                    }
+                    
+                    auditData.push({
+                        unitNum,
+                        dbUnit,
+                        plan2d,
+                        axoSingle,
+                        axoSeq,
+                        photos,
+                        has2d,
+                        has3d,
+                        hasPhotos,
+                        inDb,
+                        inFolder,
+                        status,
+                        verdict
+                    });
+                });
+                
+                document.getElementById('audit-stat-total').textContent = totalCount;
+                document.getElementById('audit-stat-complete').textContent = completeCount;
+                document.getElementById('audit-stat-missing').textContent = missingCount;
+                document.getElementById('audit-stat-mismatch').textContent = mismatchCount;
+                
+                document.getElementById('audit-stat-mismatch-sub').innerHTML = 
+                    `Folder-only: ${auditData.filter(d => d.status === 'mismatch_folder_only').length} | DB-only: ${auditData.filter(d => d.status === 'mismatch_db_only').length}`;
+                    
+                renderAuditTable();
+                
+                document.getElementById('audit-loading').style.display = 'none';
+                document.getElementById('audit-dashboard-container').style.display = 'flex';
+                
+            } catch (error) {
+                console.error('[Audit] Audit running error:', error);
+                showToast('Error executing audit: ' + error.message, 'error');
+                closeAuditModal();
+            }
+        }
+
+        function updateConfigBadges(report, clientID) {
+            const manifestBadge = document.getElementById('audit-badge-manifest');
+            const settingsBadge = document.getElementById('audit-badge-settings');
+            const modelBadge = document.getElementById('audit-badge-model3d');
+            const configDesc = document.getElementById('audit-config-desc');
+            
+            if (report.manifest_json) {
+                manifestBadge.className = 'status-badge status-ok';
+                manifestBadge.textContent = 'FOUND';
+            } else {
+                manifestBadge.className = 'status-badge status-missing';
+                manifestBadge.textContent = 'MISSING';
+            }
+            
+            if (report.settings_json) {
+                settingsBadge.className = 'status-badge status-ok';
+                settingsBadge.textContent = 'FOUND';
+            } else {
+                settingsBadge.className = 'status-badge status-missing';
+                settingsBadge.textContent = 'MISSING';
+            }
+            
+            if (report.model3d && report.model3d.length > 0) {
+                const model = report.model3d[0];
+                modelBadge.className = 'status-badge status-ok';
+                modelBadge.textContent = `FOUND (${formatBytes(model.size)})`;
+                configDesc.textContent = `${clientID}/3D/${model.filename}`;
+            } else {
+                modelBadge.className = 'status-badge status-missing';
+                modelBadge.textContent = 'MISSING';
+                configDesc.textContent = `No model found in ${clientID}/3D/`;
+            }
+        }
+
+        function renderAuditTable() {
+            const tableBody = document.getElementById('audit-table-body');
+            tableBody.innerHTML = '';
+            
+            const searchVal = document.getElementById('audit-search-input').value.toLowerCase().trim();
+            
+            const filteredRows = auditData.filter(row => {
+                if (searchVal && !row.unitNum.toLowerCase().includes(searchVal)) {
+                    return false;
+                }
+                
+                if (currentFilterMode === 'all') {
+                    return true;
+                } else if (currentFilterMode === 'complete') {
+                    return row.status === 'complete';
+                } else if (currentFilterMode === 'incomplete') {
+                    return row.status === 'partial_missing' || row.status === 'mismatch_db_only';
+                } else if (currentFilterMode === 'incomplete-2d') {
+                    return row.has2d === false;
+                } else if (currentFilterMode === 'incomplete-3d') {
+                    return row.has3d === false;
+                } else if (currentFilterMode === 'incomplete-photos') {
+                    return row.hasPhotos === false;
+                } else if (currentFilterMode === 'mismatch') {
+                    return row.status === 'mismatch_folder_only' || row.status === 'mismatch_db_only';
+                }
+                return true;
+            });
+            
+            // Clear glowing highlights from headers
+            const colHeader2d = document.getElementById('col-header-2d');
+            const colHeader3d = document.getElementById('col-header-3d');
+            const colHeaderPhotos = document.getElementById('col-header-photos');
+            
+            if (colHeader2d) colHeader2d.classList.remove('glow-highlight');
+            if (colHeader3d) colHeader3d.classList.remove('glow-highlight');
+            if (colHeaderPhotos) colHeaderPhotos.classList.remove('glow-highlight');
+            
+            // Apply glow highlight to header based on current filter mode
+            if (currentFilterMode === 'incomplete-2d' && colHeader2d) {
+                colHeader2d.classList.add('glow-highlight');
+            } else if (currentFilterMode === 'incomplete-3d' && colHeader3d) {
+                colHeader3d.classList.add('glow-highlight');
+            } else if (currentFilterMode === 'incomplete-photos' && colHeaderPhotos) {
+                colHeaderPhotos.classList.add('glow-highlight');
+            }
+            
+            if (filteredRows.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 30px; color: var(--ui-text-disabled);">No matching units found.</td></tr>`;
+                return;
+            }
+            
+            filteredRows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'audit-row-trigger';
+                tr.id = `audit-row-${row.unitNum}`;
+                tr.setAttribute('onclick', `toggleUnitDetails('${row.unitNum}')`);
+                
+                let plan2dCell = '';
+                if (row.has2d) {
+                    plan2dCell = `<span style="color: #00C851;">✅ Found</span> <span style="font-size: 11px; opacity: 0.6;">(${row.plan2d.filename}, ${formatBytes(row.plan2d.size)})</span>`;
+                } else {
+                    plan2dCell = `<span style="color: #FF4444;">❌ Missing</span> <span style="font-size: 11px; opacity: 0.5; font-family: monospace;">Plan 2D/${row.unitNum}.jpg</span>`;
+                }
+                
+                let plan3dCell = '';
+                if (row.axoSeq) {
+                    plan3dCell = `<span style="color: #00C851;">✅ Scrubber Sequence</span> <span style="font-size: 11px; opacity: 0.6;">(${row.axoSeq.count} frames)</span>`;
+                } else if (row.axoSingle) {
+                    plan3dCell = `<span style="color: #00C851;">✅ Single Image</span> <span style="font-size: 11px; opacity: 0.6;">(${row.axoSingle.filename}, ${formatBytes(row.axoSingle.size)})</span>`;
+                } else {
+                    plan3dCell = `<span style="color: #FF4444;">❌ Missing</span> <span style="font-size: 11px; opacity: 0.5; font-family: monospace;">Axonometrics/${row.unitNum}.jpg</span>`;
+                }
+                
+                let photosCell = '';
+                if (row.hasPhotos) {
+                    photosCell = `<span style="color: #00C851;">✅ Gallery</span> <span style="font-size: 11px; opacity: 0.6;">(${row.photos.count} photos)</span>`;
+                } else {
+                    photosCell = `<span style="color: #FF4444;">❌ Missing</span> <span style="font-size: 11px; opacity: 0.5; font-family: monospace;">Photos/${row.unitNum}/</span>`;
+                }
+                
+                let badgeClass = 'badge-status-complete';
+                if (row.status === 'partial_missing') badgeClass = 'badge-status-partial';
+                else if (row.status === 'mismatch_db_only') badgeClass = 'badge-status-missing-local';
+                else if (row.status === 'mismatch_folder_only') badgeClass = 'badge-status-mismatch';
+                
+                const cell2dGlow = currentFilterMode === 'incomplete-2d' ? ' class="glow-highlight"' : '';
+                const cell3dGlow = currentFilterMode === 'incomplete-3d' ? ' class="glow-highlight"' : '';
+                const cellPhotosGlow = currentFilterMode === 'incomplete-photos' ? ' class="glow-highlight"' : '';
+                
+                tr.innerHTML = `
+                    <td style="font-weight: 700; color: var(--ui-text-primary); display: flex; align-items: center; gap: 8px;">
+                        <span id="audit-arrow-${row.unitNum}" style="display:inline-block; transition: transform 0.2s; font-size:10px;">▶</span>
+                        <span>${row.unitNum}</span>
+                    </td>
+                    <td${cell2dGlow}>${plan2dCell}</td>
+                    <td${cell3dGlow}>${plan3dCell}</td>
+                    <td${cellPhotosGlow}>${photosCell}</td>
+                    <td>
+                        <span class="status-badge ${badgeClass}">${row.verdict}</span>
+                    </td>
+                `;
+                
+                tableBody.appendChild(tr);
+                
+                const detailTr = document.createElement('tr');
+                detailTr.id = `audit-detail-row-${row.unitNum}`;
+                detailTr.className = 'audit-detail-row';
+                detailTr.style.display = 'none';
+                
+                detailTr.innerHTML = `
+                    <td colspan="5" style="padding: 0;">
+                        <div class="audit-detail-box" id="audit-detail-box-${row.unitNum}">
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(detailTr);
+            });
+        }
+
+        function filterAuditTable(mode) {
+            currentFilterMode = mode;
+            
+            const buttons = {
+                'all': document.getElementById('tab-audit-all'),
+                'incomplete': document.getElementById('tab-audit-incomplete'),
+                'incomplete-2d': document.getElementById('tab-audit-incomplete-2d'),
+                'incomplete-3d': document.getElementById('tab-audit-incomplete-3d'),
+                'incomplete-photos': document.getElementById('tab-audit-incomplete-photos'),
+                'mismatch': document.getElementById('tab-audit-mismatches')
+            };
+            
+            Object.keys(buttons).forEach(key => {
+                const btn = buttons[key];
+                if (!btn) return;
+                if (key === mode) {
+                    btn.style.background = 'var(--ui-primary-500)';
+                    btn.style.color = 'white';
+                } else {
+                    btn.style.background = 'transparent';
+                    btn.style.color = 'var(--ui-text-secondary)';
+                }
+            });
+            
+            renderAuditTable();
+        }
+
+        function onAuditSearch() {
+            renderAuditTable();
+        }
+
+        function toggleUnitDetails(unitNum) {
+            const detailRow = document.getElementById(`audit-detail-row-${unitNum}`);
+            const arrow = document.getElementById(`audit-arrow-${unitNum}`);
+            const isCollapsed = detailRow.style.display === 'none';
+            
+            if (isCollapsed) {
+                detailRow.style.display = 'table-row';
+                arrow.style.transform = 'rotate(90deg)';
+                arrow.style.color = 'var(--ui-primary-400)';
+                
+                const box = document.getElementById(`audit-detail-box-${unitNum}`);
+                if (!box.innerHTML.trim()) {
+                    box.innerHTML = renderUnitDetailedInspector(unitNum);
+                }
+            } else {
+                detailRow.style.display = 'none';
+                arrow.style.transform = 'rotate(0deg)';
+                arrow.style.color = '';
+            }
+        }
+
+        function renderUnitDetailedInspector(unitNum) {
+            const row = auditData.find(r => r.unitNum === unitNum);
+            if (!row) return 'Error loading unit details';
+            
+            const clientID = currentClientID;
+            
+            let plan2dHtml = '';
+            if (row.has2d) {
+                plan2dHtml = `
+                    <div style="background: rgba(0, 200, 81, 0.05); border-left: 3px solid #00C851; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 700; color: #00C851;">✅ 2D Plan Found</span>
+                        <span style="font-size: 12px; color: var(--ui-text-primary); font-family: monospace;">File: ${row.plan2d.filename}</span>
+                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/Plan 2D/${row.plan2d.filename}</code></span>
+                        <span style="font-size: 11px; color: var(--ui-text-disabled);">Size: ${formatBytes(row.plan2d.size)}</span>
+                    </div>
+                `;
+            } else {
+                plan2dHtml = `
+                    <div style="background: rgba(255, 68, 68, 0.05); border-left: 3px solid #FF4444; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 700; color: #FF4444;">❌ 2D Plan Missing</span>
+                        <span style="font-size: 12px; color: var(--ui-text-secondary); line-height:1.4;">The 2D plan image is missing for this unit.</span>
+                        <span style="font-size: 11px; color: #FF4444; font-family: monospace; margin-top: 4px;">📂 Expected file at:<br><code>${clientID}/Plan 2D/${unitNum}.jpg</code> (or .png / .webp)</span>
+                    </div>
+                `;
+            }
+            
+            let plan3dHtml = '';
+            if (row.axoSeq) {
+                const firstFrames = row.axoSeq.files.slice(0, 3).join(', ');
+                const suffix = row.axoSeq.files.length > 3 ? '...' : '';
+                plan3dHtml = `
+                    <div style="background: rgba(0, 200, 81, 0.05); border-left: 3px solid #00C851; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 700; color: #00C851;">✅ 3D Plan Found (Axonometric Scrubber Sequence)</span>
+                        <span style="font-size: 12px; color: var(--ui-text-primary); font-family: monospace;">Folder: ${row.axoSeq.folder}/</span>
+                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/Axonometrics/${row.axoSeq.folder}/</code></span>
+                        <span style="font-size: 11px; color: var(--ui-text-disabled);">Frames: ${row.axoSeq.count} images loaded (${firstFrames}${suffix})</span>
+                    </div>
+                `;
+            } else if (row.axoSingle) {
+                plan3dHtml = `
+                    <div style="background: rgba(0, 200, 81, 0.05); border-left: 3px solid #00C851; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 700; color: #00C851;">✅ 3D Plan Found (Single Static Image)</span>
+                        <span style="font-size: 12px; color: var(--ui-text-primary); font-family: monospace;">File: ${row.axoSingle.filename}</span>
+                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/Axonometrics/${row.axoSingle.filename}</code></span>
+                        <span style="font-size: 11px; color: var(--ui-text-disabled);">Size: ${formatBytes(row.axoSingle.size)}</span>
+                    </div>
+                `;
+            } else {
+                plan3dHtml = `
+                    <div style="background: rgba(255, 68, 68, 0.05); border-left: 3px solid #FF4444; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 700; color: #FF4444;">❌ 3D/Axonometric Plan Missing</span>
+                        <span style="font-size: 12px; color: var(--ui-text-secondary); line-height: 1.4;">Missing both static image and rotation sequence.</span>
+                        <span style="font-size: 11px; color: #FF4444; font-family: monospace; margin-top: 4px;">📂 Expected file at:<br><code>${clientID}/Axonometrics/${unitNum}.jpg</code><br>OR Scrubber sequence folder:<br><code>${clientID}/Axonometrics/${unitNum}/</code></span>
+                    </div>
+                `;
+            }
+            
+            let photosHtml = '';
+            if (row.hasPhotos) {
+                const firstPhotos = row.photos.files.slice(0, 3).join(', ');
+                const suffix = row.photos.files.length > 3 ? '...' : '';
+                photosHtml = `
+                    <div style="background: rgba(0, 200, 81, 0.05); border-left: 3px solid #00C851; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 700; color: #00C851;">✅ Photos Gallery Found</span>
+                        <span style="font-size: 12px; color: var(--ui-text-primary); font-family: monospace;">Folder: ${row.photos.folder}/</span>
+                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/Photos/${row.photos.folder}/</code></span>
+                        <span style="font-size: 11px; color: var(--ui-text-disabled);">Files: ${row.photos.count} pictures loaded (${firstPhotos}${suffix})</span>
+                    </div>
+                `;
+            } else {
+                photosHtml = `
+                    <div style="background: rgba(255, 68, 68, 0.05); border-left: 3px solid #FF4444; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-weight: 700; color: #FF4444;">❌ Photos Gallery Missing</span>
+                        <span style="font-size: 12px; color: var(--ui-text-secondary); line-height:1.4;">The photo gallery folder is missing.</span>
+                        <span style="font-size: 11px; color: #FF4444; font-family: monospace; margin-top: 4px;">📂 Expected folder at:<br><code>${clientID}/Photos/${unitNum}/</code></span>
+                    </div>
+                `;
+            }
+            
+            let dbHtml = '';
+            if (row.inDb) {
+                const fieldsToSkip = ['ID', 'ClientID', 'client_id'];
+                let dbFieldsHtml = '';
+                Object.keys(row.dbUnit).forEach(key => {
+                    if (!fieldsToSkip.includes(key) && row.dbUnit[key] !== null) {
+                        dbFieldsHtml += `<div style="font-size: 11px; color: var(--ui-text-secondary); font-family: monospace;"><span style="color: var(--ui-primary-400); font-weight:600;">${key}:</span> ${row.dbUnit[key]}</div>`;
+                    }
+                });
+                
+                dbHtml = `
+                    <div style="background: rgba(0, 111, 238, 0.03); border: 1px solid rgba(0, 111, 238, 0.2); padding: 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 8px; height: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 700; color: var(--ui-primary-400); font-size: 14px;">🗄️ Supabase DB Record</span>
+                            <span class="status-badge badge-status-complete" style="font-size: 10px;">SYNC OK</span>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 120px;">
+                            <div style="font-size: 11px; color: var(--ui-text-primary); font-family: monospace;"><span style="color: var(--ui-primary-400); font-weight:600;">Primary ID:</span> ${row.dbUnit.ID || row.dbUnit.id}</div>
+                            ${dbFieldsHtml}
+                        </div>
+                        <button class="launch-btn" style="background: var(--ui-primary-500); padding: 5px 12px; font-size: 11px; align-self: flex-start; margin-top: auto;" onclick="openDbModal(); event.stopPropagation();">
+                            ✏️ Edit DB Record in Manager
+                        </button>
+                    </div>
+                `;
+            } else {
+                dbHtml = `
+                    <div style="background: rgba(255, 187, 51, 0.03); border: 1px solid rgba(255, 187, 51, 0.2); padding: 15px; border-radius: 6px; display: flex; flex-direction: column; gap: 8px; height: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 700; color: #FFBB33; font-size: 14px;">🗄️ Supabase DB Record</span>
+                            <span class="status-badge badge-status-mismatch" style="font-size: 10px;">DATABASE MISMATCH</span>
+                        </div>
+                        <p style="font-size: 12px; color: var(--ui-text-secondary); margin: 0; line-height: 1.4;">
+                            This unit folder exists in local assets, but there is <strong>no corresponding record</strong> registered in the Supabase database.
+                        </p>
+                        <div style="background: rgba(0, 0, 0, 0.2); padding: 10px; border-radius: 4px; font-size: 11px; color: var(--ui-text-disabled); font-family: monospace;">
+                            To register, add a row in Supabase 'Units' table with:<br>
+                            - <code>Unit Number = ${unitNum}</code><br>
+                            - <code>ClientID = ${clientID}</code>
+                        </div>
+                        <button class="launch-btn" style="background: var(--ui-warning); color: black; padding: 5px 12px; font-size: 11px; align-self: flex-start; font-weight: 700; margin-top: auto;" onclick="openDbModal(); event.stopPropagation();">
+                            🗄️ Open DB Manager to Add
+                        </button>
+                    </div>
+                `;
+            }
+            
+            const missingElements = [];
+            if (!row.has2d) missingElements.push(`Missing 2D plan image at file path <code>${clientID}/Plan 2D/${unitNum}.jpg</code>`);
+            if (!row.has3d) missingElements.push(`Missing 3D/Axonometric plan image/scrubber at <code>${clientID}/Axonometrics/${unitNum}.jpg</code> or folder <code>${clientID}/Axonometrics/${unitNum}/</code>`);
+            if (!row.hasPhotos) missingElements.push(`Missing Photos gallery folder at directory path <code>${clientID}/Photos/${unitNum}/</code>`);
+            if (!row.inDb) missingElements.push(`Missing Supabase database entry in the <code>Units</code> table linked to <code>ClientID = ${clientID}</code>`);
+            
+            let summaryHtml = '';
+            if (missingElements.length === 0) {
+                summaryHtml = `
+                    <div style="background: rgba(0, 200, 81, 0.05); border: 1px solid rgba(0, 200, 81, 0.2); border-radius: 6px; padding: 12px 15px; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 18px;">🌟</span>
+                        <span style="font-size: 13px; font-weight: 600; color: #00C851;">Asset Integrity Sync Complete! All physical folders and Supabase records are perfectly present.</span>
+                    </div>
+                `;
+            } else {
+                const items = missingElements.map(el => `<li style="margin-bottom: 4px;">${el}</li>`).join('');
+                summaryHtml = `
+                    <div style="background: rgba(255, 68, 68, 0.03); border: 1px solid rgba(255, 68, 68, 0.2); border-radius: 6px; padding: 12px 15px; display: flex; flex-direction: column; gap: 6px;">
+                        <span style="font-size: 13px; font-weight: 700; color: #FF4444; display: flex; align-items: center; gap: 6px;">
+                            ⚠️ Asset Gaps Report (Incomplete):
+                        </span>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 12px; color: var(--ui-text-primary); line-height: 1.5;">
+                            ${items}
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div style="display: grid; grid-template-columns: 1.8fr 1.2fr; gap: 20px; margin-bottom: 15px;">
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <h4 style="margin: 0; color: var(--ui-text-primary); font-size: 14px; border-bottom: 1px solid var(--ui-border-color); padding-bottom: 6px;">📂 File System Audit (Client Directory: ${clientID})</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            ${plan2dHtml}
+                            ${plan3dHtml}
+                        </div>
+                        <div>
+                            ${photosHtml}
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column;">
+                        <h4 style="margin: 0; color: var(--ui-text-primary); font-size: 14px; border-bottom: 1px solid var(--ui-border-color); padding-bottom: 6px; margin-bottom: 12px;">🗄️ Database Record Verification</h4>
+                        ${dbHtml}
+                    </div>
+                </div>
+                ${summaryHtml}
+            `;
+        }
+
+        function copyAuditReport() {
+            if (!currentClientID || auditData.length === 0) {
+                showToast('No audit data loaded', 'error');
+                return;
+            }
+            
+            const clientID = currentClientID;
+            const now = new Date().toLocaleString();
+            
+            let reportText = `# Project Asset & Sync Audit Report: ${clientID}\n`;
+            reportText += `Generated on: ${now}\n`;
+            reportText += `===============================================\n\n`;
+            
+            const total = auditData.length;
+            const complete = auditData.filter(d => d.status === 'complete').length;
+            const missing = auditData.filter(d => d.status === 'partial_missing').length;
+            const folderOnly = auditData.filter(d => d.status === 'mismatch_folder_only').length;
+            const dbOnly = auditData.filter(d => d.status === 'mismatch_db_only').length;
+            
+            reportText += `## Executive Summary\n`;
+            reportText += `- Total Audited Units: **${total}**\n`;
+            reportText += `- Fully Complete Units: **${complete}** (${Math.round(complete/total*100)}%)\n`;
+            reportText += `- Partial Missing Assets: **${missing}**\n`;
+            reportText += `- Database Mismatches (Folder exists only): **${folderOnly}**\n`;
+            reportText += `- Folder Mismatches (Supabase row exists only): **${dbOnly}**\n\n`;
+            
+            const mBadge = document.getElementById('audit-badge-manifest').textContent;
+            const sBadge = document.getElementById('audit-badge-settings').textContent;
+            const t3Badge = document.getElementById('audit-badge-model3d').textContent;
+            reportText += `## Configuration Files Audit\n`;
+            reportText += `- **image-manifest.json**: ${mBadge}\n`;
+            reportText += `- **settings.json**: ${sBadge}\n`;
+            reportText += `- **3D Model (.glb)**: ${t3Badge}\n\n`;
+            
+            if (window.latestImages3dReport) {
+                const img3d = window.latestImages3dReport;
+                reportText += `## 3D Rotation Images Integrity Audit\n`;
+                if (img3d.manifest_errors && img3d.manifest_errors.length > 0) {
+                    reportText += `⚠️ **Manifest Error**: ${img3d.manifest_errors.join(', ')}\n\n`;
+                } else if (img3d.has_gaps) {
+                    reportText += `⚠️ **Integrity Status**: Gaps detected. Found missing sequence frames listed in image-manifest.json.\n`;
+                    reportText += `- Expected Frames: **${img3d.total_expected}**\n`;
+                    if (img3d.missing_light.length > 0) {
+                        reportText += `- Missing Light Frames (**${img3d.missing_light.length}**):\n`;
+                        img3d.missing_light.forEach(f => reportText += `  - ❌ \`${f}\`\n`);
+                    }
+                    if (img3d.missing_full.length > 0) {
+                        reportText += `- Missing Full Frames (**${img3d.missing_full.length}**):\n`;
+                        img3d.missing_full.forEach(f => reportText += `  - ❌ \`${f}\`\n`);
+                    }
+                    reportText += `\n`;
+                } else {
+                    reportText += `✅ **Integrity Status**: Passed. All expected 3D rotation frames exist on disk.\n`;
+                    reportText += `- Total Expected Frames: **${img3d.total_expected}**\n\n`;
+                }
+            }
+            
+            reportText += `-------------------------------------------------\n\n`;
+            reportText += `## Detailed Missing Elements & Action Plan\n\n`;
+            
+            let missingCount = 0;
+            
+            auditData.forEach(row => {
+                if (row.status === 'complete') return;
+                
+                missingCount++;
+                reportText += `### Unit: ${row.unitNum} [${row.verdict.replace(/^[^\s]+\s+/, '')}]\n`;
+                
+                if (!row.inDb) {
+                    reportText += `  - 🗄️ **Supabase Database**: MISSING RECORD. To fix, insert row into 'Units' table with Unit Number = '${row.unitNum}' and ClientID = '${clientID}'\n`;
+                }
+                
+                if (!row.has2d) {
+                    reportText += `  - 🖼️ **2D Plan**: MISSING. Expected image file at: \`${clientID}/Plan 2D/${row.unitNum}.jpg\` (or .png / .webp)\n`;
+                }
+                
+                if (!row.has3d) {
+                    reportText += `  - 📐 **3D/Axonometric Plan**: MISSING. Expected static file at: \`${clientID}/Axonometrics/${row.unitNum}.jpg\` OR scrubber rotation folder at: \`${clientID}/Axonometrics/${row.unitNum}/\`\n`;
+                }
+                
+                if (!row.hasPhotos) {
+                    reportText += `  - 📸 **Photos Gallery**: MISSING. Expected image files inside folder: \`${clientID}/Photos/${row.unitNum}/\`\n`;
+                }
+                
+                reportText += `\n`;
+            });
+            
+            if (missingCount === 0) {
+                reportText += `✅ **No missing files or mismatches detected! All units are 100% complete and synchronized.**\n`;
+            }
+            
+            navigator.clipboard.writeText(reportText).then(() => {
+                showToast('📋 Detailed Markdown Report copied to clipboard!', 'success');
+            }).catch(err => {
+                console.error('Clipboard copy failed:', err);
+                showToast('Failed to copy report to clipboard', 'error');
+            });
+        }
+
+        function exportAuditReport() {
+            if (!currentClientID || auditData.length === 0) {
+                showToast('No audit data to export', 'error');
+                return;
+            }
+            
+            const clientID = currentClientID;
+            const exportObj = {
+                clientID,
+                generatedAt: new Date().toISOString(),
+                summary: {
+                    totalUnits: auditData.length,
+                    completeCount: auditData.filter(d => d.status === 'complete').length,
+                    partialMissingCount: auditData.filter(d => d.status === 'partial_missing').length,
+                    mismatchFolderOnlyCount: auditData.filter(d => d.status === 'mismatch_folder_only').length,
+                    mismatchDbOnlyCount: auditData.filter(d => d.status === 'mismatch_db_only').length
+                },
+                configs: {
+                    manifestExists: document.getElementById('audit-badge-manifest').textContent === 'FOUND',
+                    settingsExists: document.getElementById('audit-badge-settings').textContent === 'FOUND',
+                    modelStatus: document.getElementById('audit-badge-model3d').textContent
+                },
+                images3d: window.latestImages3dReport || null,
+                units: auditData.map(row => ({
+                    unitNumber: row.unitNum,
+                    status: row.status,
+                    verdict: row.verdict,
+                    inDatabase: row.inDb,
+                    databaseDetails: row.dbUnit ? {
+                        id: row.dbUnit.ID || row.dbUnit.id,
+                        price: row.dbUnit.Price || row.dbUnit.price || null,
+                        status: row.dbUnit.Status || row.dbUnit.status || null,
+                        type: row.dbUnit.Type || row.dbUnit.type || null
+                    } : null,
+                    assets: {
+                        plan2d: row.has2d ? {
+                            found: true,
+                            filename: row.plan2d.filename,
+                            sizeBytes: row.plan2d.size
+                        } : { found: false, expectedPath: `${clientID}/Plan 2D/${row.unitNum}.jpg` },
+                        axonometric: row.axoSeq ? {
+                            found: true,
+                            type: 'scrubber_sequence',
+                            folder: row.axoSeq.folder,
+                            frameCount: row.axoSeq.count
+                        } : (row.axoSingle ? {
+                            found: true,
+                            type: 'single_image',
+                            filename: row.axoSingle.filename,
+                            sizeBytes: row.axoSingle.size
+                        } : {
+                            found: false,
+                            expectedPath: `${clientID}/Axonometrics/${row.unitNum}.jpg`
+                        }),
+                        photos: row.hasPhotos ? {
+                            found: true,
+                            folder: row.photos.folder,
+                            photoCount: row.photos.count
+                        } : {
+                            found: false,
+                            expectedPath: `${clientID}/Photos/${row.unitNum}/`
+                        }
+                    }
+                }))
+            };
+            
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `audit_report_${clientID}_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('📥 JSON Audit Report downloaded!', 'success');
         }
 
         document.addEventListener('DOMContentLoaded', () => {

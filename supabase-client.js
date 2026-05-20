@@ -127,5 +127,7 @@ async function getUnitDetails(unitId) {
 window.db = {
     client: supabaseClient,
     fetchUnits: fetchUnitsFromDatabase,
-    getUnitDetails: getUnitDetails
+    getUnitDetails: getUnitDetails,
+    resolveUnitColumn: resolveUnitColumn
 };
+

@@ -160,6 +160,148 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(500, f"Error: {str(e)}")
             return
 
+        if self.path == '/api/audit-client-assets':
+            try:
+                content_length = int(self.headers['Content-Length'])
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+                client_id = data.get('clientID')
+                
+                if not client_id:
+                    raise ValueError("Missing clientID")
+                
+                root_dir = os.getcwd()
+                client_path = os.path.join(root_dir, client_id)
+                
+                if not os.path.exists(client_path) or not os.path.isdir(client_path):
+                    raise ValueError(f"Client directory {client_id} not found")
+                
+                report = {
+                    'plans2d': {},
+                    'axonometrics_single': {},
+                    'axonometrics_sequences': {},
+                    'photos': {},
+                    'model3d': [],
+                    'settings_json': os.path.exists(os.path.join(client_path, 'settings.json')),
+                    'manifest_json': os.path.exists(os.path.join(client_path, 'image-manifest.json'))
+                }
+                
+                image_extensions = ('.jpg', '.jpeg', '.png', '.webp')
+                
+                # Helper for natural sorting (handles numerical suffixes correctly)
+                import re
+                def natural_sort_key(s):
+                    return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
+                
+                # 1. Audit Plan 2D
+                plan2d_dir = os.path.join(client_path, 'Plan 2D')
+                if os.path.exists(plan2d_dir) and os.path.isdir(plan2d_dir):
+                    for f in os.listdir(plan2d_dir):
+                        f_path = os.path.join(plan2d_dir, f)
+                        if os.path.isfile(f_path) and f.lower().endswith(image_extensions):
+                            stem = os.path.splitext(f)[0]
+                            report['plans2d'][stem] = {
+                                'filename': f,
+                                'size': os.path.getsize(f_path)
+                            }
+                
+                # 2. Audit Axonometrics
+                axo_dir = os.path.join(client_path, 'Axonometrics')
+                if os.path.exists(axo_dir) and os.path.isdir(axo_dir):
+                    for item in os.listdir(axo_dir):
+                        item_path = os.path.join(axo_dir, item)
+                        if os.path.isfile(item_path) and item.lower().endswith(image_extensions):
+                            stem = os.path.splitext(item)[0]
+                            report['axonometrics_single'][stem] = {
+                                'filename': item,
+                                'size': os.path.getsize(item_path)
+                            }
+                        elif os.path.isdir(item_path) and item not in ['old', 'temp', 'Template']:
+                            # List sequence frames
+                            frames = [f for f in os.listdir(item_path) 
+                                      if os.path.isfile(os.path.join(item_path, f)) and f.lower().endswith(image_extensions)]
+                            frames.sort(key=natural_sort_key)
+                            report['axonometrics_sequences'][item] = {
+                                'folder': item,
+                                'count': len(frames),
+                                'files': frames
+                            }
+                
+                # 3. Audit Photos
+                photos_dir = os.path.join(client_path, 'Photos')
+                if os.path.exists(photos_dir) and os.path.isdir(photos_dir):
+                    for item in os.listdir(photos_dir):
+                        item_path = os.path.join(photos_dir, item)
+                        if os.path.isdir(item_path) and item not in ['old', 'temp', 'Template']:
+                            photos = [f for f in os.listdir(item_path) 
+                                      if os.path.isfile(os.path.join(item_path, f)) and f.lower().endswith(image_extensions)]
+                            photos.sort(key=natural_sort_key)
+                            report['photos'][item] = {
+                                'folder': item,
+                                'count': len(photos),
+                                'files': photos
+                            }
+                
+                # 4. Audit 3D model
+                model_dir = os.path.join(client_path, '3D')
+                if os.path.exists(model_dir) and os.path.isdir(model_dir):
+                    for f in os.listdir(model_dir):
+                        f_path = os.path.join(model_dir, f)
+                        if os.path.isfile(f_path) and f.lower().endswith(('.glb', '.gltf')):
+                            report['model3d'].append({
+                                'filename': f,
+                                'size': os.path.getsize(f_path)
+                            })
+                
+                # 5. Deep Audit 3D Rotation Images Integrity
+                images3d_report = {
+                    'manifest_exists': report['manifest_json'],
+                    'has_gaps': False,
+                    'total_expected': 0,
+                    'missing_light': [],
+                    'missing_full': [],
+                    'manifest_errors': []
+                }
+                
+                if report['manifest_json']:
+                    try:
+                        manifest_path = os.path.join(client_path, 'image-manifest.json')
+                        with open(manifest_path, 'r', encoding='utf-8') as f:
+                            manifest_data = json.load(f)
+                            
+                        light_paths = manifest_data.get('light', [])
+                        full_paths = manifest_data.get('full', [])
+                        
+                        images3d_report['total_expected'] = max(len(light_paths), len(full_paths))
+                        
+                        # Validate light frames
+                        for rel_p in light_paths:
+                            abs_p = os.path.join(root_dir, rel_p.replace('/', os.sep))
+                            if not os.path.exists(abs_p) or not os.path.isfile(abs_p):
+                                images3d_report['missing_light'].append(rel_p)
+                                images3d_report['has_gaps'] = True
+                                
+                        # Validate full frames
+                        for rel_p in full_paths:
+                            abs_p = os.path.join(root_dir, rel_p.replace('/', os.sep))
+                            if not os.path.exists(abs_p) or not os.path.isfile(abs_p):
+                                images3d_report['missing_full'].append(rel_p)
+                                images3d_report['has_gaps'] = True
+                                
+                    except Exception as e:
+                        images3d_report['manifest_errors'].append(str(e))
+                
+                report['images3d'] = images3d_report
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({'success': True, 'report': report}).encode('utf-8'))
+            except Exception as e:
+                print(f"Error auditing client assets: {e}")
+                self.send_error(500, f"Error: {str(e)}")
+            return
+
         if self.path == '/api/scan-clients':
             try:
                 clients = []
@@ -217,17 +359,24 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                         client_data['features']['hasManifest'] = os.path.exists(os.path.join(client_path, 'image-manifest.json'))
                         client_data['features']['hasSettings'] = os.path.exists(os.path.join(client_path, 'settings.json'))
 
-                        # Check Optional Folders
+                        # Check Optional Folders (with folder name mapping fallback)
                         optionals = ['2D-Plans', '3D-Plans', 'Photos', 'Virtual Visit', 'Location', 'Contact']
+                        folder_mappings = {
+                            '2D-Plans': ['Plan 2D', '2D-Plans'],
+                            '3D-Plans': ['Axonometrics', '3D-Plans'],
+                            'Photos': ['Photos', 'Photos-Gallery']
+                        }
                         for opt in optionals:
-                            opt_path = os.path.join(client_path, opt)
-                            # Check if exists and has content (files)
                             has_content = False
-                            if os.path.exists(opt_path) and os.path.isdir(opt_path):
-                                if len(os.listdir(opt_path)) > 0:
-                                    has_content = True
-                            # For files like 'Contact', it might be a file not a folder? User said "folders" but Contact implies info.
-                            # Assuming folders as per request "check other folders if they are there"
+                            folder_names = folder_mappings.get(opt, [opt])
+                            for f_name in folder_names:
+                                opt_path = os.path.join(client_path, f_name)
+                                if os.path.exists(opt_path) and os.path.isdir(opt_path):
+                                    try:
+                                        if len(os.listdir(opt_path)) > 0:
+                                            has_content = True
+                                            break
+                                    except Exception: pass
                             client_data['features'][opt] = has_content
 
                         # Get preview image (first image from 3D-Images)
@@ -320,6 +469,14 @@ def open_browser_delayed(url, delay=2):
     thread.start()
 
 def main():
+    import sys
+    if sys.platform == 'win32':
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stderr.reconfigure(encoding='utf-8')
+        except AttributeError:
+            pass
+            
     # Change to the directory where this script is located
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     
