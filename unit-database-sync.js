@@ -11,13 +11,28 @@
         try {
             // Remove trailing slash for consistency
             const cleanPath = folderPath.replace(/\/$/, '');
-            const response = await fetch(cleanPath + '/?json=1');
+            const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
+            
+            // Format path with repository base path for standard hosting
+            let fetchPath = cleanPath;
+            if (fetchPath.startsWith('/') && !fetchPath.startsWith('http') && !fetchPath.startsWith(repoBase)) {
+                fetchPath = (repoBase + fetchPath).replace(/\/+/g, '/');
+            }
+            
+            const response = await fetch(fetchPath + '/?json=1');
             if (!response.ok) return [];
             const files = await response.json();
-            // Filter for images and sort
+            
+            // Filter for images and sort, ensuring output paths contain repoBase
             const images = files
                 .filter(f => f.type === 'file' && f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i))
-                .map(f => cleanPath + '/' + f.name)
+                .map(f => {
+                    const fullPath = cleanPath + '/' + f.name;
+                    if (fullPath.startsWith('/') && !fullPath.startsWith('http') && !fullPath.startsWith(repoBase)) {
+                        return (repoBase + fullPath).replace(/\/+/g, '/');
+                    }
+                    return fullPath;
+                })
                 .sort();
             return images;
         } catch (e) {
@@ -35,12 +50,28 @@
         if (!folderPath) return [];
         try {
             const cleanPath = folderPath.replace(/\/$/, '');
-            const response = await fetch(cleanPath + '/?json=1');
+            const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
+            
+            // Format path with repository base path for standard hosting
+            let fetchPath = cleanPath;
+            if (fetchPath.startsWith('/') && !fetchPath.startsWith('http') && !fetchPath.startsWith(repoBase)) {
+                fetchPath = (repoBase + fetchPath).replace(/\/+/g, '/');
+            }
+            
+            const response = await fetch(fetchPath + '/?json=1');
             if (!response.ok) return [];
             const files = await response.json();
+            
+            // Ensure output paths contain repoBase
             const images = files
                 .filter(f => f.type === 'file' && f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i))
-                .map(f => cleanPath + '/' + f.name)
+                .map(f => {
+                    const fullPath = cleanPath + '/' + f.name;
+                    if (fullPath.startsWith('/') && !fullPath.startsWith('http') && !fullPath.startsWith(repoBase)) {
+                        return (repoBase + fullPath).replace(/\/+/g, '/');
+                    }
+                    return fullPath;
+                })
                 .sort();
             return images;
         } catch (e) {

@@ -77,10 +77,17 @@ async function resolveWorkingImagePath(originalPath) {
         return imagePathCache.get(originalPath);
     }
 
+    // Prepend repository base path for local/GitHub Pages compatibility
+    const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
+    let path = originalPath;
+    if (path.startsWith('/') && !path.startsWith('http') && !path.startsWith(repoBase)) {
+        path = (repoBase + path).replace(/\/+/g, '/');
+    }
+
     // 2. Try original path first (minimal timeout)
-    if (await testImageExists(originalPath, 600)) {
-        imagePathCache.set(originalPath, originalPath);
-        return originalPath;
+    if (await testImageExists(path, 600)) {
+        imagePathCache.set(originalPath, path);
+        return path;
     }
 
     // 3. Fallback discovery
@@ -96,14 +103,14 @@ async function resolveWorkingImagePath(originalPath) {
         }
     }
     
-    const lastDotIndex = originalPath.lastIndexOf('.');
-    const lastSlashIndex = originalPath.lastIndexOf('/');
-    let basePath = originalPath;
+    const lastDotIndex = path.lastIndexOf('.');
+    const lastSlashIndex = path.lastIndexOf('/');
+    let basePath = path;
     if (lastDotIndex > lastSlashIndex) {
-        basePath = originalPath.substring(0, lastDotIndex);
+        basePath = path.substring(0, lastDotIndex);
     }
 
-    const currentExt = originalPath.substring(lastDotIndex).toLowerCase();
+    const currentExt = path.substring(lastDotIndex).toLowerCase();
 
     for (const ext of orderedExtensions) {
         if (ext.toLowerCase() === currentExt) continue;
