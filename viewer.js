@@ -27,13 +27,116 @@ function getRepoBasePath() {
     return '/';
 }
 
+// --- O(1) IN-MEMORY MANIFEST PATH VERIFICATION ---
+// Global files Set populated from the manifest when loaded to resolve existence checks in O(1)
+let manifestFilesSet = null;
+
+window.updateManifestFilesSet = function() {
+    if (!window.clientManifest) {
+        manifestFilesSet = null;
+        return;
+    }
+    const files = new Set();
+    const addPath = (p) => {
+        if (p) {
+            // Clean path to match relative paths inside manifest (e.g. without leading slash/repoBase)
+            files.add(p.replace(/^\/+/, '').replace(/\/+/g, '/'));
+        }
+    };
+
+    if (window.clientManifest.plans2d) {
+        Object.values(window.clientManifest.plans2d).forEach(addPath);
+    }
+    if (window.clientManifest.plans3d_static) {
+        Object.values(window.clientManifest.plans3d_static).forEach(addPath);
+    }
+    if (window.clientManifest.photos) {
+        Object.values(window.clientManifest.photos).forEach(arr => {
+            if (Array.isArray(arr)) arr.forEach(addPath);
+        });
+    }
+    if (window.clientManifest.axonometrics) {
+        Object.values(window.clientManifest.axonometrics).forEach(arr => {
+            if (Array.isArray(arr)) arr.forEach(addPath);
+        });
+    }
+    if (Array.isArray(window.clientManifest.light)) {
+        window.clientManifest.light.forEach(addPath);
+    }
+    if (Array.isArray(window.clientManifest.full)) {
+        window.clientManifest.full.forEach(addPath);
+    }
+    
+    manifestFilesSet = files;
+    console.log(`[Sync] Rebuilt manifest files Set with ${manifestFilesSet.size} items.`);
+};
+
+function isPathInManifest(path) {
+    if (!window.clientManifest) return null;
+    if (!manifestFilesSet) {
+        window.updateManifestFilesSet();
+    }
+    if (!manifestFilesSet) return null;
+
+    let cleanPath = path;
+
+    // Strip protocol and host if it is an absolute URL
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+        try {
+            const urlObj = new URL(cleanPath);
+            cleanPath = urlObj.pathname;
+        } catch (e) {
+            const doubleSlashIndex = cleanPath.indexOf('//');
+            if (doubleSlashIndex !== -1) {
+                const nextSlashIndex = cleanPath.indexOf('/', doubleSlashIndex + 2);
+                if (nextSlashIndex !== -1) {
+                    cleanPath = cleanPath.substring(nextSlashIndex);
+                }
+            }
+        }
+    }
+
+    const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
+    if (cleanPath.startsWith(repoBase)) {
+        cleanPath = cleanPath.substring(repoBase.length);
+    }
+    cleanPath = cleanPath.replace(/^\/+/, '').replace(/\/+/g, '/');
+
+    // Decode URL encoded characters (like %20 to spaces) to match manifest keys
+    try {
+        cleanPath = decodeURIComponent(cleanPath);
+    } catch (e) {}
+
+    return manifestFilesSet.has(cleanPath);
+}
+
+function isClientAssetPath(path) {
+    // Check if the path contains any client ID pattern (CLT followed by digits)
+    const match = path.match(/(CLT\d+)/);
+    if (match) {
+        return true;
+    }
+    const clientId = getClientID() || (window.currentUnitData && (window.currentUnitData['ClientID'] || window.currentUnitData['client_id'])) || 'CLT695425';
+    return path.includes(`/${clientId}/`) || path.includes(`${clientId}/`);
+}
+
 /**
  * Checks if an image exists at the given path.
+ * Uses the in-memory client manifest for O(1) checks if loaded to bypass speculative network 404s.
  * @param {string} path Path to the image
  * @param {number} timeout Timeout in milliseconds
  * @returns {Promise<boolean>}
  */
 async function testImageExists(path, timeout = 2000) {
+    // 1. Check in-memory manifest first if available and if this is a client asset path
+    if (window.clientManifest && isClientAssetPath(path)) {
+        const inManifest = isPathInManifest(path);
+        if (inManifest !== null) {
+            return inManifest;
+        }
+    }
+
+    // 2. Fallback to standard Image loading for other assets
     return new Promise((resolve) => {
         const img = new Image();
         let resolved = false;
@@ -90,7 +193,16 @@ async function resolveWorkingImagePath(originalPath) {
         return path;
     }
 
-    // 3. Fallback discovery (Parallel probe to avoid sequential network delays)
+    // 3. Optimization: If client manifest is loaded and this is a client asset,
+    // but the original path was not in it, we know it does not exist.
+    // Return null immediately to completely avoid expensive, speculative 404 network probes!
+    if (window.clientManifest && isClientAssetPath(path)) {
+        console.log(`[Utils] Asset ${path} not in client manifest. Bypassing fallback probing.`);
+        imagePathCache.set(originalPath, null);
+        return null;
+    }
+
+    // 4. Fallback discovery (Parallel probe to avoid sequential network delays - only for non-manifest / legacy setups)
     const extensions = ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.JPG', '.JPEG', '.PNG', '.WEBP', '.SVG', '.GIF'];
     
     const lastDotIndex = path.lastIndexOf('.');

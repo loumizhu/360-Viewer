@@ -8,16 +8,28 @@
 
     let clientManifest = null;
 
-    async function loadClientManifest() {
+    async function loadClientManifest(forcedClientId = null) {
         try {
             const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
-            const clientId = getClientID();
+            const clientId = forcedClientId || getClientID();
             if (clientId) {
+                // If already loaded for this clientId, skip loading again
+                if (clientManifest && clientManifest.clientId === clientId) {
+                    return;
+                }
                 const manifestPath = `${repoBase}${clientId}/image-manifest.json`.replace(/\/+/g, '/');
+                console.log(`[Sync] Fetching client manifest from: ${manifestPath}`);
                 const response = await fetch(manifestPath);
                 if (response.ok) {
                     clientManifest = await response.json();
+                    clientManifest.clientId = clientId;
+                    window.clientManifest = clientManifest;
                     console.log('[Sync] Successfully loaded client manifest:', clientManifest);
+                    
+                    // Rebuild the manifest file set for O(1) checks
+                    if (typeof window.updateManifestFilesSet === 'function') {
+                        window.updateManifestFilesSet();
+                    }
                 } else {
                     console.warn('[Sync] Manifest fetch failed with status:', response.status);
                 }
@@ -262,6 +274,13 @@
     }
 
     async function updateUI(unit) {
+        // Ensure manifest is loaded for this unit's client
+        const clientId = unit['ClientID'] || unit['client_id'] || 'CLT695425';
+        if (!clientManifest || clientManifest.clientId !== clientId) {
+            console.log(`[Sync] Manifest missing or for wrong client. Dynamically loading manifest for client: ${clientId}`);
+            await loadClientManifest(clientId);
+        }
+
         // Detect the unit identifier column dynamically from the data keys
         // if 'unit_number' is missing.
         let unitCol = 'Unit Number'; // Try the most likely key first (from logs)
