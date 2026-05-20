@@ -38,3 +38,7 @@ build/
 # Temporary files
 *.tmp
 *.temp
+
+# Local Developer Plugins / Tooling
+/chrome-devtools-mcp/
+
