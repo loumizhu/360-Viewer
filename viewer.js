@@ -84,24 +84,14 @@ async function resolveWorkingImagePath(originalPath) {
         path = (repoBase + path).replace(/\/+/g, '/');
     }
 
-    // 2. Try original path first (minimal timeout)
-    if (await testImageExists(path, 600)) {
+    // 2. Try original path first (very fast timeout of 300ms for responsiveness)
+    if (await testImageExists(path, 300)) {
         imagePathCache.set(originalPath, path);
         return path;
     }
 
-    // 3. Fallback discovery
+    // 3. Fallback discovery (Parallel probe to avoid sequential network delays)
     const extensions = ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.JPG', '.JPEG', '.PNG', '.WEBP', '.SVG', '.GIF'];
-    
-    // Sort extensions to try the 'last successful' one immediately after the original
-    const orderedExtensions = [...extensions];
-    if (lastSuccessfulExtension) {
-        const index = orderedExtensions.indexOf(lastSuccessfulExtension);
-        if (index > -1) {
-            orderedExtensions.splice(index, 1);
-            orderedExtensions.unshift(lastSuccessfulExtension);
-        }
-    }
     
     const lastDotIndex = path.lastIndexOf('.');
     const lastSlashIndex = path.lastIndexOf('/');
@@ -112,16 +102,21 @@ async function resolveWorkingImagePath(originalPath) {
 
     const currentExt = path.substring(lastDotIndex).toLowerCase();
 
-    for (const ext of orderedExtensions) {
-        if (ext.toLowerCase() === currentExt) continue;
-        
+    // Trigger all extension checks concurrently!
+    const probePromises = extensions.map(async (ext) => {
+        if (ext.toLowerCase() === currentExt) return null;
         const testPath = basePath + ext;
-        if (await testImageExists(testPath, 500)) {
-            console.log(`[Utils] Resolved alternative path (Cached): ${testPath}`);
-            lastSuccessfulExtension = ext;
-            imagePathCache.set(originalPath, testPath);
-            return testPath;
-        }
+        const exists = await testImageExists(testPath, 350); // Concurrently check with 350ms timeout
+        return exists ? testPath : null;
+    });
+
+    const results = await Promise.all(probePromises);
+    const resolvedPath = results.find(p => p !== null);
+
+    if (resolvedPath) {
+        console.log(`[Utils] Resolved alternative path (Cached/Parallel): ${resolvedPath}`);
+        imagePathCache.set(originalPath, resolvedPath);
+        return resolvedPath;
     }
 
     // If nothing found, cache null to permanently avoid redundant requests for this session

@@ -6,39 +6,101 @@
 (function() {
     'use strict';
 
+    let clientManifest = null;
+
+    async function loadClientManifest() {
+        try {
+            const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
+            const clientId = getClientID();
+            if (clientId) {
+                const manifestPath = `${repoBase}${clientId}/image-manifest.json`.replace(/\/+/g, '/');
+                const response = await fetch(manifestPath);
+                if (response.ok) {
+                    clientManifest = await response.json();
+                    console.log('[Sync] Successfully loaded client manifest:', clientManifest);
+                } else {
+                    console.warn('[Sync] Manifest fetch failed with status:', response.status);
+                }
+            }
+        } catch (e) {
+            console.warn('[Sync] Failed to load client manifest:', e);
+        }
+    }
+
     async function scanPhotosFolder(folderPath) {
         if (!folderPath) return [];
+
+        const cleanFolderPath = folderPath.replace(/\/$/, '');
+
+        // --- 1. USE COMPREHENSIVE MANIFEST IF AVAILABLE ---
+        if (clientManifest && clientManifest.photos) {
+            const unitNum = cleanFolderPath.substring(cleanFolderPath.lastIndexOf('/') + 1);
+            if (clientManifest.photos[unitNum]) {
+                const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
+                return clientManifest.photos[unitNum].map(p => {
+                    let path = p;
+                    if (path.startsWith('/') && !path.startsWith('http') && !path.startsWith(repoBase)) {
+                        path = (repoBase + path).replace(/\/+/g, '/');
+                    } else if (!path.startsWith('/') && !path.startsWith('http')) {
+                        path = (repoBase + '/' + path).replace(/\/+/g, '/');
+                    }
+                    return path;
+                });
+            }
+        }
+
         try {
-            // Remove trailing slash for consistency
-            const cleanPath = folderPath.replace(/\/$/, '');
             const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
             
             // Format path with repository base path for standard hosting
-            let fetchPath = cleanPath;
+            let fetchPath = cleanFolderPath;
             if (fetchPath.startsWith('/') && !fetchPath.startsWith('http') && !fetchPath.startsWith(repoBase)) {
                 fetchPath = (repoBase + fetchPath).replace(/\/+/g, '/');
             }
             
             const response = await fetch(fetchPath + '/?json=1');
-            if (!response.ok) return [];
-            const files = await response.json();
-            
-            // Filter for images and sort, ensuring output paths contain repoBase
-            const images = files
-                .filter(f => f.type === 'file' && f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i))
-                .map(f => {
-                    const fullPath = cleanPath + '/' + f.name;
-                    if (fullPath.startsWith('/') && !fullPath.startsWith('http') && !fullPath.startsWith(repoBase)) {
-                        return (repoBase + fullPath).replace(/\/+/g, '/');
-                    }
-                    return fullPath;
-                })
-                .sort();
-            return images;
+            if (response.ok) {
+                const files = await response.json();
+                
+                // Filter for images and sort, ensuring output paths contain repoBase
+                const images = files
+                    .filter(f => f.type === 'file' && f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i))
+                    .map(f => {
+                        const fullPath = cleanFolderPath + '/' + f.name;
+                        if (fullPath.startsWith('/') && !fullPath.startsWith('http') && !fullPath.startsWith(repoBase)) {
+                            return (repoBase + fullPath).replace(/\/+/g, '/');
+                        }
+                        return fullPath;
+                    })
+                    .sort();
+                return images;
+            }
         } catch (e) {
-            console.warn('[Sync] Failed to scan photos folder:', folderPath, e);
-            return [];
+            console.warn('[Sync] Failed to scan photos folder via server listing:', folderPath, e);
         }
+
+        // --- STATIC PROBING FALLBACK FOR GITHUB PAGES ---
+        // Probe standard photo patterns concurrently (Template01.jpg - Template08.jpg, 1.jpg - 8.jpg)
+        const possiblePatterns = [];
+        for (let i = 1; i <= 8; i++) {
+            possiblePatterns.push(`Template0${i}.jpg`);
+            possiblePatterns.push(`Template${i}.jpg`);
+            possiblePatterns.push(`${i}.jpg`);
+        }
+
+        const probePromises = possiblePatterns.map(async (fileName) => {
+            const rawPath = `${cleanFolderPath}/${fileName}`;
+            const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
+            let testPath = rawPath;
+            if (testPath.startsWith('/') && !testPath.startsWith('http') && !testPath.startsWith(repoBase)) {
+                testPath = (repoBase + testPath).replace(/\/+/g, '/');
+            }
+            const exists = await testImageExists(testPath, 350);
+            return exists ? testPath : null;
+        });
+
+        const results = await Promise.all(probePromises);
+        return results.filter(p => p !== null).sort();
     }
 
     /**
@@ -48,35 +110,78 @@
      */
     async function scanAxoFolder(folderPath) {
         if (!folderPath) return [];
+
+        const cleanFolderPath = folderPath.replace(/\/$/, '');
+
+        // --- 1. USE COMPREHENSIVE MANIFEST IF AVAILABLE ---
+        if (clientManifest && clientManifest.axonometrics) {
+            const unitNum = cleanFolderPath.substring(cleanFolderPath.lastIndexOf('/') + 1);
+            if (clientManifest.axonometrics[unitNum]) {
+                const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
+                return clientManifest.axonometrics[unitNum].map(p => {
+                    let path = p;
+                    if (path.startsWith('/') && !path.startsWith('http') && !path.startsWith(repoBase)) {
+                        path = (repoBase + path).replace(/\/+/g, '/');
+                    } else if (!path.startsWith('/') && !path.startsWith('http')) {
+                        path = (repoBase + '/' + path).replace(/\/+/g, '/');
+                    }
+                    return path;
+                });
+            }
+        }
+
         try {
-            const cleanPath = folderPath.replace(/\/$/, '');
             const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
             
             // Format path with repository base path for standard hosting
-            let fetchPath = cleanPath;
+            let fetchPath = cleanFolderPath;
             if (fetchPath.startsWith('/') && !fetchPath.startsWith('http') && !fetchPath.startsWith(repoBase)) {
                 fetchPath = (repoBase + fetchPath).replace(/\/+/g, '/');
             }
             
             const response = await fetch(fetchPath + '/?json=1');
-            if (!response.ok) return [];
-            const files = await response.json();
-            
-            // Ensure output paths contain repoBase
-            const images = files
-                .filter(f => f.type === 'file' && f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i))
-                .map(f => {
-                    const fullPath = cleanPath + '/' + f.name;
-                    if (fullPath.startsWith('/') && !fullPath.startsWith('http') && !fullPath.startsWith(repoBase)) {
-                        return (repoBase + fullPath).replace(/\/+/g, '/');
-                    }
-                    return fullPath;
-                })
-                .sort();
-            return images;
+            if (response.ok) {
+                const files = await response.json();
+                
+                // Ensure output paths contain repoBase
+                const images = files
+                    .filter(f => f.type === 'file' && f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i))
+                    .map(f => {
+                        const fullPath = cleanFolderPath + '/' + f.name;
+                        if (fullPath.startsWith('/') && !fullPath.startsWith('http') && !fullPath.startsWith(repoBase)) {
+                            return (repoBase + fullPath).replace(/\/+/g, '/');
+                        }
+                        return fullPath;
+                    })
+                    .sort();
+                return images;
+            }
         } catch (e) {
-            return [];
+            // Ignore and fall through to static fallback
         }
+
+        // --- STATIC PROBING FALLBACK FOR GITHUB PAGES ---
+        // Probe sequence frames 0000 to 0039 concurrently
+        const unitNum = cleanFolderPath.substring(cleanFolderPath.lastIndexOf('/') + 1);
+        const possiblePatterns = [];
+        for (let i = 0; i <= 39; i++) {
+            const frameNumStr = String(i).padStart(4, '0');
+            possiblePatterns.push(`${unitNum}_${frameNumStr}.jpg`);
+        }
+
+        const probePromises = possiblePatterns.map(async (fileName) => {
+            const rawPath = `${cleanFolderPath}/${fileName}`;
+            const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
+            let testPath = rawPath;
+            if (testPath.startsWith('/') && !testPath.startsWith('http') && !testPath.startsWith(repoBase)) {
+                testPath = (repoBase + testPath).replace(/\/+/g, '/');
+            }
+            const exists = await testImageExists(testPath, 350);
+            return exists ? testPath : null;
+        });
+
+        const results = await Promise.all(probePromises);
+        return results.filter(p => p !== null).sort();
     }
 
     function updateGalleryStrip(mode, galleryPhotos, currentSrc) {
@@ -303,11 +408,7 @@
         // If DB links are missing, construct them from convention: /ClientID/Plan 2D/UnitNumber.png
         const clientId = unit['ClientID'] || unit['client_id'] || 'CLT695425'; // Fallback to current default if missing
         const uNum = unit[unitCol];
-        
-        if (!link2D && uNum) {
-            link2D = `/${clientId}/Plan 2D/${uNum}.jpg`;
-        }
-        // Assuming 3D follows similar structure if missing
+
         // Also check if the Axonometrics subfolder (sequence mode) exists
         let axoSequenceImages = [];
         if (uNum) {
@@ -315,24 +416,44 @@
             axoSequenceImages = await scanAxoFolder(axoSubFolder);
         }
 
-        if (!link3D && uNum) {
-            if (axoSequenceImages.length > 0) {
-                // Sequence detected — use the first frame as the static fallback URL
-                // (the scrubber will replace the <img> entirely)
-                link3D = axoSequenceImages[0];
-            } else {
-                // No subfolder — fall back to a single axonometric image
-                link3D = await resolveWorkingImagePath(`/${clientId}/Axonometrics/${uNum}.jpg`) ||
-                         await resolveWorkingImagePath(`/${clientId}/Plan 3D/${uNum}.jpg`);
+        if (clientManifest) {
+            // Priority 1: Use exact matches from manifest to avoid speculative 404s
+            if (!link2D && uNum && clientManifest.plans2d && clientManifest.plans2d[uNum]) {
+                link2D = clientManifest.plans2d[uNum];
             }
-        }
-
-        if (!linkPhotos && uNum) {
-            // Try inside the unit's folder in Photos. Prioritize an image with the unit name,
-            // then check Template01.png directly to prevent .jpg 404 errors in the console.
-            linkPhotos = await resolveWorkingImagePath(`/${clientId}/Photos/${uNum}/${uNum}.jpg`) || 
-                         await resolveWorkingImagePath(`/${clientId}/Photos/${uNum}/Template01.png`) ||
-                         await resolveWorkingImagePath(`/${clientId}/Photos/${uNum}/1.jpg`);
+            if (!link3D && uNum) {
+                if (axoSequenceImages.length > 0) {
+                    link3D = axoSequenceImages[0];
+                } else if (clientManifest.plans3d_static && clientManifest.plans3d_static[uNum]) {
+                    link3D = clientManifest.plans3d_static[uNum];
+                }
+            }
+            if (!linkPhotos && uNum && clientManifest.photos && clientManifest.photos[uNum] && clientManifest.photos[uNum].length > 0) {
+                linkPhotos = clientManifest.photos[uNum][0];
+            }
+        } else {
+            // Fallback discovery ONLY if manifest is NOT available (old behavior / backward compatibility)
+            if (!link2D && uNum) {
+                link2D = `/${clientId}/Plan 2D/${uNum}.jpg`;
+            }
+            if (!link3D && uNum) {
+                if (axoSequenceImages.length > 0) {
+                    // Sequence detected — use the first frame as the static fallback URL
+                    // (the scrubber will replace the <img> entirely)
+                    link3D = axoSequenceImages[0];
+                } else {
+                    // No subfolder — fall back to a single axonometric image
+                    link3D = await resolveWorkingImagePath(`/${clientId}/Axonometrics/${uNum}.jpg`) ||
+                             await resolveWorkingImagePath(`/${clientId}/Plan 3D/${uNum}.jpg`);
+                }
+            }
+            if (!linkPhotos && uNum) {
+                // Try inside the unit's folder in Photos. Prioritize an image with the unit name,
+                // then check Template01.png directly to prevent .jpg 404 errors in the console.
+                linkPhotos = await resolveWorkingImagePath(`/${clientId}/Photos/${uNum}/${uNum}.jpg`) || 
+                             await resolveWorkingImagePath(`/${clientId}/Photos/${uNum}/Template01.png`) ||
+                             await resolveWorkingImagePath(`/${clientId}/Photos/${uNum}/1.jpg`);
+            }
         }
 
         // Robust Image Resolution
@@ -642,6 +763,9 @@
 
     // Initialize sync
     async function init() {
+        // Load the manifest first!
+        await loadClientManifest();
+
         // 1. Check if data is already loaded globally
         if (window.currentUnitData) {
             await updateUI(window.currentUnitData);
