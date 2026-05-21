@@ -429,29 +429,51 @@ class Viewer3D {
             let link2D = null;
             for (const k of plan2DKeys) { if (data[k]) { link2D = data[k]; break; } }
             
+            if (!link2D && window.clientManifest && window.clientManifest.plans_2d && window.clientManifest.plans_2d[text]) {
+                link2D = window.clientManifest.plans_2d[text];
+            }
+            
             if (!link2D) {
                 const clientFolder = CLIENT_BASE_PATH || (data['ClientID'] || data['client_id'] || 'CLT695425') + '/';
-                link2D = `${REPO_BASE_PATH}${clientFolder}Plan 2D/${text}.jpg`.replace(/\/+/g, '/');
+                link2D = `${REPO_BASE_PATH}${clientFolder}2D-Plans/${text}.jpg`.replace(/\/+/g, '/');
             } else if (!link2D.startsWith('http') && !link2D.startsWith(REPO_BASE_PATH)) {
                 link2D = (REPO_BASE_PATH + link2D).replace(/\/+/g, '/');
             }
 
             // Resolve robust image path
-            link2D = await resolveWorkingImagePath(link2D);
+            link2D = await resolveWorkingImagePath(link2D, true);
 
             // Check again in case the user moved the mouse during the second await
             if (this.tooltip.dataset.unit !== text || this.tooltip.style.display === 'none') {
                 return;
             }
 
-            let html = `
-                <div style="display:flex; flex-direction:column; gap:12px; padding:4px; min-width:220px;">
-                    <div style="font-weight:700; font-size:18px; color:#fff; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">${text}</div>
-                    
+            let imageHtml = '';
+            if (link2D) {
+                imageHtml = `
                     <div style="width:100%; height:130px; background:rgba(255,255,255,0.05); border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); box-shadow:inset 0 0 20px rgba(0,0,0,0.4);">
                         <img src="${link2D}" style="width:100%; height:100%; object-fit:contain; transition:transform 0.3s ease;" 
                              onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"/>
                     </div>
+                `;
+            } else {
+                imageHtml = `
+                    <div style="width:100%; height:130px; background:rgba(255,255,255,0.05); border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.15); box-shadow:inset 0 0 20px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <span style="font-size:11px; color:rgba(255,255,255,0.4); font-style:italic;">Plan image not available</span>
+                    </div>
+                `;
+            }
+
+            let html = `
+                <div style="display:flex; flex-direction:column; gap:12px; padding:4px; min-width:220px;">
+                    <div style="font-weight:700; font-size:18px; color:#fff; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">${text}</div>
+                    
+                    ${imageHtml}
                     
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:12px;">
             `;
@@ -1726,7 +1748,14 @@ class Viewer3D {
             
             const clickedObject = intersects.length > 0 ? intersects[0].object : null;
 
-            console.log('[Viewer3D] Click event on canvas. Clicked object:', clickedObject ? clickedObject.name : 'none');
+            if (clickedObject) {
+                console.log(
+                    '%c[Viewer3D] 🖱️ CLICK DETECTED ON UNIT: ' + clickedObject.name, 
+                    'background: #222; color: #00ff00; font-size: 16px; padding: 4px; border: 1px solid #00ff00;'
+                );
+            } else {
+                console.log('[Viewer3D] Click event on canvas but no unit was intersected.');
+            }
             
             if (clickedObject) {
                 const objectName = clickedObject.name;
@@ -1749,6 +1778,9 @@ class Viewer3D {
                                 // Prevent race condition if user clicked another box while loading
                                 if (this.lastClickedObjName !== objectName) {
                                     console.log(`[Viewer3D] Discarding stale data for: ${objectName}`);
+                                    // Make sure to hide the loader if we are discarding this event!
+                                    const loader = document.getElementById('image-loader-overlay');
+                                    if (loader) loader.classList.add('hidden');
                                     return;
                                 }
                                 
@@ -1760,10 +1792,27 @@ class Viewer3D {
                                     window.dispatchEvent(new CustomEvent('unitDataLoaded', { detail: unitData }));
                                 } else {
                                     console.warn(`[Viewer3D] No data found in DB for unit: ${objectName}`);
+                                    const loader = document.getElementById('image-loader-overlay');
+                                    if (loader) loader.classList.add('hidden');
+                                    const planImg = document.getElementById('plan-image');
+                                    if (planImg) {
+                                        planImg.src = '';
+                                        planImg.alt = 'Unit data not found';
+                                        planImg.style.display = 'none';
+                                    }
                                 }
                             } catch (err) {
                                 console.error('[Viewer3D] Error fetching unit details:', err);
+                                const loader = document.getElementById('image-loader-overlay');
+                                if (loader) loader.classList.add('hidden');
                             }
+                        } else {
+                            console.error('=====================================================');
+                            console.error('[Viewer3D] ERROR: window.db is undefined!');
+                            console.error('[Viewer3D] The database client (supabase-client.js) did not load correctly.');
+                            console.error('=====================================================');
+                            const loader = document.getElementById('image-loader-overlay');
+                            if (loader) loader.classList.add('hidden');
                         }
                     };
 
@@ -2837,11 +2886,6 @@ class Viewer3D {
     }
     
     async showPlanImage(objectName) {
-        let planImagePath = `${REPO_BASE_PATH}${CLIENT_BASE_PATH}Plan 2D/${objectName}.jpg`.replace(/\/+/g, '/');
-        
-        // Resolve working image path (try alternatives like .jpg, .webp)
-        planImagePath = await resolveWorkingImagePath(planImagePath);
-        
         const panel = document.getElementById('plan-image-panel');
         const planImage = document.getElementById('plan-image');
         const closeBtn = document.getElementById('planCloseBtn');

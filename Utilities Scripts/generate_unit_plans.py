@@ -22,14 +22,14 @@ CLIENT_ID = "CLT695425"
 # Define Multiple Generation Tasks
 TASKS = [
     {
-        "name": "Plan 2D",
-        "template": BASE_DIR / CLIENT_ID / "Plan 2D" / "Template.jpg",
-        "output": BASE_DIR / CLIENT_ID / "Plan 2D"
+        "name": "2D-Plans",
+        "template": BASE_DIR / CLIENT_ID / "2D-Plans" / "Template.jpg",
+        "output": BASE_DIR / CLIENT_ID / "2D-Plans"
     },
     {
-        "name": "Axonometrics",
-        "template": BASE_DIR / CLIENT_ID / "Axonometrics" / "Template.jpg",
-        "output": BASE_DIR / CLIENT_ID / "Axonometrics"
+        "name": "3D-Plans",
+        "template": BASE_DIR / CLIENT_ID / "3D-Plans" / "Template.jpg",
+        "output": BASE_DIR / CLIENT_ID / "3D-Plans"
     }
 ]
 

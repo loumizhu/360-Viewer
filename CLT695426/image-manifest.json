@@ -184,11 +184,11 @@
     "CLT695426/3D-Images/light/90.jpg"
   ],
   "model3d": "CLT695426/3D/3D.glb",
-  "axonometrics": {},
+  "plans_3d": {},
   "photos": {},
-  "plans2d": {
-    "D-1504_3 - Copy": "CLT695426/Plan 2D/D-1504_3 - Copy.png",
-    "D-1505_3": "CLT695426/Plan 2D/D-1505_3.png"
+  "plans_2d": {
+    "D-1504_3 - Copy": "CLT695426/2D-Plans/D-1504_3 - Copy.png",
+    "D-1505_3": "CLT695426/2D-Plans/D-1505_3.png"
   },
-  "plans3d_static": {}
+  "plans_3d_static": {}
 }

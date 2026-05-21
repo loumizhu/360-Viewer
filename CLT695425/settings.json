@@ -146,7 +146,7 @@
     "dropDelay": 500,
     "dropStagger": 50,
     "boxParticles": {
-      "enabled": true,
+      "enabled": false,
       "borderSpacing": 800,
       "heavy": {
         "enabled": true,
@@ -203,7 +203,7 @@
       }
     },
     "ambientParticles": {
-      "enabled": true,
+      "enabled": false,
       "bufferDistance": 20,
       "ambientZone": 5000,
       "count": 3000,

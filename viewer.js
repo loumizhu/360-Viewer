@@ -44,19 +44,19 @@ window.updateManifestFilesSet = function() {
         }
     };
 
-    if (window.clientManifest.plans2d) {
-        Object.values(window.clientManifest.plans2d).forEach(addPath);
+    if (window.clientManifest.plans_2d) {
+        Object.values(window.clientManifest.plans_2d).forEach(addPath);
     }
-    if (window.clientManifest.plans3d_static) {
-        Object.values(window.clientManifest.plans3d_static).forEach(addPath);
+    if (window.clientManifest.plans_3d_static) {
+        Object.values(window.clientManifest.plans_3d_static).forEach(addPath);
     }
     if (window.clientManifest.photos) {
         Object.values(window.clientManifest.photos).forEach(arr => {
             if (Array.isArray(arr)) arr.forEach(addPath);
         });
     }
-    if (window.clientManifest.axonometrics) {
-        Object.values(window.clientManifest.axonometrics).forEach(arr => {
+    if (window.clientManifest.plans_3d) {
+        Object.values(window.clientManifest.plans_3d).forEach(arr => {
             if (Array.isArray(arr)) arr.forEach(addPath);
         });
     }
@@ -172,7 +172,7 @@ const imagePathCache = new Map();
 // Heuristic: Keep track of the most recently successful extension to try it first
 let lastSuccessfulExtension = null;
 
-async function resolveWorkingImagePath(originalPath) {
+async function resolveWorkingImagePath(originalPath, skipFallback = false) {
     if (!originalPath) return originalPath;
 
     // 1. Check cache first
@@ -194,16 +194,42 @@ async function resolveWorkingImagePath(originalPath) {
     }
 
     // 3. Optimization: If client manifest is loaded and this is a client asset,
-    // but the original path was not in it, we know it does not exist.
-    // Return null immediately to completely avoid expensive, speculative 404 network probes!
+    // check if the original path or any alternative extensions exist in the manifest in O(1)
     if (window.clientManifest && isClientAssetPath(path)) {
-        console.log(`[Utils] Asset ${path} not in client manifest. Bypassing fallback probing.`);
+        const extensions = ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.JPG', '.JPEG', '.PNG', '.WEBP', '.SVG', '.GIF'];
+        const lastDotIndex = path.lastIndexOf('.');
+        const lastSlashIndex = path.lastIndexOf('/');
+        let basePath = path;
+        if (lastDotIndex > lastSlashIndex) {
+            basePath = path.substring(0, lastDotIndex);
+        }
+        
+        for (const ext of extensions) {
+            const testPath = basePath + ext;
+            if (isPathInManifest(testPath)) {
+                console.log(`[Utils] Resolved alternative path via client manifest: ${testPath}`);
+                imagePathCache.set(originalPath, testPath);
+                return testPath;
+            }
+        }
+
+        console.log(`[Utils] Asset ${path} (and alternatives) not in client manifest. Bypassing fallback probing.`);
         imagePathCache.set(originalPath, null);
         return null;
     }
 
-    // 4. Fallback discovery (Parallel probe to avoid sequential network delays - only for non-manifest / legacy setups)
-    const extensions = ['.jpg', '.jpeg', '.png', '.webp', '.svg', '.gif', '.JPG', '.JPEG', '.PNG', '.WEBP', '.SVG', '.GIF'];
+    // 4. Fallback discovery — ONLY on local servers, never on static hosting (GitHub Pages)
+    //    On static hosts the manifest is authoritative; no speculative probing.
+    const isStaticHost = window.location.hostname.includes('.github.io');
+    if (isStaticHost || skipFallback) {
+        if (!skipFallback) console.log(`[Utils] Static host detected. Skipping fallback probing for: ${path}`);
+        imagePathCache.set(originalPath, null);
+        return null;
+    }
+
+    // Fallback discovery (Parallel probe — only for local dev without manifest)
+    // Reduced number of extensions to prevent browser network queue exhaustion
+    const extensions = ['.jpg', '.png', '.webp', '.jpeg', '.JPG', '.PNG'];
     
     const lastDotIndex = path.lastIndexOf('.');
     const lastSlashIndex = path.lastIndexOf('/');
@@ -542,6 +568,11 @@ class ProductViewer {
         }
         
         // Fallback: Try to discover by attempting to load images
+        // On static hosts (GitHub Pages), the manifest is authoritative — skip speculative probing
+        if (window.location.hostname.includes('.github.io')) {
+            console.warn('[Viewer] No manifest found on static host. Image discovery unavailable.');
+            return;
+        }
         await this.discoverImagesByTrying();
     }
     

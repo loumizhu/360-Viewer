@@ -91,7 +91,12 @@
             console.warn('[Sync] Failed to scan photos folder via server listing:', folderPath, e);
         }
 
-        // --- STATIC PROBING FALLBACK FOR GITHUB PAGES ---
+        // --- STATIC PROBING FALLBACK ---
+        // On static hosts (GitHub Pages), manifest is authoritative — skip probing
+        if (window.location.hostname.includes('.github.io')) {
+            return [];
+        }
+
         // Probe standard photo patterns concurrently (Template01.jpg - Template08.jpg, 1.jpg - 8.jpg)
         const possiblePatterns = [];
         for (let i = 1; i <= 8; i++) {
@@ -116,7 +121,7 @@
     }
 
     /**
-     * Scan an Axonometrics unit subfolder (e.g. /CLT695425/Axonometrics/A003/)
+     * Scan a 3D-Plans unit subfolder (e.g. /CLT695425/3D-Plans/A003/)
      * for a sequence of images.  Returns a sorted array of URLs or [] if the
      * folder does not exist / contains no images.
      */
@@ -126,11 +131,11 @@
         const cleanFolderPath = folderPath.replace(/\/$/, '');
 
         // --- 1. USE COMPREHENSIVE MANIFEST IF AVAILABLE ---
-        if (clientManifest && clientManifest.axonometrics) {
+        if (clientManifest && clientManifest.plans_3d) {
             const unitNum = cleanFolderPath.substring(cleanFolderPath.lastIndexOf('/') + 1);
-            if (clientManifest.axonometrics[unitNum]) {
+            if (clientManifest.plans_3d[unitNum]) {
                 const repoBase = typeof getRepoBasePath === 'function' ? getRepoBasePath() : '/';
-                return clientManifest.axonometrics[unitNum].map(p => {
+                return clientManifest.plans_3d[unitNum].map(p => {
                     let path = p;
                     if (path.startsWith('/') && !path.startsWith('http') && !path.startsWith(repoBase)) {
                         path = (repoBase + path).replace(/\/+/g, '/');
@@ -172,8 +177,13 @@
             // Ignore and fall through to static fallback
         }
 
-        // --- STATIC PROBING FALLBACK FOR GITHUB PAGES ---
-        // Probe sequence frames 0000 to 0039 concurrently
+        // --- STATIC PROBING FALLBACK ---
+        // On static hosts (GitHub Pages), manifest is authoritative — skip probing
+        if (window.location.hostname.includes('.github.io')) {
+            return [];
+        }
+
+        // Probe sequence frames 0000 to 0039 concurrently (local dev only)
         const unitNum = cleanFolderPath.substring(cleanFolderPath.lastIndexOf('/') + 1);
         const possiblePatterns = [];
         for (let i = 0; i <= 39; i++) {
@@ -224,6 +234,9 @@
                     if (loader) loader.classList.remove('hidden');
                     preload.onload = () => {
                         if (planImg) planImg.src = preload.src;
+                        if (loader) loader.classList.add('hidden');
+                    };
+                    preload.onerror = () => {
                         if (loader) loader.classList.add('hidden');
                     };
                     preload.src = photoUrl + '?t=' + new Date().getTime();
@@ -425,26 +438,26 @@
 
         // --- IMAGE FALLBACK LOGIC ---
         // If DB links are missing, construct them from convention: /ClientID/Plan 2D/UnitNumber.png
-        const clientId = unit['ClientID'] || unit['client_id'] || 'CLT695425'; // Fallback to current default if missing
+        // clientId is already defined at the start of updateUI
         const uNum = unit[unitCol];
 
-        // Also check if the Axonometrics subfolder (sequence mode) exists
+        // Also check if the 3D-Plans subfolder (sequence mode) exists
         let axoSequenceImages = [];
         if (uNum) {
-            const axoSubFolder = `/${clientId}/Axonometrics/${uNum}`;
+            const axoSubFolder = `/${clientId}/3D-Plans/${uNum}`;
             axoSequenceImages = await scanAxoFolder(axoSubFolder);
         }
 
         if (clientManifest) {
             // Priority 1: Use exact matches from manifest to avoid speculative 404s
-            if (!link2D && uNum && clientManifest.plans2d && clientManifest.plans2d[uNum]) {
-                link2D = clientManifest.plans2d[uNum];
+            if (!link2D && uNum && clientManifest.plans_2d && clientManifest.plans_2d[uNum]) {
+                link2D = clientManifest.plans_2d[uNum];
             }
             if (!link3D && uNum) {
                 if (axoSequenceImages.length > 0) {
                     link3D = axoSequenceImages[0];
-                } else if (clientManifest.plans3d_static && clientManifest.plans3d_static[uNum]) {
-                    link3D = clientManifest.plans3d_static[uNum];
+                } else if (clientManifest.plans_3d_static && clientManifest.plans_3d_static[uNum]) {
+                    link3D = clientManifest.plans_3d_static[uNum];
                 }
             }
             if (!linkPhotos && uNum && clientManifest.photos && clientManifest.photos[uNum] && clientManifest.photos[uNum].length > 0) {
@@ -453,7 +466,7 @@
         } else {
             // Fallback discovery ONLY if manifest is NOT available (old behavior / backward compatibility)
             if (!link2D && uNum) {
-                link2D = `/${clientId}/Plan 2D/${uNum}.jpg`;
+                link2D = `/${clientId}/2D-Plans/${uNum}.jpg`;
             }
             if (!link3D && uNum) {
                 if (axoSequenceImages.length > 0) {
@@ -462,7 +475,7 @@
                     link3D = axoSequenceImages[0];
                 } else {
                     // No subfolder — fall back to a single axonometric image
-                    link3D = await resolveWorkingImagePath(`/${clientId}/Axonometrics/${uNum}.jpg`) ||
+                    link3D = await resolveWorkingImagePath(`/${clientId}/3D-Plans/${uNum}.jpg`) ||
                              await resolveWorkingImagePath(`/${clientId}/Plan 3D/${uNum}.jpg`);
                 }
             }
@@ -764,18 +777,30 @@
         if (planImg) planImg.classList.remove('loaded');
 
         // 1. Fetch details
-        const data = await window.db.getUnitDetails(unitId);
-        if (data) {
-             // 2. Update UI
-             await updateUI(data);
-             
-             // 3. Notify 3D Viewer to focus/select
-             // We dispatch a custom event that viewer3d.js can listen to
-             // "unitSelectedFromUI"
-             window.dispatchEvent(new CustomEvent('unitSelectedFromUI', { detail: { 
-                 unitId: unitId, 
-                 unitData: data 
-             }}));
+        try {
+            const data = await window.db.getUnitDetails(unitId);
+            if (data) {
+                 // 2. Update UI
+                 await updateUI(data);
+                 
+                 // 3. Notify 3D Viewer to focus/select
+                 // We dispatch a custom event that viewer3d.js can listen to
+                 // "unitSelectedFromUI"
+                 window.dispatchEvent(new CustomEvent('unitSelectedFromUI', { detail: { 
+                     unitId: unitId, 
+                     unitData: data 
+                 }}));
+            } else {
+                 if (loader) loader.classList.add('hidden');
+                 console.warn(`[UI] No data found for unit: ${unitId}`);
+                 if (planImg) {
+                     planImg.src = '';
+                     planImg.alt = 'Unit data not found';
+                 }
+            }
+        } catch (err) {
+            console.error('[UI] Error fetching unit details:', err);
+            if (loader) loader.classList.add('hidden');
         }
     }
 
@@ -793,7 +818,13 @@
         // 2. Listen for future data loads (from viewer3d.js or elsewhere)
         window.addEventListener('unitDataLoaded', async (event) => {
             console.log('[Sync] Received unitDataLoaded event:', event.detail);
-            await updateUI(event.detail);
+            try {
+                await updateUI(event.detail);
+            } catch (e) {
+                console.error('[Sync] Error in updateUI:', e);
+                const loader = document.getElementById('image-loader-overlay');
+                if (loader) loader.classList.add('hidden');
+            }
         });
 
         // 3. Fallback: If viewer3d isn't active, fetch manually

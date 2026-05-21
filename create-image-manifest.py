@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate image-manifest.json for 360° Image Viewer
-Scans 3D-Images folders, Axonometrics, Photos, and Plan 2D folders to create a manifest file for faster, reliable image loading.
+Scans 3D-Images folders, 3D-Plans, Photos, and 2D-Plans folders to create a manifest file for faster, reliable image loading.
 """
 
 import os
@@ -48,25 +48,25 @@ def get_3d_model(directory: Path) -> str:
 
 def scan_extra_assets(directory: Path, prefix_path: str, manifest: Dict):
     """
-    Scan Plan 2D, Axonometrics, and Photos folders for specific units and map them.
+    Scan 2D-Plans, 3D-Plans, and Photos folders for specific units and map them.
     """
     image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.svg', '.JPG', '.JPEG', '.PNG', '.WEBP', '.SVG'}
     prefix = f"{prefix_path}/" if prefix_path else ""
     
     # Initialize dictionary fields in manifest if not present
-    if "axonometrics" not in manifest:
-        manifest["axonometrics"] = {}
+    if "plans_3d" not in manifest:
+        manifest["plans_3d"] = {}
     if "photos" not in manifest:
         manifest["photos"] = {}
-    if "plans2d" not in manifest:
-        manifest["plans2d"] = {}
-    if "plans3d_static" not in manifest:
-        manifest["plans3d_static"] = {}
+    if "plans_2d" not in manifest:
+        manifest["plans_2d"] = {}
+    if "plans_3d_static" not in manifest:
+        manifest["plans_3d_static"] = {}
         
-    # 1. Scan Plan 2D
+    # 1. Scan 2D-Plans
     plan2d_dir = None
     for item in directory.iterdir():
-        if item.is_dir() and item.name.lower() in ['plan 2d', 'plan2d', 'plans 2d', 'plans2d']:
+        if item.is_dir() and item.name.lower() in ['2d-plans', 'plan 2d', 'plan2d', 'plans 2d', 'plans2d']:
             plan2d_dir = item
             break
             
@@ -74,12 +74,12 @@ def scan_extra_assets(directory: Path, prefix_path: str, manifest: Dict):
         for file in plan2d_dir.iterdir():
             if file.is_file() and file.suffix in image_extensions:
                 unit_name = file.stem
-                manifest["plans2d"][unit_name] = f"{prefix}{plan2d_dir.name}/{file.name}".replace('\\', '/').replace('//', '/')
+                manifest["plans_2d"][unit_name] = f"{prefix}{plan2d_dir.name}/{file.name}".replace('\\', '/').replace('//', '/')
                 
-    # 2. Scan Axonometrics
+    # 2. Scan 3D-Plans
     axo_dir = None
     for item in directory.iterdir():
-        if item.is_dir() and item.name.lower() in ['axonometrics', 'axonometric', 'plans 3d', 'plans3d', 'plan 3d', 'plan3d']:
+        if item.is_dir() and item.name.lower() in ['3d-plans', 'axonometrics', 'axonometric', 'plans 3d', 'plans3d', 'plan 3d', 'plan3d']:
             axo_dir = item
             break
             
@@ -93,10 +93,10 @@ def scan_extra_assets(directory: Path, prefix_path: str, manifest: Dict):
                         frames.append(f"{prefix}{axo_dir.name}/{unit_name}/{file.name}".replace('\\', '/').replace('//', '/'))
                 frames.sort(key=natural_sort_key)
                 if frames:
-                    manifest["axonometrics"][unit_name] = frames
+                    manifest["plans_3d"][unit_name] = frames
             elif item.is_file() and item.suffix in image_extensions:
                 unit_name = item.stem
-                manifest["plans3d_static"][unit_name] = f"{prefix}{axo_dir.name}/{item.name}".replace('\\', '/').replace('//', '/')
+                manifest["plans_3d_static"][unit_name] = f"{prefix}{axo_dir.name}/{item.name}".replace('\\', '/').replace('//', '/')
                 
     # 3. Scan Photos
     photos_dir = None
@@ -179,10 +179,10 @@ def create_manifest_for_client(client_folder: Path) -> Dict:
         "light": light_paths,
         "full": full_paths,
         "model3d": model_path,
-        "axonometrics": {},
+        "plans_3d": {},
         "photos": {},
-        "plans2d": {},
-        "plans3d_static": {}
+        "plans_2d": {},
+        "plans_3d_static": {}
     }
     
     # Scan extra assets
@@ -251,10 +251,10 @@ def create_root_manifest(root_path: Path) -> Dict:
         "light": light_paths,
         "full": full_paths,
         "model3d": model_path,
-        "axonometrics": {},
+        "plans_3d": {},
         "photos": {},
-        "plans2d": {},
-        "plans3d_static": {}
+        "plans_2d": {},
+        "plans_3d_static": {}
     }
     
     # Scan extra assets
@@ -274,7 +274,7 @@ def main():
     
     # Check for root 3D-Images folder
     root_images = root_path / "3D-Images"
-    if root_images.exists() or (root_path / "Axonometrics").exists() or (root_path / "Photos").exists() or (root_path / "Plan 2D").exists():
+    if root_images.exists() or (root_path / "3D-Plans").exists() or (root_path / "Axonometrics").exists() or (root_path / "Photos").exists() or (root_path / "2D-Plans").exists() or (root_path / "Plan 2D").exists():
         print("Creating root manifest (for no clientID)...")
         manifest = create_root_manifest(root_path)
         if manifest:
@@ -284,9 +284,9 @@ def main():
             print(f"  [OK] Created: {manifest_path}")
             print(f"    - {len(manifest['light'])} light images")
             print(f"    - {len(manifest['full'])} full images")
-            print(f"    - {len(manifest['plans2d'])} 2D plans mapped")
-            print(f"    - {len(manifest['axonometrics'])} 3D axon sequences mapped")
-            print(f"    - {len(manifest['plans3d_static'])} 3D static plans mapped")
+            print(f"    - {len(manifest['plans_2d'])} 2D plans mapped")
+            print(f"    - {len(manifest['plans_3d'])} 3D plan sequences mapped")
+            print(f"    - {len(manifest['plans_3d_static'])} 3D static plans mapped")
             print(f"    - {len(manifest['photos'])} photo galleries mapped")
             if manifest.get('model3d'):
                 print(f"    - Found 3D Model: {manifest['model3d']}")
@@ -297,7 +297,7 @@ def main():
     for item in root_path.iterdir():
         if item.is_dir() and not item.name.startswith('.') and item.name not in ['3D-Images', '3D', 'img', 'js', 'chrome-devtools-mcp', '.git', '.vscode', '__pycache__', 'Utilities Scripts', 'Database Backups']:
             # Create manifest for this client folder if it has any relevant folders
-            if (item / "3D-Images").exists() or (item / "Axonometrics").exists() or (item / "Photos").exists() or (item / "Plan 2D").exists():
+            if (item / "3D-Images").exists() or (item / "3D-Plans").exists() or (item / "Axonometrics").exists() or (item / "Photos").exists() or (item / "2D-Plans").exists() or (item / "Plan 2D").exists():
                 print(f"Creating manifest for client: {item.name}...")
                 manifest = create_manifest_for_client(item)
                 if manifest:
@@ -308,9 +308,9 @@ def main():
                     print(f"  [OK] Created: {manifest_path}")
                     print(f"    - {len(manifest['light'])} light images")
                     print(f"    - {len(manifest['full'])} full images")
-                    print(f"    - {len(manifest['plans2d'])} 2D plans mapped")
-                    print(f"    - {len(manifest['axonometrics'])} 3D axon sequences mapped")
-                    print(f"    - {len(manifest['plans3d_static'])} 3D static plans mapped")
+                    print(f"    - {len(manifest['plans_2d'])} 2D plans mapped")
+                    print(f"    - {len(manifest['plans_3d'])} 3D plan sequences mapped")
+                    print(f"    - {len(manifest['plans_3d_static'])} 3D static plans mapped")
                     print(f"    - {len(manifest['photos'])} photo galleries mapped")
                     if manifest.get('model3d'):
                         print(f"    - Found 3D Model: {manifest['model3d']}")

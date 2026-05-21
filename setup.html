@@ -964,7 +964,7 @@
                         <span>Manifest (JSON)</span>
                         <div class="feature-item-actions">
                             <span class="status-badge ${hasManifest ? 'status-ok' : 'status-missing'}">${hasManifest ? 'OK' : 'MISSING'}</span>
-                            ${!hasManifest ? `<button class="build-btn" onclick="buildAsset('${client.id}', 'manifest', this)">Build</button>` : ''}
+                            <button class="build-btn" onclick="buildAsset('${client.id}', 'manifest', this)">${hasManifest ? 'Update' : 'Build'}</button>
                         </div>
                     </div>
                     <div class="feature-item">
@@ -1504,9 +1504,9 @@
                     if (val) uniqueUnitNums.add(String(val).trim());
                 });
                 
-                Object.keys(report.plans2d).forEach(k => uniqueUnitNums.add(k));
-                Object.keys(report.axonometrics_single).forEach(k => uniqueUnitNums.add(k));
-                Object.keys(report.axonometrics_sequences).forEach(k => uniqueUnitNums.add(k));
+                Object.keys(report.plans_2d).forEach(k => uniqueUnitNums.add(k));
+                Object.keys(report.plans_3d_single).forEach(k => uniqueUnitNums.add(k));
+                Object.keys(report.plans_3d_sequences).forEach(k => uniqueUnitNums.add(k));
                 Object.keys(report.photos).forEach(k => uniqueUnitNums.add(k));
                 
                 const sortedUnitNums = Array.from(uniqueUnitNums).sort(naturalSort);
@@ -1519,9 +1519,9 @@
                 
                 sortedUnitNums.forEach(unitNum => {
                     const dbUnit = dbUnits.find(u => String(u[unitColumn] || '').trim() === unitNum);
-                    const plan2d = report.plans2d[unitNum];
-                    const axoSingle = report.axonometrics_single[unitNum];
-                    const axoSeq = report.axonometrics_sequences[unitNum];
+                    const plan2d = report.plans_2d[unitNum];
+                    const axoSingle = report.plans_3d_single[unitNum];
+                    const axoSeq = report.plans_3d_sequences[unitNum];
                     const photos = report.photos[unitNum];
                     
                     const has2d = !!plan2d;
@@ -1686,7 +1686,7 @@
                 if (row.has2d) {
                     plan2dCell = `<span style="color: #00C851;">✅ Found</span> <span style="font-size: 11px; opacity: 0.6;">(${row.plan2d.filename}, ${formatBytes(row.plan2d.size)})</span>`;
                 } else {
-                    plan2dCell = `<span style="color: #FF4444;">❌ Missing</span> <span style="font-size: 11px; opacity: 0.5; font-family: monospace;">Plan 2D/${row.unitNum}.jpg</span>`;
+                    plan2dCell = `<span style="color: #FF4444;">❌ Missing</span> <span style="font-size: 11px; opacity: 0.5; font-family: monospace;">2D-Plans/${row.unitNum}.jpg</span>`;
                 }
                 
                 let plan3dCell = '';
@@ -1695,7 +1695,7 @@
                 } else if (row.axoSingle) {
                     plan3dCell = `<span style="color: #00C851;">✅ Single Image</span> <span style="font-size: 11px; opacity: 0.6;">(${row.axoSingle.filename}, ${formatBytes(row.axoSingle.size)})</span>`;
                 } else {
-                    plan3dCell = `<span style="color: #FF4444;">❌ Missing</span> <span style="font-size: 11px; opacity: 0.5; font-family: monospace;">Axonometrics/${row.unitNum}.jpg</span>`;
+                    plan3dCell = `<span style="color: #FF4444;">❌ Missing</span> <span style="font-size: 11px; opacity: 0.5; font-family: monospace;">3D-Plans/${row.unitNum}.jpg</span>`;
                 }
                 
                 let photosCell = '';
@@ -1808,7 +1808,7 @@
                     <div style="background: rgba(0, 200, 81, 0.05); border-left: 3px solid #00C851; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-weight: 700; color: #00C851;">✅ 2D Plan Found</span>
                         <span style="font-size: 12px; color: var(--ui-text-primary); font-family: monospace;">File: ${row.plan2d.filename}</span>
-                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/Plan 2D/${row.plan2d.filename}</code></span>
+                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/2D-Plans/${row.plan2d.filename}</code></span>
                         <span style="font-size: 11px; color: var(--ui-text-disabled);">Size: ${formatBytes(row.plan2d.size)}</span>
                     </div>
                 `;
@@ -1817,7 +1817,7 @@
                     <div style="background: rgba(255, 68, 68, 0.05); border-left: 3px solid #FF4444; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-weight: 700; color: #FF4444;">❌ 2D Plan Missing</span>
                         <span style="font-size: 12px; color: var(--ui-text-secondary); line-height:1.4;">The 2D plan image is missing for this unit.</span>
-                        <span style="font-size: 11px; color: #FF4444; font-family: monospace; margin-top: 4px;">📂 Expected file at:<br><code>${clientID}/Plan 2D/${unitNum}.jpg</code> (or .png / .webp)</span>
+                        <span style="font-size: 11px; color: #FF4444; font-family: monospace; margin-top: 4px;">📂 Expected file at:<br><code>${clientID}/2D-Plans/${unitNum}.jpg</code> (or .png / .webp)</span>
                     </div>
                 `;
             }
@@ -1830,7 +1830,7 @@
                     <div style="background: rgba(0, 200, 81, 0.05); border-left: 3px solid #00C851; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-weight: 700; color: #00C851;">✅ 3D Plan Found (Axonometric Scrubber Sequence)</span>
                         <span style="font-size: 12px; color: var(--ui-text-primary); font-family: monospace;">Folder: ${row.axoSeq.folder}/</span>
-                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/Axonometrics/${row.axoSeq.folder}/</code></span>
+                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/3D-Plans/${row.axoSeq.folder}/</code></span>
                         <span style="font-size: 11px; color: var(--ui-text-disabled);">Frames: ${row.axoSeq.count} images loaded (${firstFrames}${suffix})</span>
                     </div>
                 `;
@@ -1839,7 +1839,7 @@
                     <div style="background: rgba(0, 200, 81, 0.05); border-left: 3px solid #00C851; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-weight: 700; color: #00C851;">✅ 3D Plan Found (Single Static Image)</span>
                         <span style="font-size: 12px; color: var(--ui-text-primary); font-family: monospace;">File: ${row.axoSingle.filename}</span>
-                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/Axonometrics/${row.axoSingle.filename}</code></span>
+                        <span style="font-size: 11px; color: var(--ui-text-secondary);">Path: <code>${clientID}/3D-Plans/${row.axoSingle.filename}</code></span>
                         <span style="font-size: 11px; color: var(--ui-text-disabled);">Size: ${formatBytes(row.axoSingle.size)}</span>
                     </div>
                 `;
@@ -1848,7 +1848,7 @@
                     <div style="background: rgba(255, 68, 68, 0.05); border-left: 3px solid #FF4444; padding: 10px; border-radius: 4px; display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-weight: 700; color: #FF4444;">❌ 3D/Axonometric Plan Missing</span>
                         <span style="font-size: 12px; color: var(--ui-text-secondary); line-height: 1.4;">Missing both static image and rotation sequence.</span>
-                        <span style="font-size: 11px; color: #FF4444; font-family: monospace; margin-top: 4px;">📂 Expected file at:<br><code>${clientID}/Axonometrics/${unitNum}.jpg</code><br>OR Scrubber sequence folder:<br><code>${clientID}/Axonometrics/${unitNum}/</code></span>
+                        <span style="font-size: 11px; color: #FF4444; font-family: monospace; margin-top: 4px;">📂 Expected file at:<br><code>${clientID}/3D-Plans/${unitNum}.jpg</code><br>OR Scrubber sequence folder:<br><code>${clientID}/3D-Plans/${unitNum}/</code></span>
                     </div>
                 `;
             }
@@ -1923,8 +1923,8 @@
             }
             
             const missingElements = [];
-            if (!row.has2d) missingElements.push(`Missing 2D plan image at file path <code>${clientID}/Plan 2D/${unitNum}.jpg</code>`);
-            if (!row.has3d) missingElements.push(`Missing 3D/Axonometric plan image/scrubber at <code>${clientID}/Axonometrics/${unitNum}.jpg</code> or folder <code>${clientID}/Axonometrics/${unitNum}/</code>`);
+            if (!row.has2d) missingElements.push(`Missing 2D plan image at file path <code>${clientID}/2D-Plans/${unitNum}.jpg</code>`);
+            if (!row.has3d) missingElements.push(`Missing 3D/Axonometric plan image/scrubber at <code>${clientID}/3D-Plans/${unitNum}.jpg</code> or folder <code>${clientID}/3D-Plans/${unitNum}/</code>`);
             if (!row.hasPhotos) missingElements.push(`Missing Photos gallery folder at directory path <code>${clientID}/Photos/${unitNum}/</code>`);
             if (!row.inDb) missingElements.push(`Missing Supabase database entry in the <code>Units</code> table linked to <code>ClientID = ${clientID}</code>`);
             
@@ -2045,11 +2045,11 @@
                 }
                 
                 if (!row.has2d) {
-                    reportText += `  - 🖼️ **2D Plan**: MISSING. Expected image file at: \`${clientID}/Plan 2D/${row.unitNum}.jpg\` (or .png / .webp)\n`;
+                    reportText += `  - 🖼️ **2D Plan**: MISSING. Expected image file at: \`${clientID}/2D-Plans/${row.unitNum}.jpg\` (or .png / .webp)\n`;
                 }
                 
                 if (!row.has3d) {
-                    reportText += `  - 📐 **3D/Axonometric Plan**: MISSING. Expected static file at: \`${clientID}/Axonometrics/${row.unitNum}.jpg\` OR scrubber rotation folder at: \`${clientID}/Axonometrics/${row.unitNum}/\`\n`;
+                    reportText += `  - 📐 **3D/Axonometric Plan**: MISSING. Expected static file at: \`${clientID}/3D-Plans/${row.unitNum}.jpg\` OR scrubber rotation folder at: \`${clientID}/3D-Plans/${row.unitNum}/\`\n`;
                 }
                 
                 if (!row.hasPhotos) {
@@ -2110,7 +2110,7 @@
                             found: true,
                             filename: row.plan2d.filename,
                             sizeBytes: row.plan2d.size
-                        } : { found: false, expectedPath: `${clientID}/Plan 2D/${row.unitNum}.jpg` },
+                        } : { found: false, expectedPath: `${clientID}/2D-Plans/${row.unitNum}.jpg` },
                         axonometric: row.axoSeq ? {
                             found: true,
                             type: 'scrubber_sequence',
@@ -2123,7 +2123,7 @@
                             sizeBytes: row.axoSingle.size
                         } : {
                             found: false,
-                            expectedPath: `${clientID}/Axonometrics/${row.unitNum}.jpg`
+                            expectedPath: `${clientID}/3D-Plans/${row.unitNum}.jpg`
                         }),
                         photos: row.hasPhotos ? {
                             found: true,

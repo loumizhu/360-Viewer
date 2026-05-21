@@ -19,8 +19,8 @@ TABLE_NAME = "Units"
 BASE_DIR = Path(r"D:\((_atWork_))\360-Viewer-Project\360-Viewer")
 CLIENT_ID = "CLT695425"
 
-TEMPLATE_DIR = BASE_DIR / CLIENT_ID / "Axonometrics" / "Template"
-OUTPUT_DIR = BASE_DIR / CLIENT_ID / "Axonometrics"
+TEMPLATE_DIR = BASE_DIR / CLIENT_ID / "3D-Plans" / "Template"
+OUTPUT_DIR = BASE_DIR / CLIENT_ID / "3D-Plans"
 
 # Text / watermark settings
 FONT_SIZE_DEMO = 80

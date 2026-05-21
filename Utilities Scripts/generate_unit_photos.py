@@ -18,7 +18,7 @@ TABLE_NAME = "Units"
 # Paths
 BASE_DIR = Path(r"D:\((_atWork_))\360-Viewer-Project\360-Viewer")
 CLIENT_ID = "CLT695425"
-AXONOMETRICS_DIR = BASE_DIR / CLIENT_ID / "Axonometrics"
+AXONOMETRICS_DIR = BASE_DIR / CLIENT_ID / "3D-Plans"
 TEMPLATE_DIR = AXONOMETRICS_DIR / "Template"
 # =================================================================
 
@@ -88,7 +88,7 @@ def main():
         if not unit_name or unit_name == 'None':
             continue
             
-        # We save directly in the Axonometrics dir for plans
+        # We save directly in the 3D-Plans dir for plans
         all_exist = True
         for t_img in template_images:
             output_name = f"{unit_name}.{t_img.name.split('.')[-1]}"

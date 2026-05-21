@@ -177,9 +177,9 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     raise ValueError(f"Client directory {client_id} not found")
                 
                 report = {
-                    'plans2d': {},
-                    'axonometrics_single': {},
-                    'axonometrics_sequences': {},
+                    'plans_2d': {},
+                    'plans_3d_single': {},
+                    'plans_3d_sequences': {},
                     'photos': {},
                     'model3d': [],
                     'settings_json': os.path.exists(os.path.join(client_path, 'settings.json')),
@@ -193,26 +193,30 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                 def natural_sort_key(s):
                     return [int(text) if text.isdigit() else text.lower() for text in re.split(r'(\d+)', s)]
                 
-                # 1. Audit Plan 2D
-                plan2d_dir = os.path.join(client_path, 'Plan 2D')
+                # 1. Audit 2D-Plans (with fallback to old 'Plan 2D' name)
+                plan2d_dir = os.path.join(client_path, '2D-Plans')
+                if not os.path.exists(plan2d_dir):
+                    plan2d_dir = os.path.join(client_path, 'Plan 2D')
                 if os.path.exists(plan2d_dir) and os.path.isdir(plan2d_dir):
                     for f in os.listdir(plan2d_dir):
                         f_path = os.path.join(plan2d_dir, f)
                         if os.path.isfile(f_path) and f.lower().endswith(image_extensions):
                             stem = os.path.splitext(f)[0]
-                            report['plans2d'][stem] = {
+                            report['plans_2d'][stem] = {
                                 'filename': f,
                                 'size': os.path.getsize(f_path)
                             }
                 
-                # 2. Audit Axonometrics
-                axo_dir = os.path.join(client_path, 'Axonometrics')
+                # 2. Audit 3D-Plans (with fallback to old 'Axonometrics' name)
+                axo_dir = os.path.join(client_path, '3D-Plans')
+                if not os.path.exists(axo_dir):
+                    axo_dir = os.path.join(client_path, 'Axonometrics')
                 if os.path.exists(axo_dir) and os.path.isdir(axo_dir):
                     for item in os.listdir(axo_dir):
                         item_path = os.path.join(axo_dir, item)
                         if os.path.isfile(item_path) and item.lower().endswith(image_extensions):
                             stem = os.path.splitext(item)[0]
-                            report['axonometrics_single'][stem] = {
+                            report['plans_3d_single'][stem] = {
                                 'filename': item,
                                 'size': os.path.getsize(item_path)
                             }
@@ -221,7 +225,7 @@ class MyHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                             frames = [f for f in os.listdir(item_path) 
                                       if os.path.isfile(os.path.join(item_path, f)) and f.lower().endswith(image_extensions)]
                             frames.sort(key=natural_sort_key)
-                            report['axonometrics_sequences'][item] = {
+                            report['plans_3d_sequences'][item] = {
                                 'folder': item,
                                 'count': len(frames),
                                 'files': frames
