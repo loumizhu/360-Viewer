@@ -260,113 +260,146 @@ class UISettingsPanel {
     createColorControl(label, id, rgbaValue, onChange) {
         const group = document.createElement('div');
         group.className = 'ui-settings-group';
+        group.style.display = 'flex';
+        group.style.flexDirection = 'column';
+        group.style.gap = '8px';
         
-        // Parse RGBA
-        let hex = '#000000';
-        let alpha = 1.0;
-        
-        if (rgbaValue && rgbaValue.startsWith('#')) {
-            hex = rgbaValue;
-        } else if (rgbaValue && rgbaValue.startsWith('rgba')) {
-            const match = rgbaValue.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-            if (match) {
-                const r = parseInt(match[1]);
-                const g = parseInt(match[2]);
-                const b = parseInt(match[3]);
-                const a = match[4] !== undefined ? parseFloat(match[4]) : 1.0;
-                hex = `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`;
-                alpha = a;
+        let isGradient = false;
+        let c1 = '#000000', c2 = '#ffffff';
+        let direction = 'to right';
+        let solidColor = '#000000';
+
+        if (rgbaValue && rgbaValue.includes('linear-gradient')) {
+            isGradient = true;
+            // Parse linear-gradient(to right, #000, #fff)
+            const dirMatch = rgbaValue.match(/linear-gradient\(([^,]+),\s*(.+?),\s*(.+?)\)/);
+            if (dirMatch) {
+                direction = dirMatch[1].trim();
+                c1 = dirMatch[2].trim();
+                c2 = dirMatch[3].trim();
             }
+        } else {
+            solidColor = this.parseColorToHex(rgbaValue) || '#000000';
         }
         
-        const wrapper = document.createElement('div');
-        wrapper.style.display = 'flex';
-        wrapper.style.flexDirection = 'column';
-        wrapper.style.gap = '12px';
-        wrapper.style.width = '100%';
-        
-        // Row 1: Label and Color Input
-        const topRow = document.createElement('div');
-        topRow.style.display = 'flex';
-        topRow.style.justifyContent = 'space-between';
-        topRow.style.alignItems = 'center';
+        // Header Row (Label + Type Toggle)
+        const headerRow = document.createElement('div');
+        headerRow.style.display = 'flex';
+        headerRow.style.justifyContent = 'space-between';
+        headerRow.style.alignItems = 'center';
         
         const labelEl = document.createElement('label');
         labelEl.className = 'ui-settings-label';
         labelEl.textContent = label;
-        labelEl.style.marginBottom = '0'; // Override default
+        labelEl.style.marginBottom = '0';
         
-        // Color Input
-        const colorInput = document.createElement('input');
-        colorInput.type = 'color';
-        colorInput.className = 'ui-settings-color-input';
-        colorInput.value = hex;
-        colorInput.id = `${id}-color`;
+        const typeSelect = document.createElement('select');
+        typeSelect.className = 'ui-settings-dropdown';
+        typeSelect.style.width = '80px';
+        typeSelect.style.padding = '2px 5px';
+        typeSelect.innerHTML = `
+            <option value="solid" ${!isGradient ? 'selected' : ''}>Solid</option>
+            <option value="gradient" ${isGradient ? 'selected' : ''}>Gradient</option>
+        `;
         
-        topRow.appendChild(labelEl);
-        topRow.appendChild(colorInput);
+        headerRow.appendChild(labelEl);
+        headerRow.appendChild(typeSelect);
+        group.appendChild(headerRow);
         
-        // Row 2: Opacity Slider
-        const sliderRow = document.createElement('div');
-        sliderRow.style.display = 'flex';
-        sliderRow.style.alignItems = 'center';
-        sliderRow.style.gap = '10px';
-        sliderRow.style.width = '100%';
+        // Solid Container
+        const solidContainer = document.createElement('div');
+        solidContainer.style.display = !isGradient ? 'flex' : 'none';
+        solidContainer.style.alignItems = 'center';
+        solidContainer.style.gap = '10px';
         
-        const opacityLabel = document.createElement('span');
-        opacityLabel.style.fontSize = '12px';
-        opacityLabel.style.color = 'rgba(255, 255, 255, 0.6)';
-        opacityLabel.textContent = 'Opacity:';
+        const solidInput = document.createElement('input');
+        solidInput.type = 'color';
+        solidInput.className = 'ui-settings-color-input';
+        solidInput.value = solidColor;
+        solidInput.style.flex = '1';
         
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.className = 'ui-settings-slider';
-        slider.style.flex = '1'; // Take remaining space
-        slider.min = '0';
-        slider.max = '100';
-        slider.value = Math.round(alpha * 100);
-        slider.id = `${id}-alpha`;
+        solidContainer.appendChild(solidInput);
+        group.appendChild(solidContainer);
         
-        const percentDisplay = document.createElement('span');
-        percentDisplay.className = 'ui-settings-value';
-        percentDisplay.style.minWidth = '35px';
-        percentDisplay.style.textAlign = 'right';
-        percentDisplay.textContent = `${Math.round(alpha * 100)}%`;
+        // Gradient Container
+        const gradContainer = document.createElement('div');
+        gradContainer.style.display = isGradient ? 'flex' : 'none';
+        gradContainer.style.flexDirection = 'column';
+        gradContainer.style.gap = '6px';
         
-        sliderRow.appendChild(opacityLabel);
-        sliderRow.appendChild(slider);
-        sliderRow.appendChild(percentDisplay);
+        const dirSelect = document.createElement('select');
+        dirSelect.className = 'ui-settings-dropdown';
+        dirSelect.innerHTML = `
+            <option value="to right" ${direction === 'to right' ? 'selected' : ''}>Horizontal (→)</option>
+            <option value="to bottom" ${direction === 'to bottom' ? 'selected' : ''}>Vertical (↓)</option>
+            <option value="135deg" ${direction === '135deg' ? 'selected' : ''}>Diagonal (↘)</option>
+            <option value="45deg" ${direction === '45deg' ? 'selected' : ''}>Diagonal (↗)</option>
+        `;
         
-        wrapper.appendChild(topRow);
-        wrapper.appendChild(sliderRow);
-        group.appendChild(wrapper);
+        const colorsRow = document.createElement('div');
+        colorsRow.style.display = 'flex';
+        colorsRow.style.gap = '10px';
         
-        // Event listeners
-        const updateValue = () => {
-            const h = colorInput.value;
-            const a = parseInt(slider.value) / 100;
-            percentDisplay.textContent = `${parseInt(slider.value)}%`;
-            
-            // Convert Hex to RGB
-            const r = parseInt(h.slice(1, 3), 16);
-            const g = parseInt(h.slice(3, 5), 16);
-            const b = parseInt(h.slice(5, 7), 16);
-            
-            const rgba = `rgba(${r}, ${g}, ${b}, ${a})`;
-            onChange(rgba);
+        const c1Input = document.createElement('input');
+        c1Input.type = 'color';
+        c1Input.className = 'ui-settings-color-input';
+        c1Input.value = this.parseColorToHex(c1) || '#000000';
+        c1Input.style.flex = '1';
+        
+        const c2Input = document.createElement('input');
+        c2Input.type = 'color';
+        c2Input.className = 'ui-settings-color-input';
+        c2Input.value = this.parseColorToHex(c2) || '#ffffff';
+        c2Input.style.flex = '1';
+        
+        colorsRow.appendChild(c1Input);
+        colorsRow.appendChild(c2Input);
+        
+        gradContainer.appendChild(dirSelect);
+        gradContainer.appendChild(colorsRow);
+        group.appendChild(gradContainer);
+        
+        // Event Listeners
+        const triggerChange = () => {
+            if (typeSelect.value === 'solid') {
+                onChange(solidInput.value);
+            } else {
+                onChange(`linear-gradient(${dirSelect.value}, ${c1Input.value}, ${c2Input.value})`);
+            }
         };
         
-        colorInput.addEventListener('input', updateValue);
-        // Use 'input' for real-time updates AND 'change' for final commit if needed
-        // But 'input' is usually enough for visual feedback. 
-        // We might want to debounce saving to settings if it's too frequent, 
-        // but current logic just calls onChange which calls updateSetting which calls saveSettings.
-        // saveSettings does localStorage(synchronous) and file write(async).
-        // File write handles multiple calls? It might be heavy.
-        // But for now, let's stick to simple 'input' for slider smoothness.
-        slider.addEventListener('input', updateValue);
+        typeSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'solid') {
+                solidContainer.style.display = 'flex';
+                gradContainer.style.display = 'none';
+            } else {
+                solidContainer.style.display = 'none';
+                gradContainer.style.display = 'flex';
+            }
+            triggerChange();
+        });
+        
+        solidInput.addEventListener('input', triggerChange);
+        dirSelect.addEventListener('change', triggerChange);
+        c1Input.addEventListener('input', triggerChange);
+        c2Input.addEventListener('input', triggerChange);
         
         return group;
+    }
+
+    parseColorToHex(val) {
+        if (!val) return null;
+        if (val.startsWith('#')) return val.substring(0, 7);
+        if (val.startsWith('rgba') || val.startsWith('rgb')) {
+            const match = val.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+            if (match) {
+                const r = parseInt(match[1]);
+                const g = parseInt(match[2]);
+                const b = parseInt(match[3]);
+                return `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`;
+            }
+        }
+        return null;
     }
 
     createThemesAndPresetsSection() {
@@ -2942,11 +2975,53 @@ class UISettingsPanel {
         this.saveSettings();
     }
     
-    colorToRgba(hex) {
-        const r = parseInt(hex.slice(1, 3), 16);
-        const g = parseInt(hex.slice(3, 5), 16);
-        const b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r}, ${g}, ${b}, 1)`;
+    colorToRgba(val) {
+        if (!val) return 'rgba(0,0,0,1)';
+        if (val.includes('linear-gradient') || val.startsWith('rgba') || val.startsWith('rgb')) {
+            return val;
+        }
+        if (val.startsWith('#')) {
+            const r = parseInt(val.slice(1, 3), 16) || 0;
+            const g = parseInt(val.slice(3, 5), 16) || 0;
+            const b = parseInt(val.slice(5, 7), 16) || 0;
+            return `rgba(${r}, ${g}, ${b}, 1)`;
+        }
+        return val;
+    }
+
+    createShowcaseContentSection(theme, targetParent) {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        section.innerHTML = '<h4 class="ui-settings-section-title">Branding & Info</h4><p style="color:#aaa; font-size:12px;">More showcase branding settings coming soon.</p>';
+        targetParent.appendChild(section);
+    }
+
+    createBlurSection(targetParent) {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        section.innerHTML = '<h4 class="ui-settings-section-title">Blur Effects</h4><p style="color:#aaa; font-size:12px;">Blur settings coming soon.</p>';
+        targetParent.appendChild(section);
+    }
+
+    createPerformanceSection(targetParent) {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        section.innerHTML = '<h4 class="ui-settings-section-title">Performance</h4><p style="color:#aaa; font-size:12px;">Performance settings coming soon.</p>';
+        targetParent.appendChild(section);
+    }
+
+    createTooltipSection(targetParent) {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        section.innerHTML = '<h4 class="ui-settings-section-title">Tooltips</h4><p style="color:#aaa; font-size:12px;">Tooltip settings coming soon.</p>';
+        targetParent.appendChild(section);
+    }
+
+    createControlsSection(targetParent) {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        section.innerHTML = '<h4 class="ui-settings-section-title">Controls</h4><p style="color:#aaa; font-size:12px;">Controls settings coming soon.</p>';
+        targetParent.appendChild(section);
     }
 }
 

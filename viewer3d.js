@@ -378,11 +378,11 @@ class Viewer3D {
         this.tooltip = document.createElement('div');
         this.tooltip.id = 'viewer3d-tooltip';
         this.tooltip.style.position = 'fixed';
-        this.tooltip.style.backgroundColor = CONFIG_3D.TOOLTIP_BG_COLOR;
-        this.tooltip.style.color = CONFIG_3D.TOOLTIP_TEXT_COLOR;
+        this.tooltip.style.backgroundColor = 'transparent';
+        this.tooltip.style.color = 'var(--ui-text-primary, #fff)';
         this.tooltip.style.fontSize = CONFIG_3D.TOOLTIP_FONT_SIZE;
-        this.tooltip.style.padding = CONFIG_3D.TOOLTIP_PADDING;
-        this.tooltip.style.borderRadius = CONFIG_3D.TOOLTIP_BORDER_RADIUS;
+        this.tooltip.style.padding = '0';
+        this.tooltip.style.borderRadius = 'var(--ui-border-radius-element)';
         this.tooltip.style.maxWidth = '300px';
         this.tooltip.style.pointerEvents = 'none';
         this.tooltip.style.zIndex = '10000';
@@ -561,9 +561,9 @@ class Viewer3D {
             }
 
             let html = `
-                <div style="display:flex; flex-direction:column; gap:12px; padding:4px; min-width:220px;">
-                    <div style="display:flex; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px; gap:12px;">
-                        <span style="font-weight:700; font-size:18px; color:#fff;">${text}</span>
+                <div style="display:flex; flex-direction:column; gap:12px; padding:4px; min-width:220px; background:var(--ui-bg-panel, rgba(20,20,20,0.95)); border-radius:var(--ui-border-radius-element);">
+                    <div style="display:flex; align-items:center; border-bottom:1px solid var(--ui-border-color); padding-bottom:8px; gap:12px;">
+                        <span style="font-weight:700; font-size:18px; color:var(--ui-text-primary);">${text}</span>
                         ${statusBadge}
                     </div>
                     
@@ -578,21 +578,21 @@ class Viewer3D {
             const orientation = getVal(['Orientation', 'Facing']);
 
             html += `
-                        <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
-                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px;">Type</div>
+                        <div style="background:var(--ui-bg-card, rgba(30,30,30,0.9)); padding:8px; border-radius:var(--ui-border-radius-sm); border:1px solid var(--ui-border-color);">
+                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--ui-text-secondary);">Type</div>
                             <div style="font-weight:600; color:var(--ui-primary-300);">${type}</div>
                         </div>
-                        <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
-                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px;">Rooms</div>
+                        <div style="background:var(--ui-bg-card, rgba(30,30,30,0.9)); padding:8px; border-radius:var(--ui-border-radius-sm); border:1px solid var(--ui-border-color);">
+                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--ui-text-secondary);">Rooms</div>
                             <div style="font-weight:600; color:var(--ui-primary-400);">${rooms}</div>
                         </div>
-                        <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
-                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px;">Area</div>
-                            <div style="font-weight:600;">${area} m²</div>
+                        <div style="background:var(--ui-bg-card, rgba(30,30,30,0.9)); padding:8px; border-radius:var(--ui-border-radius-sm); border:1px solid var(--ui-border-color);">
+                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--ui-text-secondary);">Area</div>
+                            <div style="font-weight:600; color:var(--ui-text-primary);">${area} m²</div>
                         </div>
-                        <div style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border:1px solid rgba(255,255,255,0.05);">
-                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px;">Facing</div>
-                            <div style="font-weight:600;">${orientation}</div>
+                        <div style="background:var(--ui-bg-card, rgba(30,30,30,0.9)); padding:8px; border-radius:var(--ui-border-radius-sm); border:1px solid var(--ui-border-color);">
+                            <div style="opacity:0.6; margin-bottom:2px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--ui-text-secondary);">Facing</div>
+                            <div style="font-weight:600; color:var(--ui-text-primary);">${orientation}</div>
                         </div>
                     </div>
                 </div>

@@ -42,7 +42,7 @@
       "background": {
         "panel": "rgba(NaN, 10, 24, 1)",
         "card": "rgba(18, 18, 18, 0.94)",
-        "default": "rgba(NaN, 10, 16, 1)"
+        "default": "rgba(130, 130, 130, 1)"
       },
       "text": {
         "primary": "#FFFFFF",

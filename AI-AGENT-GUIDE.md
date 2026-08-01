@@ -2,7 +2,7 @@
 
 > **Document Type**: Architecture & System Specification for AI Agents (MDP)  
 > **Target Audience**: AI Coding Assistants & Developers maintainers  
-> **Last Updated**: July 2026  
+> **Last Updated**: July 2026
 
 ---
 
