@@ -1,45 +1,48 @@
 {
   "ui": {
-    "blurEnabled": true,
+    "blurEnabled": false,
     "blurIntensity": 15,
-    "tooltipScale": 1,
+    "tooltipScale": 1.3,
     "glowEnabled": true,
     "glowColor": "rgba(100, 200, 255, 0.8)",
     "glowDuration": 500,
+    "themeMode": "light",
+    "logoPath": "img/favIcon.ico",
+    "visitUrl": "",
+    "locationUrl": "42.1158762,12.7758299",
+    "contact": {
+      "title": "VARA Headquarters",
+      "address": "123 Premium Real Estate Ave, Suite 500, Paris, France",
+      "phone": "+33 1 23 45 67 89",
+      "email": "sales@vara3d.com"
+    },
+    "toolbar": {
+      "height": 52,
+      "widthMode": "full",
+      "floatingMaxWidth": 1250,
+      "borderRadius": 12,
+      "gap": 5,
+      "virtualVisitViewport": "full",
+      "locationViewport": "full",
+      "contactViewport": "drawer",
+      "infoPanelViewport": "popup",
+      "defaultLanguage": "en"
+    },
     "theme": {
       "mode": "dark",
       "primary": {
-        "50": "#E6F1FE",
-        "100": "#CCE3FD",
-        "200": "#99C7FB",
-        "300": "#66AAF9",
-        "400": "#338EF7",
-        "500": "#006FEE",
-        "600": "#005BC4",
-        "700": "#004493",
-        "800": "#002E62",
-        "900": "#001731"
+        "500": "#006FEE"
       },
       "secondary": {
-        "50": "#F5F5F5",
-        "100": "#E0E0E0",
-        "200": "#BDBDBD",
-        "300": "#9E9E9E",
-        "400": "#757575",
-        "500": "#616161",
-        "600": "#424242",
-        "700": "#303030",
-        "800": "#212121",
-        "900": "#121212"
+        "500": "#66AAF9"
       },
       "success": "#00C851",
       "warning": "#FFBB33",
       "danger": "#FF4444",
       "background": {
-        "default": "rgba(0, 0, 0, 0.85)",
-        "panel": "rgba(20, 20, 20, 0.75)",
-        "card": "rgba(30, 30, 30, 0.8)",
-        "hover": "rgba(40, 40, 40, 0.9)"
+        "panel": "rgba(NaN, 10, 24, 1)",
+        "card": "rgba(18, 18, 18, 0.94)",
+        "default": "rgba(NaN, 10, 16, 1)"
       },
       "text": {
         "primary": "#FFFFFF",
@@ -47,13 +50,7 @@
         "disabled": "rgba(255, 255, 255, 0.4)"
       },
       "border": {
-        "color": "rgba(255, 255, 255, 0.2)",
-        "radius": {
-          "small": "8px",
-          "medium": "12px",
-          "large": "16px"
-        },
-        "width": "2px"
+        "color": "#005BC4"
       },
       "spacing": {
         "xs": "4px",
@@ -70,23 +67,10 @@
         "xl": "0 12px 24px rgba(0, 0, 0, 0.5)"
       },
       "font": {
-        "family": "system-ui, -apple-system, sans-serif",
-        "size": {
-          "xs": "12px",
-          "sm": "13px",
-          "md": "14px",
-          "lg": "16px",
-          "xl": "18px",
-          "2xl": "24px"
-        },
-        "weight": {
-          "normal": "400",
-          "medium": "500",
-          "semibold": "600",
-          "bold": "700"
-        }
+        "family": "system-ui, -apple-system, sans-serif"
       }
-    }
+    },
+    "locationAddress": "123 Premium Real Estate Ave, Paris, France"
   },
   "performance": {
     "lightMode": false
@@ -95,17 +79,17 @@
     "scrubSpeed": 25
   },
   "effects": {
-    "effectType": "svg-glow",
+    "effectType": "outline",
     "solidPulseSpeed": 1,
-    "hoverOpacity": 0.73,
-    "hoverColor": 2413567,
-    "glowColor": 1499356,
+    "hoverOpacity": 0.3,
+    "hoverColor": 52479,
+    "glowColor": 1558238,
     "outlineColor": 65280,
-    "outlinePulseSpeed": 8,
-    "bloomStrength": 0,
+    "outlinePulseSpeed": 1.9,
+    "bloomStrength": 2.5,
     "bloomRadius": 1,
     "bloomThreshold": 0.6,
-    "scanSpeed": 5,
+    "scanSpeed": 2,
     "hoverEmissive": 1531356,
     "hoverEmissiveIntensity": 0.6,
     "hoverDepthWrite": true,
@@ -146,8 +130,8 @@
     "dropDelay": 500,
     "dropStagger": 50,
     "boxParticles": {
-      "enabled": false,
-      "borderSpacing": 800,
+      "enabled": true,
+      "borderSpacing": 0,
       "heavy": {
         "enabled": true,
         "count": 410,
@@ -252,11 +236,11 @@
       "mouseReturnSpeed": 2,
       "mouseInteractionType": "repel"
     },
-    "scanLineCount": 20,
+    "scanLineCount": 15,
     "scanColor": 65535,
     "scanOpacity": 0.8,
-    "particleCount": 1000,
-    "particleSize": 0.08,
+    "particleCount": 500,
+    "particleSize": 0.05,
     "particleSpeed": 10,
     "particleColor": 16776960,
     "particleOpacity": 0.8,
@@ -299,6 +283,14 @@
     "clickAnimationEnabled": true,
     "clickAnimationSwirlDuration": 800,
     "clickAnimationSwirlSpeed": 3600,
-    "clickAnimationFinalScale": 1.21
+    "clickAnimationFinalScale": 1.21,
+    "filterHighlight": {
+      "colorMode": "theme",
+      "customColor": "#006FEE",
+      "highlightStyle": "solid",
+      "highlightOpacity": 1,
+      "ghostOpacity": 0,
+      "pulseSpeed": 0.2
+    }
   }
 }

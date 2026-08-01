@@ -117,6 +117,22 @@ def scan_extra_assets(directory: Path, prefix_path: str, manifest: Dict):
                 if pics:
                     manifest["photos"][unit_name] = pics
 
+    # 4. Scan 360-Virtual-Visit
+    vv_dir = None
+    for item in directory.iterdir():
+        if item.is_dir() and item.name.lower() in ['360-virtual-visit', '360 virtual visit', 'virtual-visit', 'virtual visit', '360_virtual_visit']:
+            vv_dir = item
+            break
+            
+    if vv_dir:
+        vv_pics = []
+        for file in vv_dir.iterdir():
+            if file.is_file() and file.suffix in image_extensions:
+                vv_pics.append(f"{prefix}{vv_dir.name}/{file.name}".replace('\\', '/').replace('//', '/'))
+        vv_pics.sort(key=natural_sort_key)
+        if vv_pics:
+            manifest["virtual_visit"] = vv_pics
+
 def create_manifest_for_client(client_folder: Path) -> Dict:
     """Create manifest for a specific client folder"""
     images_path = client_folder / "3D-Images"

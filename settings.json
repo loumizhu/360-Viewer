@@ -1,5 +1,7 @@
 {
     "ui": {
+        "locationUrl": "42.1158762,12.7758299",
+        "locationAddress": "123 Premium Real Estate Ave, Italy",
         "blurEnabled": true,
         "blurIntensity": 15,
         "glowEnabled": true,

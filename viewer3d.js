@@ -27,6 +27,12 @@ function getRepoBasePath() {
     return '/';
 }
 
+// Convert string to lowercase and strip all non-alphanumeric characters for robust naming alignment
+function cleanName(str) {
+    if (str === undefined || str === null) return '';
+    return String(str).toLowerCase().replace(/[^a-z0-9]/gi, '').trim();
+}
+
 // Get repository base path and client ID
 const REPO_BASE_PATH = getRepoBasePath();
 const CLIENT_ID = getClientID();
@@ -293,7 +299,7 @@ class Viewer3D {
             vanishingLines: null,
             axesHelper: null,
             allBoxHelpers: [],
-            cameraHelper: null
+            cameraHelpers: null
         };
         this.debugSettings = {
             showGrid: false,
@@ -303,7 +309,7 @@ class Viewer3D {
             showAllBoxes: false,
             showCameraHelper: false,
             gridSize: 200000,
-            gridDivisions: 500
+            gridDivisions: 100
         };
         
         // Intro animation state
@@ -348,6 +354,20 @@ class Viewer3D {
                     if (dropCheckbox) dropCheckbox.checked = CONFIG_3D.ENABLE_DROP_ANIMATION;
                 }
             }
+
+            // Setup filter event listener
+            window.addEventListener('updateFilteredHighlight', (event) => {
+                this._isFilteringActive = event.detail.isFilteringActive;
+                this._matchingUnitNames = event.detail.matchingUnitNames;
+                this.updateFilteredHighlight(this._isFilteringActive, this._matchingUnitNames);
+            });
+
+            // Setup filter settings update listener
+            window.addEventListener('updateFilterSettingsOnly', () => {
+                if (this._isFilteringActive) {
+                    this.updateFilteredHighlight(this._isFilteringActive, this._matchingUnitNames);
+                }
+            });
         }, 500);
     }
     
@@ -376,6 +396,42 @@ class Viewer3D {
         document.body.appendChild(this.tooltip);
     }
     
+    positionTooltip(x, y) {
+        if (!this.tooltip) return;
+        
+        // Cache coordinates for async updates
+        this.lastMouseX = x;
+        this.lastMouseY = y;
+        
+        const width = this.tooltip.offsetWidth;
+        const height = this.tooltip.offsetHeight;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const margin = 15;
+        
+        let left = x + CONFIG_3D.TOOLTIP_OFFSET_X;
+        let top = y + CONFIG_3D.TOOLTIP_OFFSET_Y;
+        
+        // Flip/Clamp horizontally
+        if (left + width > viewportWidth - margin) {
+            left = x - width - CONFIG_3D.TOOLTIP_OFFSET_X;
+        }
+        if (left < margin) {
+            left = margin;
+        }
+        
+        // Flip/Clamp vertically
+        if (top + height > viewportHeight - margin) {
+            top = y - height - CONFIG_3D.TOOLTIP_OFFSET_Y;
+        }
+        if (top < margin) {
+            top = margin;
+        }
+        
+        this.tooltip.style.left = left + 'px';
+        this.tooltip.style.top = top + 'px';
+    }
+    
     async showTooltip(text, x, y) {
         if (!CONFIG_3D.SHOW_TOOLTIP || !this.tooltip) return;
         
@@ -384,17 +440,13 @@ class Viewer3D {
             this.hideTooltipTimeout = null;
         }
 
-        // If hovering same object and already visible, just update position
+        // If hovering same object and already visible, just update position dynamically
         if (this.tooltip.dataset.unit === text && this.tooltip.style.display === 'block') {
-            this.tooltip.style.left = (x + CONFIG_3D.TOOLTIP_OFFSET_X) + 'px';
-            this.tooltip.style.top = (y + CONFIG_3D.TOOLTIP_OFFSET_Y) + 'px';
+            this.positionTooltip(x, y);
             return;
         }
 
         this.tooltip.dataset.unit = text;
-        this.tooltip.style.left = (x + CONFIG_3D.TOOLTIP_OFFSET_X) + 'px';
-        this.tooltip.style.top = (y + CONFIG_3D.TOOLTIP_OFFSET_Y) + 'px';
-        
         this.tooltip.style.display = 'block';
         this.tooltip.innerHTML = `<div style="font-weight:bold;margin-bottom:4px;">${text}</div><div style="font-size:12px;opacity:0.7;">Loading...</div>`;
         
@@ -409,13 +461,22 @@ class Viewer3D {
         const targetScale = window.uiSettings?.getSetting('ui', 'tooltipScale') || 1.0;
         this.tooltip.style.transform = `scale(${targetScale})`;
         this.tooltip.style.opacity = '1';
-        // Fetch DB info
-        let data = window.currentUnitDataCache && window.currentUnitDataCache[text];
+        
+        // Initial positioning based on small loading content size
+        this.positionTooltip(x, y);
+        
+        // Fetch DB info (using cleaned name search key for robust CRM mapping)
+        let data = window.currentUnitDataCache && window.currentUnitDataCache[cleanName(text)];
         if (!data && window.db && window.db.getUnitDetails) {
             try {
                 data = await window.db.getUnitDetails(text);
                 if (!window.currentUnitDataCache) window.currentUnitDataCache = {};
-                if (data) window.currentUnitDataCache[text] = data;
+                if (data) window.currentUnitDataCache[cleanName(text)] = data;
+                
+                // Real-time mesh update once DB response resolves
+                if (this.hoveredObject && this.hoveredObject.name === text) {
+                    this.applyEffect(this.hoveredObject);
+                }
             } catch (err) {}
         }
 
@@ -469,19 +530,47 @@ class Viewer3D {
                 `;
             }
 
+            const getVal = (keys) => {
+                for(let k of keys) { if(data[k]) return data[k]; }
+                return '-';
+            };
+
+            const status = getVal(['Unit Status', 'Status', 'status']).trim();
+            let statusBadge = '';
+            if (status && status !== '-') {
+                let statusColor = '#00C851'; // Green
+                let statusBg = 'rgba(0, 200, 81, 0.1)';
+                let statusBorder = 'rgba(0, 200, 81, 0.2)';
+                
+                const lowerStatus = status.toLowerCase();
+                if (lowerStatus === 'sold') {
+                    statusColor = '#FF4444'; // Red
+                    statusBg = 'rgba(255, 68, 68, 0.15)';
+                    statusBorder = 'rgba(255, 68, 68, 0.3)';
+                } else if (lowerStatus === 'reserved') {
+                    statusColor = '#FFBB33'; // Orange
+                    statusBg = 'rgba(255, 187, 51, 0.15)';
+                    statusBorder = 'rgba(255, 187, 51, 0.3)';
+                }
+                
+                statusBadge = `
+                    <span style="font-size:11px; font-weight:700; padding:4px 10px; border-radius:6px; color:${statusColor}; background:${statusBg}; border:1px solid ${statusBorder}; text-transform:uppercase; margin-left:auto; display:inline-block; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
+                        ${status}
+                    </span>
+                `;
+            }
+
             let html = `
                 <div style="display:flex; flex-direction:column; gap:12px; padding:4px; min-width:220px;">
-                    <div style="font-weight:700; font-size:18px; color:#fff; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px;">${text}</div>
+                    <div style="display:flex; align-items:center; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:8px; gap:12px;">
+                        <span style="font-weight:700; font-size:18px; color:#fff;">${text}</span>
+                        ${statusBadge}
+                    </div>
                     
                     ${imageHtml}
                     
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; font-size:12px;">
             `;
-            
-            const getVal = (keys) => {
-                for(let k of keys) { if(data[k]) return data[k]; }
-                return '-';
-            };
             
             const type = getVal(['Sub-type', 'Property Type', 'Type', 'Asset Class']);
             const rooms = getVal(['Bedrooms', 'Rooms', 'Number of Rooms']);
@@ -510,6 +599,9 @@ class Viewer3D {
             `;
             
             this.tooltip.innerHTML = html;
+            
+            // Reposition now that the full HTML details have loaded (new height/width)
+            this.positionTooltip(this.lastMouseX, this.lastMouseY);
         } else {
             this.tooltip.innerHTML = `
                 <div style="padding:8px;">
@@ -517,6 +609,7 @@ class Viewer3D {
                     <div style="font-size:12px; opacity:0.6; font-style:italic;">Loading unit details...</div>
                 </div>
             `;
+            this.positionTooltip(this.lastMouseX, this.lastMouseY);
         }
     }
     
@@ -1599,6 +1692,8 @@ class Viewer3D {
                     
                     // Apply effect to new hovered object
                     this.hoveredObject = newHovered;
+                    // CRITICAL FIX: clear any existing filter effects before applying hover to prevent orphaned helpers
+                    this.clearAllEffects(this.hoveredObject);
                     this.applyEffect(this.hoveredObject);
                     
                     // Update Box Particles to show ONLY on this box
@@ -1613,6 +1708,15 @@ class Viewer3D {
                     
                     // Change cursor to pointer when hovering over 3D objects
                     this.canvas.style.cursor = 'pointer';
+                    
+                    // Restore filter highlights for ALL objects to ensure the previously hovered object gets its filter back
+                    if (this._isFilteringActive) {
+                        this.updateFilteredHighlight(this._isFilteringActive, this._matchingUnitNames);
+                        // But wait! updateFilteredHighlight just applied the filter to the CURRENT hovered object too.
+                        // So we must re-clear and re-apply hover effect!
+                        this.clearAllEffects(this.hoveredObject);
+                        this.applyEffect(this.hoveredObject);
+                    }
                 }
                 
                 // Show tooltip with object name
@@ -1627,6 +1731,11 @@ class Viewer3D {
                 if (this.hoveredObject) {
                     this.clearAllEffects(this.hoveredObject);
                     this.hoveredObject = null;
+                    
+                    // Restore filter highlights when hovering out into empty space
+                    if (this._isFilteringActive) {
+                        this.updateFilteredHighlight(this._isFilteringActive, this._matchingUnitNames);
+                    }
                 }
                 
                 // Disable Box Particles when not hovering
@@ -2075,6 +2184,140 @@ class Viewer3D {
     // EFFECT METHODS
     // ============================================
     
+    updateFilteredHighlight(isFilteringActive, matchingUnitNames) {
+        if (!this.meshes || this.meshes.length === 0) return;
+
+        // Resolve dynamic filter highlight settings
+        const fSettings = window.uiSettings?.settings?.effects?.filterHighlight || {
+            colorMode: 'status',
+            customColor: '#006fee',
+            highlightStyle: 'solid',
+            highlightOpacity: 0.60,
+            ghostOpacity: 0.05,
+            pulseSpeed: 1.0
+        };
+
+        console.log(`[Viewer3D] updateFilteredHighlight: active=${isFilteringActive}, count=${matchingUnitNames?.size || 0}`);
+
+        if (!isFilteringActive || !matchingUnitNames || matchingUnitNames.size === 0) {
+            // Restore all meshes default state
+            this.meshes.forEach(mesh => {
+                // Clear any running active highlight effects
+                this.clearAllEffects(mesh);
+                
+                // Restore transparent material
+                if (mesh.userData.transparentMaterial) {
+                    mesh.material = mesh.userData.transparentMaterial;
+                    mesh.material.opacity = CONFIG_3D.DEFAULT_OPACITY; // usually 0
+                    mesh.material.needsUpdate = true;
+                }
+            });
+            return;
+        }
+
+        // Create case-insensitive, alphanumeric cleaned set of matching names for bulletproof comparisons
+        const cleanedMatchingNames = new Set(Array.from(matchingUnitNames).map(n => cleanName(n)));
+
+        // Highlight matched meshes, dim down unmatched ones
+        this.meshes.forEach(mesh => {
+            const unitName = mesh.name;
+            const isMatched = cleanedMatchingNames.has(cleanName(unitName));
+
+            if (isMatched) {
+                // Clear first to avoid double overlay conflict
+                this.clearAllEffects(mesh);
+                
+                // Resolve correct highlight color
+                let matchedColor = CONFIG_3D.HOVER_COLOR;
+                if (fSettings.colorMode === 'theme') {
+                    matchedColor = CONFIG_3D.HOVER_COLOR;
+                } else if (fSettings.colorMode === 'custom') {
+                    const hexStr = fSettings.customColor || '#006FEE';
+                    matchedColor = parseInt(hexStr.replace('#', '0x'));
+                } else {
+                    // 'status' mode -> status colors
+                    const data = window.currentUnitDataCache && window.currentUnitDataCache[cleanName(unitName)];
+                    if (data) {
+                        const getVal = (keys) => {
+                            for(let k of keys) { if(data[k]) return data[k]; }
+                            return '';
+                        };
+                        const status = getVal(['Unit Status', 'Status', 'status']).trim().toLowerCase();
+                        if (status === 'sold') {
+                            matchedColor = 0xFF4444; // Red
+                        } else if (status === 'reserved') {
+                            matchedColor = 0xFFBB33; // Orange
+                        } else if (status === 'available') {
+                            matchedColor = 0x00C851; // Green
+                        }
+                    }
+                }
+
+                const style = fSettings.highlightStyle || 'solid';
+
+                // Set mesh material hover styling based on style selection
+                if (style === 'outline') {
+                    // Outlines only (faint transparent mesh background + sharp outline lines)
+                    if (mesh.userData.transparentMaterial) {
+                        mesh.material = mesh.userData.transparentMaterial;
+                        mesh.material.opacity = fSettings.ghostOpacity; // customizable ghost context opacity
+                        mesh.material.needsUpdate = true;
+                    }
+                    const alignedBox = this.createAlignedBoxHelper(mesh, matchedColor, fSettings.highlightOpacity);
+                    alignedBox.name = 'OutlineBoxHelper';
+                    alignedBox.userData.startTime = Date.now();
+                    mesh.userData.outlineBoxHelper = alignedBox;
+                } else if (style === 'solid-outline') {
+                    // Solid fill + sharp wireframe outline border
+                    if (mesh.userData.hoverMaterial) {
+                        mesh.userData.hoverMaterial.color.setHex(matchedColor);
+                        mesh.userData.hoverMaterial.opacity = fSettings.highlightOpacity;
+                        mesh.userData.hoverMaterial.needsUpdate = true;
+                        mesh.material = mesh.userData.hoverMaterial;
+                    }
+                    const alignedBox = this.createAlignedBoxHelper(mesh, matchedColor, 1.0);
+                    alignedBox.name = 'OutlineBoxHelper';
+                    alignedBox.userData.startTime = Date.now();
+                    mesh.userData.outlineBoxHelper = alignedBox;
+                } else if (style === 'glow') {
+                    // Glowing mesh logic (emissive color)
+                    if (mesh.userData.hoverMaterial) {
+                        mesh.userData.hoverMaterial.color.setHex(matchedColor);
+                        mesh.userData.hoverMaterial.opacity = fSettings.highlightOpacity;
+                        mesh.userData.hoverMaterial.needsUpdate = true;
+                        mesh.material = mesh.userData.hoverMaterial;
+                    }
+                    if (mesh.material.emissive) {
+                        mesh.material.emissive.setHex(matchedColor);
+                        mesh.material.emissiveIntensity = 0.8;
+                    }
+                } else {
+                    // Default solid transparent overlay
+                    if (mesh.userData.hoverMaterial) {
+                        mesh.userData.hoverMaterial.color.setHex(matchedColor);
+                        mesh.userData.hoverMaterial.opacity = fSettings.highlightOpacity;
+                        mesh.userData.hoverMaterial.needsUpdate = true;
+                        mesh.material = mesh.userData.hoverMaterial;
+                    }
+                }
+
+                // Force solid start time to trigger slow glowing pulsing
+                if (!mesh.userData.solidEffectStartTime) {
+                    mesh.userData.solidEffectStartTime = Date.now();
+                }
+            } else {
+                // Dim unmatched meshes to custom ghost opacity (from slider)
+                this.clearAllEffects(mesh);
+                
+                if (mesh.userData.transparentMaterial) {
+                    mesh.material = mesh.userData.transparentMaterial;
+                    mesh.material.opacity = fSettings.ghostOpacity; // customizable ghost context opacity
+                    mesh.material.needsUpdate = true;
+                }
+            }
+        });
+    }
+
     applyEffect(object) {
         if (!object) return;
         
@@ -2109,6 +2352,11 @@ class Viewer3D {
     
     clearAllEffects(object) {
         if (!object) return;
+        
+        // Hide SVG outline path first to ensure it disappears even if material disposal fails
+        if (this.svgOutlinePath) {
+            this.svgOutlinePath.style.visibility = 'hidden';
+        }
         
         try {
             // Clear solid effect and restore transparent material
@@ -2246,10 +2494,35 @@ class Viewer3D {
             if (!object.userData.solidEffectStartTime) {
                 object.userData.solidEffectStartTime = Date.now();
             }
-            // Update material color from current config
-            object.userData.hoverMaterial.color.setHex(CONFIG_3D.HOVER_COLOR);
+            
+            // Resolve dynamic color coding based on unit status (Red for Sold, Orange for Reserved, Green for Available)
+            let hoverHexColor = CONFIG_3D.HOVER_COLOR;
+            let hoverOpacity = CONFIG_3D.HOVER_OPACITY;
+            
+            const unitName = object.name;
+            const data = window.currentUnitDataCache && window.currentUnitDataCache[cleanName(unitName)];
+            if (data) {
+                const getVal = (keys) => {
+                    for(let k of keys) { if(data[k]) return data[k]; }
+                    return '';
+                };
+                const status = getVal(['Unit Status', 'Status', 'status']).trim().toLowerCase();
+                if (status === 'sold') {
+                    hoverHexColor = 0xFF4444; // Red
+                    hoverOpacity = Math.max(hoverOpacity, 0.45);
+                } else if (status === 'reserved') {
+                    hoverHexColor = 0xFFBB33; // Orange
+                    hoverOpacity = Math.max(hoverOpacity, 0.45);
+                } else if (status === 'available') {
+                    hoverHexColor = 0x00C851; // Green
+                    hoverOpacity = Math.max(hoverOpacity, 0.45);
+                }
+            }
+            
+            // Update material color from calculated color
+            object.userData.hoverMaterial.color.setHex(hoverHexColor);
             // Update opacity from current config (will be animated in updateEffects)
-            object.userData.hoverMaterial.opacity = CONFIG_3D.HOVER_OPACITY;
+            object.userData.hoverMaterial.opacity = hoverOpacity;
             object.userData.hoverMaterial.needsUpdate = true;
             object.material = object.userData.hoverMaterial;
         }
@@ -2259,15 +2532,43 @@ class Viewer3D {
     applyOutlineEffect(object) {
         if (!object.geometry) return;
 
+        // Resolve dynamic color coding based on unit status (Red for Sold, Orange for Reserved, Green for Available)
+        let hoverHexColor = CONFIG_3D.HOVER_COLOR;
+        let outlineColor = CONFIG_3D.OUTLINE_COLOR;
+        
+        const unitName = object.name;
+        const data = window.currentUnitDataCache && window.currentUnitDataCache[cleanName(unitName)];
+        if (data) {
+            const getVal = (keys) => {
+                for(let k of keys) { if(data[k]) return data[k]; }
+                return '';
+            };
+            const status = getVal(['Unit Status', 'Status', 'status']).trim().toLowerCase();
+            if (status === 'sold') {
+                hoverHexColor = 0xFF4444; // Red
+                outlineColor = 0xFF4444;
+            } else if (status === 'reserved') {
+                hoverHexColor = 0xFFBB33; // Orange
+                outlineColor = 0xFFBB33;
+            } else if (status === 'available') {
+                hoverHexColor = 0x00C851; // Green
+                outlineColor = 0x00C851;
+            }
+        }
+
         // Make object visible as a solid fill (reuse hover material or set opacity)
         // We use the basic material setup from the 'solid' effect to ensure glitch-free rendering
-        object.material = object.userData.hoverMaterial || object.material;
-        object.material.opacity = CONFIG_3D.HOVER_OPACITY; // Visible solid fill
-        object.material.needsUpdate = true;
+        const hoverMat = object.userData.hoverMaterial || object.material;
+        if (hoverMat && hoverMat.color) {
+            hoverMat.color.setHex(hoverHexColor);
+            hoverMat.opacity = CONFIG_3D.HOVER_OPACITY; // Visible solid fill
+            hoverMat.needsUpdate = true;
+            object.material = hoverMat;
+        }
         
         // Create properly aligned box using object's local bounding box
         // Note: createAlignedBoxHelper adds the box as a child of the object
-        const alignedBox = this.createAlignedBoxHelper(object, CONFIG_3D.OUTLINE_COLOR, CONFIG_3D.OUTLINE_OPACITY);
+        const alignedBox = this.createAlignedBoxHelper(object, outlineColor, CONFIG_3D.OUTLINE_OPACITY);
         alignedBox.name = 'OutlineBoxHelper';
         alignedBox.userData.startTime = Date.now();
         
@@ -2939,10 +3240,25 @@ class Viewer3D {
             this.meshes.forEach(mesh => {
                 if (mesh.userData.solidEffectStartTime && mesh.material === mesh.userData.hoverMaterial) {
                     const elapsed = (Date.now() - mesh.userData.solidEffectStartTime) / 1000;
-                    // Slow pulse: sine wave with amplitude 0.3 (30% opacity variation)
-                    // Range: 0.2 to 0.8 of HOVER_OPACITY
-                    const pulse = Math.sin(elapsed * CONFIG_3D.SOLID_PULSE_SPEED * Math.PI * 2) * 0.3 + 0.5;
-                    mesh.material.opacity = CONFIG_3D.HOVER_OPACITY * pulse;
+                    
+                    // Determine pulse speed dynamically based on filters settings
+                    const isFilterActive = window.viewer3D?._isFilteringActive;
+                    let pulseSpeed = CONFIG_3D.SOLID_PULSE_SPEED;
+                    let targetOpacity = CONFIG_3D.HOVER_OPACITY;
+
+                    if (isFilterActive) {
+                        const fSettings = window.uiSettings?.settings?.effects?.filterHighlight || {
+                            pulseSpeed: 1.0,
+                            highlightOpacity: 0.60
+                        };
+                        pulseSpeed = fSettings.pulseSpeed;
+                        targetOpacity = fSettings.highlightOpacity;
+                    }
+
+                    // Slow pulse: sine wave with amplitude 0.3
+                    // If pulseSpeed is 0, completely disable breathing animation
+                    const pulse = pulseSpeed > 0 ? (Math.sin(elapsed * pulseSpeed * Math.PI * 2) * 0.3 + 0.5) : 1.0;
+                    mesh.material.opacity = targetOpacity * pulse;
                 }
                 
                 // Update Glow Light Pulse
@@ -3158,31 +3474,100 @@ class Viewer3D {
             const group = new THREE.Group();
             group.name = 'VanishingLines';
             
+            // Vanishing points on the horizon (at y=0, far distance)
+            const vanishPoints = [
+                new THREE.Vector3(100000, 0, 0),
+                new THREE.Vector3(-100000, 0, 0),
+                new THREE.Vector3(0, 0, 100000),
+                new THREE.Vector3(0, 0, -100000)
+            ];
+            
+            // 1. Draw Neon Cyan sphere markers at the 4 vanishing points
+            const markerGeom = new THREE.SphereGeometry(150, 16, 16);
+            const markerMat = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffff,
+                transparent: true,
+                opacity: 0.85
+            });
+            
+            vanishPoints.forEach(point => {
+                const marker = new THREE.Mesh(markerGeom, markerMat);
+                marker.position.copy(point);
+                group.add(marker);
+            });
+            
+            // 2. Draw actual perspective vanishing lines from scene bounding box corners
+            // Compute bounding box from loaded meshes on the fly
+            if (this.meshes && this.meshes.length > 0) {
+                const box = new THREE.Box3();
+                this.meshes.forEach(mesh => {
+                    box.expandByObject(mesh);
+                });
+                
+                if (!box.isEmpty()) {
+                    const min = box.min;
+                    const max = box.max;
+                    
+                    // Get 8 corners of the bounding box
+                    const corners = [
+                        new THREE.Vector3(min.x, min.y, min.z),
+                        new THREE.Vector3(min.x, min.y, max.z),
+                        new THREE.Vector3(min.x, max.y, min.z),
+                        new THREE.Vector3(min.x, max.y, max.z),
+                        new THREE.Vector3(max.x, min.y, min.z),
+                        new THREE.Vector3(max.x, min.y, max.z),
+                        new THREE.Vector3(max.x, max.y, min.z),
+                        new THREE.Vector3(max.x, max.y, max.z)
+                    ];
+                    
+                    const lineMaterial = new THREE.LineBasicMaterial({ 
+                        color: 0x00ffff, 
+                        transparent: true,
+                        opacity: 0.35
+                    });
+                    
+                    // Draw X-axis parallel lines from box corners extending to vanishing points at infinity
+                    corners.forEach(corner => {
+                        const points = [
+                            new THREE.Vector3(-100000, corner.y, corner.z),
+                            new THREE.Vector3(100000, corner.y, corner.z)
+                        ];
+                        const geom = new THREE.BufferGeometry().setFromPoints(points);
+                        const line = new THREE.Line(geom, lineMaterial);
+                        group.add(line);
+                    });
+                    
+                    // Draw Z-axis parallel lines from box corners extending to vanishing points at infinity
+                    corners.forEach(corner => {
+                        const points = [
+                            new THREE.Vector3(corner.x, corner.y, -100000),
+                            new THREE.Vector3(corner.x, corner.y, 100000)
+                        ];
+                        const geom = new THREE.BufferGeometry().setFromPoints(points);
+                        const line = new THREE.Line(geom, lineMaterial);
+                        group.add(line);
+                    });
+                }
+            }
+            
+            // 3. Draw guiding line from camera location to vanishing points
             if (this.currentCamera) {
                 const cameraPos = this.currentCamera.position;
-                const distance = 20000;
-                
-                // Create vanishing lines from camera to horizon points
-                const vanishPoints = [
-                    new THREE.Vector3(distance, 0, 0),
-                    new THREE.Vector3(-distance, 0, 0),
-                    new THREE.Vector3(0, 0, distance),
-                    new THREE.Vector3(0, 0, -distance)
-                ];
-                
-                const lineMaterial = new THREE.LineBasicMaterial({ 
-                    color: 0x00ffff, 
-                    linewidth: 1,
+                const cameraLineMaterial = new THREE.LineDashedMaterial({
+                    color: 0x00ffff,
+                    dashSize: 200,
+                    gapSize: 100,
                     transparent: true,
                     opacity: 0.4
                 });
                 
                 vanishPoints.forEach(point => {
-                    const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+                    const geom = new THREE.BufferGeometry().setFromPoints([
                         cameraPos.clone(),
                         point
                     ]);
-                    const line = new THREE.Line(lineGeometry, lineMaterial);
+                    const line = new THREE.Line(geom, cameraLineMaterial);
+                    line.computeLineDistances(); // Required for dashed lines
                     group.add(line);
                 });
             }
@@ -3249,19 +3634,23 @@ class Viewer3D {
     
     toggleCameraHelper() {
         if (this.debugSettings.showCameraHelper) {
-            if (this.sceneHelpers.cameraHelper) return;
+            if (this.sceneHelpers.cameraHelpers && this.sceneHelpers.cameraHelpers.length > 0) return;
             
-            if (this.currentCamera) {
-                this.sceneHelpers.cameraHelper = new THREE.CameraHelper(this.currentCamera);
-                this.sceneHelpers.cameraHelper.name = 'CameraHelper';
-                this.scene.add(this.sceneHelpers.cameraHelper);
-            }
+            this.sceneHelpers.cameraHelpers = [];
+            
+            this.cameras.forEach((camera, index) => {
+                const helper = new THREE.CameraHelper(camera);
+                helper.name = `CameraHelper_${index}`;
+                this.sceneHelpers.cameraHelpers.push(helper);
+                this.scene.add(helper);
+            });
         } else {
-            if (this.sceneHelpers.cameraHelper) {
-                this.scene.remove(this.sceneHelpers.cameraHelper);
-                // CameraHelper has proper dispose method
-                if (this.sceneHelpers.cameraHelper.dispose) this.sceneHelpers.cameraHelper.dispose();
-                this.sceneHelpers.cameraHelper = null;
+            if (this.sceneHelpers.cameraHelpers) {
+                this.sceneHelpers.cameraHelpers.forEach(helper => {
+                    this.scene.remove(helper);
+                    if (helper.dispose) helper.dispose();
+                });
+                this.sceneHelpers.cameraHelpers = null;
             }
         }
     }
@@ -3304,15 +3693,24 @@ class Viewer3D {
             const hoveredEl = document.getElementById('hovered-object');
             if (hoveredEl) hoveredEl.innerHTML = `<strong>Hovered:</strong> ${this.hoveredObject?.name || 'None'}`;
             
-            // Update camera helper if it exists
-            if (this.sceneHelpers.cameraHelper && this.currentCamera) {
-                this.sceneHelpers.cameraHelper.update();
+            // Update camera helpers if they exist
+            if (this.sceneHelpers.cameraHelpers) {
+                this.sceneHelpers.cameraHelpers.forEach(helper => {
+                    helper.update();
+                });
             }
             
-            // Update vanishing lines if they exist (to follow camera)
+            // Update vanishing lines if they exist (to follow camera) - throttled for performance
             if (this.sceneHelpers.vanishingLines && this.currentCamera) {
-                this.toggleVanishingLines(); // Remove
-                this.toggleVanishingLines(); // Recreate
+                const now = performance.now();
+                if (!this._lastVanishingUpdate || now - this._lastVanishingUpdate > 500) {
+                    this._lastVanishingUpdate = now;
+                    // Properly remove then recreate by toggling the flag
+                    this.debugSettings.showVanishing = false;
+                    this.toggleVanishingLines(); // Remove
+                    this.debugSettings.showVanishing = true;
+                    this.toggleVanishingLines(); // Recreate
+                }
             }
             
             // Update all box helpers
@@ -3559,6 +3957,11 @@ class Viewer3D {
         // This matches how the 2D viewer pans (translate after scale in canvas context)
         this.canvas.style.transform = `translate(${panX}px, ${panY}px)`;
         this.canvas.style.transformOrigin = 'center center';
+        
+        if (this.svgOverlay) {
+            this.svgOverlay.style.transform = `translate(${panX}px, ${panY}px)`;
+            this.svgOverlay.style.transformOrigin = 'center center';
+        }
         
         // Show zoom pivot point for debugging
         if (CONFIG_3D.SHOW_ZOOM_PIVOT && zoomLevel > 1.0) {

@@ -1,5 +1,6 @@
 {
   "ui": {
+    "locationUrl": "42.1158762,12.7758299",
     "blurEnabled": true,
     "blurIntensity": 15,
     "glowEnabled": true,

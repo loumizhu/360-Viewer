@@ -2138,5 +2138,10 @@
     "MAG4": "CLT695425/3D-Plans/MAG4.jpg",
     "MAG5": "CLT695425/3D-Plans/MAG5.jpg",
     "Template": "CLT695425/3D-Plans/Template.jpg"
-  }
+  },
+  "virtual_visit": [
+    "CLT695425/360-Virtual-Visit/01-Room1.webp",
+    "CLT695425/360-Virtual-Visit/Room02.webp",
+    "CLT695425/360-Virtual-Visit/Room03.jpg"
+  ]
 }

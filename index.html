@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="client-check.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
     <script src="viewer-pan-zoom.js"></script>
 </head>
 
@@ -50,6 +50,185 @@
     <div id="container">
         <canvas id="viewer"></canvas>
         <canvas id="viewer3d"></canvas>
+
+        <!-- Top Navigation Toolbar -->
+        <div id="top-toolbar">
+            <!-- Far Left Logo Container -->
+            <div class="logo-container" id="logo-container" onclick="window.location.reload();" title="Reload Viewer">
+                <img id="project-logo" src="img/favIcon.ico" alt="Logo">
+            </div>
+
+            <!-- Divider -->
+            <div class="toolbar-divider"></div>
+
+            <!-- Filters Section -->
+            <div class="filters-container">
+                <!-- Dropdown unit type -->
+                <div class="filter-group">
+                    <label class="filter-label" id="lbl-unit-type">Unit Type</label>
+                    <select id="filter-unit-type" class="filter-select">
+                        <option value="" id="opt-all-types">All Property Types</option>
+                    </select>
+                </div>
+
+                <!-- Surface Range Slider -->
+                <div class="filter-group slider-group">
+                    <label class="filter-label" id="lbl-surface">Surface Area</label>
+                    <div class="double-slider-container">
+                        <span class="range-display" id="surface-range-display">Min: - Max: -</span>
+                        <div class="slider-track-wrapper">
+                            <div class="slider-track" id="surface-track"></div>
+                            <input type="range" id="slider-surface-min" class="range-input min-input" min="0" max="500" value="0">
+                            <input type="range" id="slider-surface-max" class="range-input max-input" min="0" max="500" value="500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Levels Slider -->
+                <div class="filter-group slider-group">
+                    <label class="filter-label" id="lbl-levels">Levels / Floors</label>
+                    <div class="double-slider-container">
+                        <span class="range-display" id="levels-range-display">Min: - Max: -</span>
+                        <div class="slider-track-wrapper">
+                            <div class="slider-track" id="levels-track"></div>
+                            <input type="range" id="slider-levels-min" class="range-input min-input" min="0" max="10" value="0">
+                            <input type="range" id="slider-levels-max" class="range-input max-input" min="0" max="10" value="10">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Box -->
+                <div class="filter-group search-group">
+                    <label class="filter-label" id="lbl-search">Search Unit</label>
+                    <div class="search-input-wrapper">
+                        <input type="text" id="filter-search" class="filter-input" placeholder="Search unit name...">
+                        <span class="search-clear" id="search-clear">&times;</span>
+                        <div id="search-suggestions" class="search-suggestions hidden"></div>
+                    </div>
+                </div>
+
+                <!-- Reset Button -->
+                <button id="btn-reset-filters" class="toolbar-btn">
+                    <span class="btn-icon">↺</span>
+                    <span class="btn-text" id="btn-text-reset">Reset</span>
+                </button>
+            </div>
+
+            <!-- Showcase Tabs -->
+            <div class="showcase-tabs">
+                <button id="tab-visit" class="toolbar-tab hidden">
+                    <span class="tab-icon">🌐</span>
+                    <span class="tab-text" id="tab-text-visit">Virtual Visit</span>
+                </button>
+                <button id="tab-location" class="toolbar-tab hidden">
+                    <span class="tab-icon">📍</span>
+                    <span class="tab-text" id="tab-text-location">Location</span>
+                </button>
+                <button id="tab-contact" class="toolbar-tab">
+                    <span class="tab-icon">✉️</span>
+                    <span class="tab-text" id="tab-text-contact">Contact</span>
+                </button>
+            </div>
+
+            <!-- Divider -->
+            <div class="toolbar-divider"></div>
+
+            <!-- Theme Toggle Button -->
+            <button id="theme-toggle-btn" class="toolbar-tab" style="padding: 6px 12px; height: 31px; display: flex; align-items: center; justify-content: center; border-radius: 8px; flex-shrink: 0;" title="Toggle Light/Dark Theme">
+                <span id="theme-toggle-icon" style="font-size: 14px; line-height: 1;">☀️</span>
+            </button>
+
+            <!-- Language Selector -->
+            <div class="lang-selector">
+                <select id="lang-select" class="lang-dropdown">
+                    <option value="en">English</option>
+                    <option value="fr">Français</option>
+                    <option value="ar">العربية</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Sliding Showcase Overlays -->
+        <!-- 1. Virtual Visit Overlay -->
+        <div id="visit-overlay" class="showcase-overlay hidden">
+            <div class="overlay-header">
+                <div class="overlay-title-group">
+                    <h3 id="overlay-title-visit">Virtual Visit</h3>
+                    <div id="visit-room-buttons" class="visit-room-buttons"></div>
+                </div>
+                <button class="overlay-close-btn" onclick="toggleOverlay('visit-overlay', false)">&times;</button>
+            </div>
+            <div class="overlay-content visit-overlay-content">
+                <div id="panorama-360-container" class="panorama-360-container"></div>
+                <iframe id="visit-iframe" src="" frameborder="0" allowfullscreen class="hidden"></iframe>
+            </div>
+        </div>
+
+        <!-- 2. Location Map Overlay -->
+        <div id="location-overlay" class="showcase-overlay hidden">
+            <div class="overlay-header">
+                <div class="overlay-title-group">
+                    <h3 id="overlay-title-location">Project Location</h3>
+                    <span class="location-compact-address" id="loc-val-address">123 Premium Real Estate Ave, Paris • 42.1158762, 12.7758299</span>
+                </div>
+                <div class="overlay-header-actions">
+                    <a id="loc-open-maps-btn" href="https://www.google.fr/maps/@42.1158762,12.7758299,139m/data=!3m1!1e3?entry=ttu" target="_blank" rel="noopener noreferrer" class="open-maps-btn" title="Open in Google Maps">
+                        <span id="loc-open-maps-text">Open Maps</span> ↗
+                    </a>
+                    <button class="overlay-close-btn" onclick="toggleOverlay('location-overlay', false)">&times;</button>
+                </div>
+            </div>
+            <div class="overlay-content">
+                <div class="map-container">
+                    <iframe id="location-iframe" src="" frameborder="0" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Contact Form Overlay -->
+        <div id="contact-overlay" class="showcase-overlay hidden">
+            <div class="overlay-header">
+                <h3 id="overlay-title-contact">Contact Us</h3>
+                <button class="overlay-close-btn" onclick="toggleOverlay('contact-overlay', false)">&times;</button>
+            </div>
+            <div class="overlay-content">
+                <div class="contact-card-grid">
+                    <!-- Left: Real Address Card -->
+                    <div class="real-contact-card">
+                        <h4 id="contact-card-title">VARA Headquarters</h4>
+                        <div class="contact-detail-item">
+                            <span class="detail-icon">📍</span>
+                            <div class="detail-text">
+                                <strong id="contact-lbl-address">Address</strong>
+                                <span id="contact-val-address">123 Premium Real Estate Ave, Suite 500, Paris, France</span>
+                            </div>
+                        </div>
+                        <div class="contact-detail-item">
+                            <span class="detail-icon">📞</span>
+                            <div class="detail-text">
+                                <strong id="contact-lbl-phone">Phone</strong>
+                                <span id="contact-val-phone">+33 1 23 45 67 89</span>
+                            </div>
+                        </div>
+                        <div class="contact-detail-item">
+                            <span class="detail-icon">✉️</span>
+                            <div class="detail-text">
+                                <strong id="contact-lbl-email">Email</strong>
+                                <span id="contact-val-email">sales@vara3d.com</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Right: Form -->
+                    <form id="toolbar-contact-form" class="overlay-contact-form">
+                        <input type="text" id="contact-name" placeholder="Name" required class="overlay-input">
+                        <input type="email" id="contact-email" placeholder="Email" required class="overlay-input">
+                        <input type="tel" id="contact-phone" placeholder="Phone" required class="overlay-input">
+                        <textarea id="contact-message" placeholder="Message" rows="5" required class="overlay-textarea"></textarea>
+                        <button type="submit" id="btn-contact-submit" class="overlay-send-btn">Send Message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
         <!-- Integrated Control Toolbar -->
         <div id="controls">
@@ -151,34 +330,34 @@
 
                         <!-- Apartment Information -->
                         <div class="apartment-info">
-                            <h3>Apartment Details</h3>
+                            <h3 id="lbl-apt-details">Apartment Details</h3>
                             <div class="info-grid">
                                 <div class="info-item">
-                                    <span class="info-label">Unit:</span>
+                                    <span class="info-label" id="lbl-apt-unit">Unit:</span>
                                     <span class="info-value" id="unit-value">Select a Unit</span>
                                 </div>
                                 <div class="info-item">
-                                    <span class="info-label">Surface Interior:</span>
+                                    <span class="info-label" id="lbl-apt-surface-int">Surface Interior:</span>
                                     <span class="info-value" id="surface-interior-value">-</span>
                                 </div>
                                 <div class="info-item">
-                                    <span class="info-label">Surface Exterior:</span>
+                                    <span class="info-label" id="lbl-apt-surface-ext">Surface Exterior:</span>
                                     <span class="info-value" id="surface-exterior-value">-</span>
                                 </div>
                                 <div class="info-item">
-                                    <span class="info-label">Terrace:</span>
+                                    <span class="info-label" id="lbl-apt-terrace">Terrace:</span>
                                     <span class="info-value" id="terrace-value">-</span>
                                 </div>
                                 <div class="info-item">
-                                    <span class="info-label">Type:</span>
+                                    <span class="info-label" id="lbl-apt-type">Type:</span>
                                     <span class="info-value" id="type-value">-</span>
                                 </div>
                                 <div class="info-item">
-                                    <span class="info-label">Rooms:</span>
+                                    <span class="info-label" id="lbl-apt-rooms">Rooms:</span>
                                     <span class="info-value" id="rooms-value">-</span>
                                 </div>
                                 <div class="info-item">
-                                    <span class="info-label">Orientation:</span>
+                                    <span class="info-label" id="lbl-apt-orientation">Orientation:</span>
                                     <span class="info-value" id="orientation-value">-</span>
                                 </div>
                             </div>
@@ -189,34 +368,88 @@
         </div>
 
 
-        <!-- Right UI Settings Panel -->
+        <!-- UI Settings & Theme Studio Panel -->
         <div id="ui-settings-panel" class="hidden">
             <div class="ui-settings-header">
-                <h3>UI Settings</h3>
-                <button id="uiSettingsCloseBtn" class="ui-settings-close-btn">×</button>
-            </div>
-            <div class="ui-settings-content">
-                <!-- Effect Settings Section -->
-                <div id="effect-settings-section" class="ui-settings-section">
-                    <h4 class="ui-settings-section-title">3D Effect Settings</h4>
-                    <div class="ui-settings-group">
-                        <label for="effect-select" class="ui-settings-label">Effect Type:</label>
-                        <select id="effect-select" class="effect-dropdown">
-                            <option value="solid">Solid</option>
-                            <option value="outline">Outline</option>
-                            <option value="glow">Glow</option>
-                            <option value="svg-glow">SVG Glow</option>
-                            <option value="scan">Scan</option>
-                            <option value="particles">Particles</option>
-                        </select>
-                    </div>
-                    <!-- Effect Controls (dynamically shown based on effect) -->
-                    <div id="effect-controls">
-                        <!-- Controls will be inserted here by JavaScript -->
-                    </div>
+                <div class="ui-settings-header-title">
+                    <span class="header-icon">🎨</span>
+                    <h3>UI Settings & Theme Studio</h3>
                 </div>
+                <button id="uiSettingsCloseBtn" class="ui-settings-close-btn">&times;</button>
+            </div>
+            <div class="ui-settings-body">
+                <!-- Left Navigation Sidebar -->
+                <nav id="ui-settings-nav" class="ui-settings-nav">
+                    <button class="nav-tab-btn active" data-tab="themes">
+                        <span class="nav-icon">🎨</span>
+                        <span class="nav-text">Themes & Presets</span>
+                    </button>
+                    <button class="nav-tab-btn" data-tab="styling">
+                        <span class="nav-icon">🖌️</span>
+                        <span class="nav-text">Fonts & Styling</span>
+                    </button>
+                    <button class="nav-tab-btn" data-tab="layout">
+                        <span class="nav-icon">🎛️</span>
+                        <span class="nav-text">Toolbar & Layout</span>
+                    </button>
+                    <button class="nav-tab-btn" data-tab="effects">
+                        <span class="nav-icon">✨</span>
+                        <span class="nav-text">3D & Visual Effects</span>
+                    </button>
+                    <button class="nav-tab-btn" data-tab="particles">
+                        <span class="nav-icon">🌌</span>
+                        <span class="nav-text">Particles</span>
+                    </button>
+                    <button class="nav-tab-btn" data-tab="branding">
+                        <span class="nav-icon">💼</span>
+                        <span class="nav-text">Branding & Info</span>
+                    </button>
+                    <button class="nav-tab-btn" data-tab="system">
+                        <span class="nav-icon">⚙️</span>
+                        <span class="nav-text">System & Performance</span>
+                    </button>
+                </nav>
 
-                <!-- Other settings will be populated by JavaScript -->
+                <!-- Right Content Area -->
+                <div class="ui-settings-content">
+                    <!-- Tab Page 1: Themes & Presets -->
+                    <div id="tab-page-themes" class="ui-settings-tab-page active"></div>
+
+                    <!-- Tab Page 2: Fonts & Styling -->
+                    <div id="tab-page-styling" class="ui-settings-tab-page hidden"></div>
+
+                    <!-- Tab Page 3: Toolbar & Layout -->
+                    <div id="tab-page-layout" class="ui-settings-tab-page hidden"></div>
+
+                    <!-- Tab Page 4: 3D & Visual Effects -->
+                    <div id="tab-page-effects" class="ui-settings-tab-page hidden">
+                        <!-- Effect Settings Section -->
+                        <div id="effect-settings-section" class="ui-settings-section">
+                            <h4 class="ui-settings-section-title">3D Effect Settings</h4>
+                            <div class="ui-settings-group">
+                                <label for="effect-select" class="ui-settings-label">Effect Type:</label>
+                                <select id="effect-select" class="effect-dropdown">
+                                    <option value="solid">Solid</option>
+                                    <option value="outline">Outline</option>
+                                    <option value="glow">Glow</option>
+                                    <option value="svg-glow">SVG Glow</option>
+                                    <option value="scan">Scan</option>
+                                    <option value="particles">Particles</option>
+                                </select>
+                            </div>
+                            <div id="effect-controls"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Page 5: Particles -->
+                    <div id="tab-page-particles" class="ui-settings-tab-page hidden"></div>
+
+                    <!-- Tab Page 6: Branding -->
+                    <div id="tab-page-branding" class="ui-settings-tab-page hidden"></div>
+
+                    <!-- Tab Page 7: System & Performance -->
+                    <div id="tab-page-system" class="ui-settings-tab-page hidden"></div>
+                </div>
             </div>
         </div>
 
@@ -248,6 +481,8 @@
     <script src="plan-panel-interactions.js?v=1.1"></script>
     <script src="image-info-updater.js?v=1.1"></script>
     <script src="unit-database-sync.js?v=1.1"></script>
+    <script src="virtual-visit-360.js?v=1.1"></script>
+    <script src="viewer-filters.js?v=1.1"></script>
 
     <!-- Loader Control Script -->
     <script>

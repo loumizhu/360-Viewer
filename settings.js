@@ -11,6 +11,28 @@ class UISettingsManager {
                 glowEnabled: true,
                 glowColor: 'rgba(100, 200, 255, 0.8)',
                 glowDuration: 500,
+                themeMode: 'dark',
+                logoPath: 'img/favIcon.ico',
+                visitUrl: '',
+                locationUrl: '',
+                contact: {
+                    title: 'VARA Headquarters',
+                    address: '123 Premium Real Estate Ave, Suite 500, Paris, France',
+                    phone: '+33 1 23 45 67 89',
+                    email: 'sales@vara3d.com'
+                },
+                toolbar: {
+                    height: 70,
+                    widthMode: 'full',
+                    floatingMaxWidth: 1200,
+                    borderRadius: 12,
+                    gap: 20,
+                    virtualVisitViewport: 'drawer',
+                    locationViewport: 'drawer',
+                    contactViewport: 'drawer',
+                    infoPanelViewport: 'popup',
+                    defaultLanguage: 'en'
+                },
                 theme: {
                     mode: 'dark',
                     primary: {
@@ -44,19 +66,29 @@ class UISettingsManager {
                         default: 'rgba(0, 0, 0, 0.85)',
                         panel: 'rgba(20, 20, 20, 0.75)',
                         card: 'rgba(30, 30, 30, 0.8)',
-                        hover: 'rgba(40, 40, 40, 0.9)'
+                        hover: 'rgba(40, 40, 40, 0.9)',
+                        overlay: 'rgba(18, 18, 18, 0.85)',
+                        input: 'rgba(255, 255, 255, 0.05)',
+                        button: 'rgba(255, 255, 255, 0.1)',
+                        sliderTrack: 'rgba(255, 255, 255, 0.2)',
+                        sliderThumb: '#006FEE'
                     },
                     text: {
                         primary: '#FFFFFF',
                         secondary: 'rgba(255, 255, 255, 0.7)',
-                        disabled: 'rgba(255, 255, 255, 0.4)'
+                        disabled: 'rgba(255, 255, 255, 0.4)',
+                        active: '#006FEE'
                     },
                     border: {
                         color: 'rgba(255, 255, 255, 0.2)',
+                        input: 'rgba(255, 255, 255, 0.3)',
                         radius: {
                             small: '8px',
                             medium: '12px',
-                            large: '16px'
+                            large: '16px',
+                            element: '12px',
+                            button: '8px',
+                            input: '8px'
                         },
                         width: '2px'
                     },
@@ -194,8 +226,12 @@ class UISettingsManager {
             // Deep merge specific objects if they exist
             fileSettings.ui = { ...this.settings.ui, ...(rootData.ui || {}), ...(clientData.ui || {}) };
             if (fileSettings.ui.theme) {
-                 fileSettings.ui.theme = { ...this.settings.ui.theme, ...(rootData.theme || {}), ...(clientData.theme || {}) };
+                 fileSettings.ui.theme = { ...this.settings.ui.theme, ...(rootData.ui?.theme || rootData.theme || {}), ...(clientData.ui?.theme || clientData.theme || {}) };
             }
+            if (fileSettings.ui.toolbar) {
+                 fileSettings.ui.toolbar = { ...this.settings.ui.toolbar, ...(rootData.ui?.toolbar || {}), ...(clientData.ui?.toolbar || {}) };
+            }
+            fileSettings.ui.contact = { ...this.settings.ui.contact, ...(rootData.ui?.contact || {}), ...(clientData.ui?.contact || {}) };
             if (rootData.theme || clientData.theme) {
                 // Shallow merge theme for now, deep merge if robust theme support needed
                 fileSettings.theme = { ...(rootData.theme || {}), ...(clientData.theme || {}) };
@@ -268,6 +304,144 @@ class UISettingsManager {
         const uiSettings = this.settings.ui;
         const effectSettings = this.settings.effects;
         
+        // 1. Apply visual theme mode (dark vs light)
+        const themeMode = uiSettings.themeMode || 'dark';
+        if (themeMode === 'light') {
+            document.body.classList.add('light-mode');
+            document.body.classList.remove('dark-mode');
+            // Update toggle icon if it exists in the DOM
+            const iconEl = document.getElementById('theme-toggle-icon');
+            if (iconEl) iconEl.textContent = '🌙'; // Switch to Moon in light mode to suggest toggling to dark
+        } else {
+            document.body.classList.add('dark-mode');
+            document.body.classList.remove('light-mode');
+            const iconEl = document.getElementById('theme-toggle-icon');
+            if (iconEl) iconEl.textContent = '☀️'; // Switch to Sun in dark mode to suggest toggling to light
+        }
+
+        // 2. Apply Toolbar & Layout settings
+        if (uiSettings.toolbar) {
+            const tb = uiSettings.toolbar;
+            const root = document.documentElement;
+            
+            // Spacing / gaps
+            if (tb.gap !== undefined) {
+                root.style.setProperty('--ui-toolbar-gap', `${tb.gap}px`);
+            }
+            
+            // Height
+            if (tb.height !== undefined) {
+                root.style.setProperty('--ui-toolbar-height', `${tb.height}px`);
+                // Move other absolute panels down if toolbar height is larger
+                root.style.setProperty('--ui-toolbar-offset', `${tb.height + 20}px`);
+            }
+
+            // Width Mode
+            if (tb.widthMode === 'floating') {
+                root.style.setProperty('--ui-toolbar-top', '12px');
+                root.style.setProperty('--ui-toolbar-left', '12px');
+                root.style.setProperty('--ui-toolbar-right', '12px');
+                root.style.setProperty('--ui-toolbar-radius', `${tb.borderRadius || 12}px`);
+                root.style.setProperty('--ui-toolbar-max-width', `${tb.floatingMaxWidth || 1200}px`);
+            } else {
+                root.style.setProperty('--ui-toolbar-top', '0px');
+                root.style.setProperty('--ui-toolbar-left', '0px');
+                root.style.setProperty('--ui-toolbar-right', '0px');
+                root.style.setProperty('--ui-toolbar-radius', '0px');
+                root.style.setProperty('--ui-toolbar-max-width', '100%');
+            }
+
+            // Fullscreen overlays classes
+            const toggleOverlayClass = (id, viewportMode) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (viewportMode === 'full') {
+                        el.classList.add('viewport-full');
+                    } else {
+                        el.classList.remove('viewport-full');
+                    }
+                }
+            };
+            toggleOverlayClass('visit-overlay', tb.virtualVisitViewport);
+            toggleOverlayClass('location-overlay', tb.locationViewport);
+            toggleOverlayClass('contact-overlay', tb.contactViewport);
+            toggleOverlayClass('plan-image-panel', tb.infoPanelViewport);
+        }
+
+        // 3. Apply custom Showcase & Contact details
+        if (uiSettings.logoPath) {
+            const logoImg = document.getElementById('project-logo');
+            if (logoImg) logoImg.src = uiSettings.logoPath;
+        }
+
+        if (uiSettings.visitUrl) {
+            const visitTab = document.getElementById('tab-visit');
+            if (visitTab) visitTab.classList.remove('hidden');
+            const iframe = document.getElementById('visit-iframe');
+            if (iframe) iframe.src = uiSettings.visitUrl;
+        }
+
+        const effectiveCoords = uiSettings.locationUrl || '42.1158762,12.7758299';
+        const streetAddress = uiSettings.locationAddress || uiSettings.contact?.address || '123 Premium Real Estate Ave, Paris';
+        const combinedAddress = `${streetAddress} • ${effectiveCoords}`;
+
+        const locationTab = document.getElementById('tab-location');
+        if (locationTab) locationTab.classList.remove('hidden');
+        const iframe = document.getElementById('location-iframe');
+        if (iframe) {
+            if (effectiveCoords.includes('google.com/maps/embed')) {
+                iframe.src = effectiveCoords;
+            } else {
+                const match = effectiveCoords.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+                if (match) {
+                    iframe.src = `https://maps.google.com/maps?q=${match[1]},${match[2]}&t=k&z=18&output=embed`;
+                } else {
+                    iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(effectiveCoords)}&t=k&z=18&output=embed`;
+                }
+            }
+        }
+        const locValAddress = document.getElementById('loc-val-address');
+        if (locValAddress) locValAddress.textContent = combinedAddress;
+
+        const openMapsBtn = document.getElementById('loc-open-maps-btn');
+        if (openMapsBtn) {
+            if (effectiveCoords.includes('google.com') || effectiveCoords.includes('google.fr')) {
+                openMapsBtn.href = effectiveCoords;
+            } else {
+                openMapsBtn.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(effectiveCoords)}`;
+            }
+        }
+
+        const contactValAddress = document.getElementById('contact-val-address');
+        if (contactValAddress) contactValAddress.textContent = streetAddress;
+
+        if (uiSettings.contact) {
+            const contact = uiSettings.contact;
+            const titleEl = document.getElementById('contact-card-title');
+            if (titleEl && contact.title) titleEl.textContent = contact.title;
+            
+            const addressEl = document.getElementById('contact-val-address');
+            if (addressEl && contact.address) {
+                addressEl.textContent = contact.address;
+                const locValAddress = document.getElementById('loc-val-address');
+                if (locValAddress) locValAddress.textContent = contact.address;
+            }
+            
+            const phoneEl = document.getElementById('contact-val-phone');
+            if (phoneEl && contact.phone) {
+                phoneEl.textContent = contact.phone;
+                const locValPhone = document.getElementById('loc-val-phone');
+                if (locValPhone) locValPhone.textContent = contact.phone;
+            }
+            
+            const emailEl = document.getElementById('contact-val-email');
+            if (emailEl && contact.email) {
+                emailEl.textContent = contact.email;
+                const locValEmail = document.getElementById('loc-val-email');
+                if (locValEmail) locValEmail.textContent = contact.email;
+            }
+        }
+
         // Apply theme settings
         if (uiSettings.theme) {
             this.applyTheme(uiSettings.theme);
@@ -278,7 +452,7 @@ class UISettingsManager {
              document.documentElement.style.setProperty('--blur-intensity', `${uiSettings.blurIntensity || 15}px`);
              
              // Update all elements with backdrop-filter
-             const elementsWithBlur = document.querySelectorAll('#controls, #loading, #debug-panel, #ui-settings-panel, #plan-image-panel, .control-btn, .effect-dropdown, .debug-close-btn, .effect-control-group');
+             const elementsWithBlur = document.querySelectorAll('#controls, #loading, #debug-panel, #ui-settings-panel, #plan-image-panel, .control-btn, .effect-dropdown, .debug-close-btn, .effect-control-group, #top-toolbar, .showcase-overlay');
              elementsWithBlur.forEach(el => {
                  if (uiSettings.blurEnabled) {
                      el.style.backdropFilter = `blur(${uiSettings.blurIntensity || 15}px)`;
@@ -410,6 +584,11 @@ class UISettingsManager {
             if (theme.background.panel) root.style.setProperty('--ui-bg-panel', theme.background.panel);
             if (theme.background.card) root.style.setProperty('--ui-bg-card', theme.background.card);
             if (theme.background.hover) root.style.setProperty('--ui-bg-hover', theme.background.hover);
+            if (theme.background.overlay) root.style.setProperty('--ui-bg-overlay', theme.background.overlay);
+            if (theme.background.input) root.style.setProperty('--ui-input-bg', theme.background.input);
+            if (theme.background.button) root.style.setProperty('--ui-button-bg', theme.background.button);
+            if (theme.background.sliderTrack) root.style.setProperty('--ui-slider-track', theme.background.sliderTrack);
+            if (theme.background.sliderThumb) root.style.setProperty('--ui-slider-thumb', theme.background.sliderThumb);
         }
         
         // Text
@@ -417,16 +596,21 @@ class UISettingsManager {
             if (theme.text.primary) root.style.setProperty('--ui-text-primary', theme.text.primary);
             if (theme.text.secondary) root.style.setProperty('--ui-text-secondary', theme.text.secondary);
             if (theme.text.disabled) root.style.setProperty('--ui-text-disabled', theme.text.disabled);
+            if (theme.text.active) root.style.setProperty('--ui-text-active', theme.text.active);
         }
         
         // Border
         if (theme.border) {
             if (theme.border.color) root.style.setProperty('--ui-border-color', theme.border.color);
+            if (theme.border.input) root.style.setProperty('--ui-input-border', theme.border.input);
             if (theme.border.width) root.style.setProperty('--ui-border-width', theme.border.width);
             if (theme.border.radius) {
                 if (theme.border.radius.small) root.style.setProperty('--ui-border-radius-sm', theme.border.radius.small);
                 if (theme.border.radius.medium) root.style.setProperty('--ui-border-radius-md', theme.border.radius.medium);
                 if (theme.border.radius.large) root.style.setProperty('--ui-border-radius-lg', theme.border.radius.large);
+                if (theme.border.radius.element) root.style.setProperty('--ui-border-radius-element', theme.border.radius.element);
+                if (theme.border.radius.button) root.style.setProperty('--ui-border-radius-button', theme.border.radius.button);
+                if (theme.border.radius.input) root.style.setProperty('--ui-border-radius-input', theme.border.radius.input);
             }
         }
         

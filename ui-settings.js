@@ -50,10 +50,66 @@ class UISettingsPanel {
             this.buildSettingsUI();
         });
 
+        // Bind left navigation sidebar tab switching
+        if (this.panel) {
+            const navBtns = this.panel.querySelectorAll('.nav-tab-btn');
+            navBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const targetTab = btn.getAttribute('data-tab');
+                    navBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    const pages = this.panel.querySelectorAll('.ui-settings-tab-page');
+                    pages.forEach(p => {
+                        if (p.id === `tab-page-${targetTab}`) {
+                            p.classList.remove('hidden');
+                            p.classList.add('active');
+                        } else {
+                            p.classList.add('hidden');
+                            p.classList.remove('active');
+                        }
+                    });
+                });
+            });
+        }
+
         // Build the settings UI
         this.buildSettingsUI();
     }
-    
+
+    // ─── Proxy getters: delegate settings data/methods to window.uiSettings ───
+
+    get settings() {
+        return window.uiSettings?.settings;
+    }
+
+    getSetting(group, key) {
+        return window.uiSettings?.getSetting(group, key);
+    }
+
+    updateSetting(group, key, value) {
+        return window.uiSettings?.updateSetting(group, key, value);
+    }
+
+    applySettings() {
+        return window.uiSettings?.applySettings();
+    }
+
+    saveSettings() {
+        return window.uiSettings?.saveSettings();
+    }
+
+    applyTheme(theme) {
+        return window.uiSettings?.applyTheme(theme);
+    }
+
+    applyParticles(settings) {
+        return window.uiSettings?.applyParticles(settings);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     toggle() {
         if (!this.panel) {
             console.error('[UI Settings] Cannot toggle: Panel element not found');
@@ -113,54 +169,71 @@ class UISettingsPanel {
             return;
         }
         
-        const theme = window.uiSettings.getSetting('ui', 'theme') || {};
-        
-        // Don't clear the effect settings section - it's already in the HTML
-        // Just clear other sections and rebuild them
-        const effectSection = this.content.querySelector('#effect-settings-section');
-        const otherSections = Array.from(this.content.children).filter(child => child.id !== 'effect-settings-section');
-        
-        // Remove only non-effect sections
-        otherSections.forEach(section => section.remove());
-        
-        // Colors Section
-        this.createColorsSection(theme);
-        
-        // Background Section
-        this.createBackgroundSection(theme);
-        
-        // Text Section
-        this.createTextSection(theme);
-        
-        // Border Section
-        this.createBorderSection(theme);
-        
-        // Spacing Section
-        this.createSpacingSection(theme);
-        
-        // Font Section
-        this.createFontSection(theme);
-        
-        // Blur Section
-        this.createBlurSection();
-        
-        // Performance Section
-        this.createPerformanceSection();
-        
-        // Controls Section
-        this.createControlsSection();
-        
-        // Tooltip Settings Section
-        this.createTooltipSection();
-        
-        // Box Particles Section
-        this.createBoxParticlesSection();
-        
-        // Ambient Particles Section
-        this.createAmbientParticlesSection();
+        const theme = this.getSetting('ui', 'theme') || {};
 
-        // Cursor Particles Section
-        this.createCursorParticlesSection();
+        // 1. Tab Page: Themes & Presets
+        this.createThemesAndPresetsSection();
+
+        // 2. Tab Page: Fonts & Styling
+        const stylingPage = document.getElementById('tab-page-styling');
+        if (stylingPage) {
+            stylingPage.innerHTML = '';
+            this.createFontSection(theme, stylingPage);
+            this.createColorsSection(theme, stylingPage);
+            this.createBackgroundSection(theme, stylingPage);
+            this.createBorderSection(theme, stylingPage);
+            this.createSpacingSection(theme, stylingPage);
+        }
+
+        // 3. Tab Page: Toolbar & Layout
+        const layoutPage = document.getElementById('tab-page-layout');
+        if (layoutPage) {
+            layoutPage.innerHTML = '';
+            this.createToolbarAndLayoutSection(theme, layoutPage);
+        }
+
+        // 4. Tab Page: 3D & Visual Effects
+        const effectsPage = document.getElementById('tab-page-effects');
+        if (effectsPage) {
+            const effectSection = effectsPage.querySelector('#effect-settings-section');
+            effectsPage.innerHTML = '';
+            if (effectSection) effectsPage.appendChild(effectSection);
+            this.createFilterHighlightSection(effectsPage);
+        }
+
+        // 5. Tab Page: Particles
+        const particlesPage = document.getElementById('tab-page-particles');
+        if (particlesPage) {
+            particlesPage.innerHTML = '';
+            this.createBoxParticlesSection(particlesPage);
+            
+            if (typeof this.createAmbientParticlesSection === 'function') {
+                const ambientSection = this.createAmbientParticlesSection();
+                if (ambientSection) particlesPage.appendChild(ambientSection);
+            }
+            
+            if (typeof this.createCursorParticlesSection === 'function') {
+                const cursorSection = this.createCursorParticlesSection();
+                if (cursorSection) particlesPage.appendChild(cursorSection);
+            }
+        }
+
+        // 6. Tab Page: Branding & Info
+        const brandingPage = document.getElementById('tab-page-branding');
+        if (brandingPage) {
+            brandingPage.innerHTML = '';
+            this.createShowcaseContentSection(theme, brandingPage);
+        }
+
+        // 7. Tab Page: System & Performance
+        const systemPage = document.getElementById('tab-page-system');
+        if (systemPage) {
+            systemPage.innerHTML = '';
+            this.createBlurSection(systemPage);
+            this.createPerformanceSection(systemPage);
+            this.createTooltipSection(systemPage);
+            this.createControlsSection(systemPage);
+        }
 
 
         
@@ -296,7 +369,577 @@ class UISettingsPanel {
         return group;
     }
 
-    createColorsSection(theme) {
+    createThemesAndPresetsSection() {
+        const targetPage = document.getElementById('tab-page-themes');
+        if (!targetPage) return;
+        targetPage.innerHTML = '';
+
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = '🎨 Curated Theme Presets';
+        section.appendChild(title);
+
+        const grid = document.createElement('div');
+        grid.className = 'theme-presets-grid';
+
+        const PRESET_THEMES = [
+            {
+                id: 'midnight-neon',
+                name: 'Midnight Neon',
+                primary: '#006FEE',
+                secondary: '#66AAF9',
+                bg: 'rgba(18, 18, 18, 0.94)',
+                border: '#005BC4',
+                font: 'system-ui, -apple-system, sans-serif'
+            },
+            {
+                id: 'cyberpunk-gold',
+                name: 'Cyberpunk Gold',
+                primary: '#FFB300',
+                secondary: '#FFE082',
+                bg: 'rgba(20, 15, 6, 0.95)',
+                border: '#FF8F00',
+                font: "'Outfit', sans-serif"
+            },
+            {
+                id: 'emerald-luxury',
+                name: 'Emerald Luxury',
+                primary: '#00C851',
+                secondary: '#00E676',
+                bg: 'rgba(6, 24, 16, 0.94)',
+                border: '#007E33',
+                font: "'Inter', sans-serif"
+            },
+            {
+                id: 'sunset-coral',
+                name: 'Sunset Coral',
+                primary: '#FF4444',
+                secondary: '#FF8888',
+                bg: 'rgba(28, 12, 16, 0.94)',
+                border: '#CC0000',
+                font: "'Outfit', sans-serif"
+            },
+            {
+                id: 'nord-frost',
+                name: 'Nord Frost',
+                primary: '#38BDF8',
+                secondary: '#7DD3FC',
+                bg: 'rgba(15, 23, 42, 0.94)',
+                border: '#3B82F6',
+                font: "'Roboto', sans-serif"
+            },
+            {
+                id: 'obsidian-violet',
+                name: 'Obsidian Violet',
+                primary: '#A855F7',
+                secondary: '#C084FC',
+                bg: 'rgba(19, 14, 28, 0.94)',
+                border: '#7E22CE',
+                font: 'system-ui, sans-serif'
+            },
+            {
+                id: 'light-clean',
+                name: 'Light Clean',
+                primary: '#006FEE',
+                secondary: '#005BC4',
+                bg: 'rgba(248, 250, 252, 0.96)',
+                border: '#CBD5E1',
+                text: '#0F172A',
+                font: "'Inter', sans-serif"
+            }
+        ];
+
+        // Load custom user presets from localStorage
+        let customPresets = [];
+        try {
+            const saved = localStorage.getItem('ui_custom_theme_presets');
+            if (saved) customPresets = JSON.parse(saved);
+        } catch (e) {
+            console.warn('[UI Settings] Error reading custom presets:', e);
+        }
+
+        const allPresets = [...PRESET_THEMES, ...customPresets];
+
+        allPresets.forEach(preset => {
+            const card = document.createElement('div');
+            card.className = 'theme-preset-card';
+
+            const cardTitle = document.createElement('div');
+            cardTitle.className = 'preset-card-title';
+            cardTitle.innerHTML = `<span>${preset.name}</span>`;
+
+            if (preset.isCustom) {
+                const delBtn = document.createElement('button');
+                delBtn.className = 'preset-delete-btn';
+                delBtn.innerHTML = '🗑️';
+                delBtn.title = 'Delete custom preset';
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.deleteCustomPreset(preset.id);
+                });
+                cardTitle.appendChild(delBtn);
+            }
+
+            const swatches = document.createElement('div');
+            swatches.className = 'preset-color-swatches';
+            swatches.innerHTML = `
+                <div class="swatch-item" style="background:${preset.primary}"></div>
+                <div class="swatch-item" style="background:${preset.secondary || preset.primary}"></div>
+                <div class="swatch-item" style="background:${preset.bg}"></div>
+                <div class="swatch-item" style="background:${preset.border}"></div>
+            `;
+
+            card.appendChild(swatches);
+            card.appendChild(cardTitle);
+
+            card.addEventListener('click', () => {
+                this.applyPresetTheme(preset);
+                grid.querySelectorAll('.theme-preset-card').forEach(c => c.classList.remove('active'));
+                card.classList.add('active');
+            });
+
+            grid.appendChild(card);
+        });
+
+        section.appendChild(grid);
+
+        // Custom Preset Saver Form
+        const saveBox = document.createElement('div');
+        saveBox.className = 'custom-preset-save-box';
+        saveBox.innerHTML = `
+            <input type="text" id="custom-preset-name-input" placeholder="Save current theme as custom preset..." />
+            <button class="btn-theme-action" id="btn-save-preset-action">💾 Save Preset</button>
+        `;
+
+        section.appendChild(saveBox);
+        targetPage.appendChild(section);
+
+        // Bind save button
+        setTimeout(() => {
+            const btnSave = saveBox.querySelector('#btn-save-preset-action');
+            const inputName = saveBox.querySelector('#custom-preset-name-input');
+            if (btnSave && inputName) {
+                btnSave.addEventListener('click', () => {
+                    const presetName = inputName.value.trim();
+                    if (!presetName) {
+                        alert('Please enter a name for your custom theme preset.');
+                        return;
+                    }
+                    this.saveCurrentThemeAsPreset(presetName);
+                    inputName.value = '';
+                });
+            }
+        }, 50);
+    }
+
+    applyPresetTheme(preset) {
+        console.log('[UI Settings] Applying Theme Preset:', preset.name);
+        
+        const root = document.documentElement;
+        if (preset.primary) {
+            root.style.setProperty('--ui-primary-500', preset.primary);
+            root.style.setProperty('--ui-primary-400', preset.primary);
+            root.style.setProperty('--ui-primary-300', preset.primary);
+        }
+        if (preset.secondary) {
+            root.style.setProperty('--ui-secondary-500', preset.secondary);
+        }
+        if (preset.bg) {
+            root.style.setProperty('--ui-bg-panel', preset.bg);
+            root.style.setProperty('--ui-bg-card', preset.bg);
+        }
+        if (preset.border) {
+            root.style.setProperty('--ui-border-color', preset.border);
+        }
+        if (preset.font) {
+            root.style.setProperty('--ui-font-family', preset.font);
+        }
+        if (preset.text) {
+            root.style.setProperty('--ui-text-primary', preset.text);
+        }
+
+        if (window.uiSettings) {
+            this.updateSetting('ui', 'theme', {
+                mode: preset.id && preset.id.includes('light') ? 'light' : 'dark',
+                primary: { '500': preset.primary },
+                secondary: { '500': preset.secondary || preset.primary },
+                background: { panel: preset.bg, card: preset.bg },
+                border: { color: preset.border },
+                font: { family: preset.font }
+            });
+        }
+    }
+
+    saveCurrentThemeAsPreset(name) {
+        const rootStyle = getComputedStyle(document.documentElement);
+        const primary = rootStyle.getPropertyValue('--ui-primary-500').trim() || '#006FEE';
+        const secondary = rootStyle.getPropertyValue('--ui-secondary-500').trim() || primary;
+        const bg = rootStyle.getPropertyValue('--ui-bg-panel').trim() || 'rgba(18, 18, 18, 0.94)';
+        const border = rootStyle.getPropertyValue('--ui-border-color').trim() || 'rgba(255, 255, 255, 0.15)';
+        const font = rootStyle.getPropertyValue('--ui-font-family').trim() || 'system-ui, sans-serif';
+
+        const customPreset = {
+            id: 'custom-' + Date.now(),
+            name: name,
+            primary: primary,
+            secondary: secondary,
+            bg: bg,
+            border: border,
+            font: font,
+            isCustom: true
+        };
+
+        try {
+            let customPresets = [];
+            const saved = localStorage.getItem('ui_custom_theme_presets');
+            if (saved) customPresets = JSON.parse(saved);
+            customPresets.push(customPreset);
+            localStorage.setItem('ui_custom_theme_presets', JSON.stringify(customPresets));
+
+            // Refresh presets tab
+            this.createThemesAndPresetsSection();
+        } catch (e) {
+            console.error('[UI Settings] Failed to save custom preset:', e);
+        }
+    }
+
+    deleteCustomPreset(id) {
+        try {
+            let customPresets = [];
+            const saved = localStorage.getItem('ui_custom_theme_presets');
+            if (saved) customPresets = JSON.parse(saved);
+            customPresets = customPresets.filter(p => p.id !== id);
+            localStorage.setItem('ui_custom_theme_presets', JSON.stringify(customPresets));
+
+            // Refresh presets tab
+            this.createThemesAndPresetsSection();
+        } catch (e) {
+            console.error('[UI Settings] Failed to delete custom preset:', e);
+        }
+    }
+
+    createToolbarAndLayoutSection(theme, targetParent) {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = 'Toolbar & Layout';
+        section.appendChild(title);
+        
+        const uiSettings = this.settings.ui;
+        if (!uiSettings.toolbar) {
+            uiSettings.toolbar = {
+                height: 70,
+                widthMode: 'full',
+                floatingMaxWidth: 1200,
+                borderRadius: 12,
+                gap: 20,
+                virtualVisitViewport: 'drawer',
+                locationViewport: 'drawer',
+                contactViewport: 'drawer',
+                defaultLanguage: 'en'
+            };
+        }
+        const tb = uiSettings.toolbar;
+
+        // 1. Theme Mode
+        const themeModeGroup = document.createElement('div');
+        themeModeGroup.className = 'ui-settings-group';
+        themeModeGroup.innerHTML = `
+            <label class="ui-settings-label">Theme Mode</label>
+            <select class="ui-settings-input" id="ui-theme-mode" style="width:100%; font-family:inherit; cursor:pointer;">
+                <option value="dark" ${uiSettings.themeMode === 'dark' ? 'selected' : ''}>Premium Dark</option>
+                <option value="light" ${uiSettings.themeMode === 'light' ? 'selected' : ''}>Elegant Light</option>
+            </select>
+        `;
+        themeModeGroup.querySelector('select').addEventListener('change', (e) => {
+            uiSettings.themeMode = e.target.value;
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(themeModeGroup);
+
+        // 2. Toolbar Width Mode
+        const widthModeGroup = document.createElement('div');
+        widthModeGroup.className = 'ui-settings-group';
+        widthModeGroup.innerHTML = `
+            <label class="ui-settings-label">Toolbar Width Layout</label>
+            <select class="ui-settings-input" id="ui-toolbar-width-mode" style="width:100%; font-family:inherit; cursor:pointer;">
+                <option value="full" ${tb.widthMode === 'full' ? 'selected' : ''}>Full Width (Standard)</option>
+                <option value="floating" ${tb.widthMode === 'floating' ? 'selected' : ''}>Floating Container</option>
+            </select>
+        `;
+        section.appendChild(widthModeGroup);
+
+        // 3. Floating Max Width (Conditional)
+        const floatingMaxWidthGroup = document.createElement('div');
+        floatingMaxWidthGroup.className = 'ui-settings-group';
+        floatingMaxWidthGroup.style.display = tb.widthMode === 'floating' ? 'block' : 'none';
+        floatingMaxWidthGroup.innerHTML = `
+            <label class="ui-settings-label">Floating Max Width: <span class="ui-settings-value" id="toolbar-max-width-val">${tb.floatingMaxWidth}px</span></label>
+            <input type="range" class="ui-settings-slider" id="ui-toolbar-max-width" min="800" max="1600" step="50" value="${tb.floatingMaxWidth}">
+        `;
+        floatingMaxWidthGroup.querySelector('input').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('toolbar-max-width-val').textContent = `${val}px`;
+            tb.floatingMaxWidth = val;
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(floatingMaxWidthGroup);
+
+        // Toggle Floating group on Width Mode change
+        widthModeGroup.querySelector('select').addEventListener('change', (e) => {
+            const val = e.target.value;
+            tb.widthMode = val;
+            floatingMaxWidthGroup.style.display = val === 'floating' ? 'block' : 'none';
+            this.applySettings();
+            this.saveSettings();
+        });
+
+        // 4. Toolbar Height Slider
+        const heightGroup = document.createElement('div');
+        heightGroup.className = 'ui-settings-group';
+        heightGroup.innerHTML = `
+            <label class="ui-settings-label">Toolbar Height: <span class="ui-settings-value" id="toolbar-height-val">${tb.height}px</span></label>
+            <input type="range" class="ui-settings-slider" id="ui-toolbar-height" min="50" max="100" step="2" value="${tb.height}">
+        `;
+        heightGroup.querySelector('input').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('toolbar-height-val').textContent = `${val}px`;
+            tb.height = val;
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(heightGroup);
+
+        // 5. Toolbar Spacing (Gap)
+        const gapGroup = document.createElement('div');
+        gapGroup.className = 'ui-settings-group';
+        gapGroup.innerHTML = `
+            <label class="ui-settings-label">Toolbar Element Spacing: <span class="ui-settings-value" id="toolbar-gap-val">${tb.gap}px</span></label>
+            <input type="range" class="ui-settings-slider" id="ui-toolbar-gap" min="5" max="40" step="1" value="${tb.gap}">
+        `;
+        gapGroup.querySelector('input').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('toolbar-gap-val').textContent = `${val}px`;
+            tb.gap = val;
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(gapGroup);
+
+        // 6. Floating Border Radius (used if floating)
+        const radiusGroup = document.createElement('div');
+        radiusGroup.className = 'ui-settings-group';
+        radiusGroup.innerHTML = `
+            <label class="ui-settings-label">Floating Border Radius: <span class="ui-settings-value" id="toolbar-radius-val">${tb.borderRadius}px</span></label>
+            <input type="range" class="ui-settings-slider" id="ui-toolbar-radius" min="0" max="30" step="2" value="${tb.borderRadius}">
+        `;
+        radiusGroup.querySelector('input').addEventListener('input', (e) => {
+            const val = parseInt(e.target.value);
+            document.getElementById('toolbar-radius-val').textContent = `${val}px`;
+            tb.borderRadius = val;
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(radiusGroup);
+
+        // 7. Showcase Overlays Viewport Modes
+        const overlays = [
+            { key: 'virtualVisitViewport', label: 'Virtual Visit Viewport' },
+            { key: 'locationViewport', label: 'Location Viewport' },
+            { key: 'contactViewport', label: 'Contact Viewport' }
+        ];
+
+        overlays.forEach(ov => {
+            const ovGroup = document.createElement('div');
+            ovGroup.className = 'ui-settings-group';
+            ovGroup.innerHTML = `
+                <label class="ui-settings-label">${ov.label}</label>
+                <select class="ui-settings-input" id="ui-ov-${ov.key}" style="width:100%; font-family:inherit; cursor:pointer;">
+                    <option value="drawer" ${tb[ov.key] === 'drawer' ? 'selected' : ''}>Standard Drawer (Sliding Panel)</option>
+                    <option value="full" ${tb[ov.key] === 'full' ? 'selected' : ''}>Fullscreen (Maximum Space)</option>
+                </select>
+            `;
+            ovGroup.querySelector('select').addEventListener('change', (e) => {
+                tb[ov.key] = e.target.value;
+                this.applySettings();
+                this.saveSettings();
+            });
+            section.appendChild(ovGroup);
+        });
+        
+        // 7.5. Unit Details Viewport Mode
+        const infoPanelGroup = document.createElement('div');
+        infoPanelGroup.className = 'ui-settings-group';
+        infoPanelGroup.innerHTML = `
+            <label class="ui-settings-label">Unit Details Viewport</label>
+            <select class="ui-settings-input" id="ui-info-panel-viewport" style="width:100%; font-family:inherit; cursor:pointer;">
+                <option value="popup" ${tb.infoPanelViewport === 'popup' ? 'selected' : ''}>Standard Pop-up</option>
+                <option value="full" ${tb.infoPanelViewport === 'full' ? 'selected' : ''}>Fullscreen (Maximum Space)</option>
+            </select>
+        `;
+        infoPanelGroup.querySelector('select').addEventListener('change', (e) => {
+            tb.infoPanelViewport = e.target.value;
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(infoPanelGroup);
+
+        // 8. Default Startup Language
+        const langGroup = document.createElement('div');
+        langGroup.className = 'ui-settings-group';
+        langGroup.innerHTML = `
+            <label class="ui-settings-label">Default Startup Language</label>
+            <select class="ui-settings-input" id="ui-default-lang" style="width:100%; font-family:inherit; cursor:pointer;">
+                <option value="en" ${tb.defaultLanguage === 'en' ? 'selected' : ''}>English</option>
+                <option value="fr" ${tb.defaultLanguage === 'fr' ? 'selected' : ''}>Français</option>
+                <option value="ar" ${tb.defaultLanguage === 'ar' ? 'selected' : ''}>العربية</option>
+            </select>
+        `;
+        langGroup.querySelector('select').addEventListener('change', (e) => {
+            tb.defaultLanguage = e.target.value;
+            this.saveSettings();
+        });
+        section.appendChild(langGroup);
+
+        (targetParent || this.content).appendChild(section);
+    }
+
+    createShowcaseContentSection(theme, targetParent) {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = 'Showcase & Contact Details';
+        section.appendChild(title);
+        
+        const uiSettings = this.settings.ui;
+        
+        // 1. Logo Path
+        const logoGroup = document.createElement('div');
+        logoGroup.className = 'ui-settings-group';
+        logoGroup.innerHTML = `
+            <label class="ui-settings-label">Logo Path / URL</label>
+            <input type="text" class="ui-settings-input" id="ui-logo-path" 
+                   value="${uiSettings.logoPath || ''}" placeholder="e.g. img/logo.png">
+        `;
+        logoGroup.querySelector('input').addEventListener('change', (e) => {
+            uiSettings.logoPath = e.target.value.trim();
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(logoGroup);
+        
+        // 2. Virtual Visit URL
+        const visitGroup = document.createElement('div');
+        visitGroup.className = 'ui-settings-group';
+        visitGroup.innerHTML = `
+            <label class="ui-settings-label">Virtual Visit URL</label>
+            <input type="text" class="ui-settings-input" id="ui-visit-url" 
+                   value="${uiSettings.visitUrl || ''}" placeholder="Matterport or iframe link">
+        `;
+        visitGroup.querySelector('input').addEventListener('change', (e) => {
+            uiSettings.visitUrl = e.target.value.trim();
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(visitGroup);
+        
+        // 3. Location Address / Map URL
+        const locGroup = document.createElement('div');
+        locGroup.className = 'ui-settings-group';
+        locGroup.innerHTML = `
+            <label class="ui-settings-label">Location Address / Map URL</label>
+            <input type="text" class="ui-settings-input" id="ui-location-url" 
+                   value="${uiSettings.locationUrl || ''}" placeholder="Google Maps embed link or address">
+        `;
+        locGroup.querySelector('input').addEventListener('change', (e) => {
+            uiSettings.locationUrl = e.target.value.trim();
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(locGroup);
+
+        if (!uiSettings.contact) {
+            uiSettings.contact = {
+                title: 'VARA Headquarters',
+                address: '123 Premium Real Estate Ave, Suite 500, Paris, France',
+                phone: '+33 1 23 45 67 89',
+                email: 'sales@vara3d.com'
+            };
+        }
+        
+        // 4. Contact Title
+        const cTitleGroup = document.createElement('div');
+        cTitleGroup.className = 'ui-settings-group';
+        cTitleGroup.innerHTML = `
+            <label class="ui-settings-label">Contact Card Title</label>
+            <input type="text" class="ui-settings-input" id="ui-contact-title" 
+                   value="${uiSettings.contact.title || ''}" placeholder="e.g. VARA Headquarters">
+        `;
+        cTitleGroup.querySelector('input').addEventListener('change', (e) => {
+            uiSettings.contact.title = e.target.value.trim();
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(cTitleGroup);
+        
+        // 5. Contact Address
+        const cAddressGroup = document.createElement('div');
+        cAddressGroup.className = 'ui-settings-group';
+        cAddressGroup.innerHTML = `
+            <label class="ui-settings-label">Contact Address</label>
+            <input type="text" class="ui-settings-input" id="ui-contact-address" 
+                   value="${uiSettings.contact.address || ''}" placeholder="Address text">
+        `;
+        cAddressGroup.querySelector('input').addEventListener('change', (e) => {
+            uiSettings.contact.address = e.target.value.trim();
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(cAddressGroup);
+        
+        // 6. Contact Phone
+        const cPhoneGroup = document.createElement('div');
+        cPhoneGroup.className = 'ui-settings-group';
+        cPhoneGroup.innerHTML = `
+            <label class="ui-settings-label">Contact Phone</label>
+            <input type="text" class="ui-settings-input" id="ui-contact-phone" 
+                   value="${uiSettings.contact.phone || ''}" placeholder="Phone number">
+        `;
+        cPhoneGroup.querySelector('input').addEventListener('change', (e) => {
+            uiSettings.contact.phone = e.target.value.trim();
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(cPhoneGroup);
+        
+        // 7. Contact Email
+        const cEmailGroup = document.createElement('div');
+        cEmailGroup.className = 'ui-settings-group';
+        cEmailGroup.innerHTML = `
+            <label class="ui-settings-label">Contact Email</label>
+            <input type="text" class="ui-settings-input" id="ui-contact-email" 
+                   value="${uiSettings.contact.email || ''}" placeholder="Email address">
+        `;
+        cEmailGroup.querySelector('input').addEventListener('change', (e) => {
+            uiSettings.contact.email = e.target.value.trim();
+            this.applySettings();
+            this.saveSettings();
+        });
+        section.appendChild(cEmailGroup);
+        
+        (targetParent || this.content).appendChild(section);
+    }
+
+    createColorsSection(theme, targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -330,10 +973,10 @@ class UISettingsPanel {
             (val) => this.updateColorSetting('danger', val)
         ));
         
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
-    
-    createBackgroundSection(theme) {
+
+    createBackgroundSection(theme, targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -347,7 +990,12 @@ class UISettingsPanel {
             { key: 'default', label: 'Page Background' },
             { key: 'panel', label: 'Panel Background' },
             { key: 'card', label: 'Card Background' },
-            { key: 'toolbar', label: 'Toolbar Background' }
+            { key: 'hover', label: 'Hover Background' },
+            { key: 'overlay', label: 'Modal / Overlay Background' },
+            { key: 'input', label: 'Input Background' },
+            { key: 'button', label: 'Button Background' },
+            { key: 'sliderTrack', label: 'Slider Track Background' },
+            { key: 'sliderThumb', label: 'Slider Thumb Background' }
         ];
         
         backgrounds.forEach(bg => {
@@ -357,10 +1005,10 @@ class UISettingsPanel {
             ));
         });
         
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
     
-    createTextSection(theme) {
+    createTextSection(theme, targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -372,7 +1020,8 @@ class UISettingsPanel {
         const textColors = [
             { key: 'primary', label: 'Primary Text' },
             { key: 'secondary', label: 'Secondary Text' },
-            { key: 'disabled', label: 'Disabled Text' }
+            { key: 'disabled', label: 'Disabled Text' },
+            { key: 'active', label: 'Active / Highlight Text' }
         ];
         
         textColors.forEach(text => {
@@ -382,10 +1031,10 @@ class UISettingsPanel {
             ));
         });
         
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
     
-    createBorderSection(theme) {
+    createBorderSection(theme, targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -396,8 +1045,13 @@ class UISettingsPanel {
         
         // Border Color
         const borderColor = (theme.border && theme.border.color) || 'rgba(255, 255, 255, 0.2)';
-        section.appendChild(this.createColorControl('Border Color', 'ui-border-color', borderColor,
+        section.appendChild(this.createColorControl('General Border Color', 'ui-border-color', borderColor,
             (val) => this.updateBorderSetting('color', val)
+        ));
+        
+        const inputBorder = (theme.border && theme.border.input) || 'rgba(255, 255, 255, 0.3)';
+        section.appendChild(this.createColorControl('Input/Slider Stroke', 'ui-input-border', inputBorder,
+            (val) => this.updateBorderSetting('input', val)
         ));
         
         // Border Width
@@ -421,13 +1075,16 @@ class UISettingsPanel {
         radiusTitle.style.marginTop = '12px';
         radiusTitle.style.marginBottom = '8px';
         radiusTitle.style.fontWeight = '600';
-        radiusTitle.textContent = 'Corner Radius';
+        radiusTitle.textContent = 'Corner Radius (Roundness)';
         section.appendChild(radiusTitle);
 
         const radii = [
-            { key: 'small', label: 'Small (Buttons/Inputs)' },
-            { key: 'medium', label: 'Medium (Cards)' },
-            { key: 'large', label: 'Large (Panels/Modals)' }
+            { key: 'small', label: 'Small Base' },
+            { key: 'medium', label: 'Medium Base' },
+            { key: 'large', label: 'Large Base' },
+            { key: 'element', label: 'General Elements (Panels)' },
+            { key: 'button', label: 'Buttons' },
+            { key: 'input', label: 'Inputs & Sliders' }
         ];
         
         radii.forEach(r => {
@@ -450,19 +1107,19 @@ class UISettingsPanel {
             section.appendChild(group);
         });
 
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
 
     updateBorderRadiusSetting(key, value) {
-        if (!window.uiSettings.settings.ui.theme.border) {
-            window.uiSettings.settings.ui.theme.border = {};
+        if (!this.settings.ui.theme.border) {
+            this.settings.ui.theme.border = {};
         }
-        if (!window.uiSettings.settings.ui.theme.border.radius) {
-            window.uiSettings.settings.ui.theme.border.radius = {};
+        if (!this.settings.ui.theme.border.radius) {
+            this.settings.ui.theme.border.radius = {};
         }
-        window.uiSettings.settings.ui.theme.border.radius[key] = value;
-        window.uiSettings.applyTheme(window.uiSettings.settings.ui.theme);
-        window.uiSettings.saveSettings();
+        this.settings.ui.theme.border.radius[key] = value;
+        this.applyTheme(this.settings.ui.theme);
+        this.saveSettings();
     }
     
     colorToRgba(hex) {
@@ -470,7 +1127,7 @@ class UISettingsPanel {
         return hex;
     }
     
-    createSpacingSection(theme) {
+    createSpacingSection(theme, targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -501,36 +1158,205 @@ class UISettingsPanel {
             section.appendChild(group);
         });
         
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
     
-    createFontSection(theme) {
+    createFontSection(theme, targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
         const title = document.createElement('h4');
         title.className = 'ui-settings-section-title';
-        title.textContent = 'Font';
+        title.textContent = 'Typography & Font Family';
         section.appendChild(title);
         
-        // Font Family
+        // Font Family Preset Selector
+        const familySelectGroup = document.createElement('div');
+        familySelectGroup.className = 'ui-settings-group';
+        const currentFont = (theme.font && theme.font.family) || 'system-ui, -apple-system, sans-serif';
+        
+        familySelectGroup.innerHTML = `
+            <label class="ui-settings-label">Font Family Preset</label>
+            <select class="effect-dropdown" id="ui-font-family-select" style="width:100%;">
+                <option value="system-ui, -apple-system, sans-serif" ${currentFont.includes('system-ui') ? 'selected' : ''}>System Default</option>
+                <option value="'Inter', sans-serif" ${currentFont.includes('Inter') ? 'selected' : ''}>Inter (Modern & Clean)</option>
+                <option value="'Outfit', sans-serif" ${currentFont.includes('Outfit') ? 'selected' : ''}>Outfit (Sleek Geometric)</option>
+                <option value="'Roboto', sans-serif" ${currentFont.includes('Roboto') ? 'selected' : ''}>Roboto (Classic Tech)</option>
+                <option value="'Orbitron', sans-serif" ${currentFont.includes('Orbitron') ? 'selected' : ''}>Orbitron (Futuristic)</option>
+                <option value="'Courier New', monospace" ${currentFont.includes('Courier') || currentFont.includes('monospace') ? 'selected' : ''}>Monospace</option>
+                <option value="Georgia, serif" ${currentFont.includes('Georgia') || currentFont.includes('serif') ? 'selected' : ''}>Serif</option>
+            </select>
+        `;
+        familySelectGroup.querySelector('select').addEventListener('change', (e) => {
+            const fontVal = e.target.value;
+            document.documentElement.style.setProperty('--ui-font-family', fontVal);
+            this.updateFontSetting('family', fontVal);
+            const fontInput = document.getElementById('ui-font-family');
+            if (fontInput) fontInput.value = fontVal;
+        });
+        section.appendChild(familySelectGroup);
+
+        // Custom Font Family Input
         const familyGroup = document.createElement('div');
         familyGroup.className = 'ui-settings-group';
         familyGroup.innerHTML = `
-            <label class="ui-settings-label">Font Family</label>
+            <label class="ui-settings-label">Custom Font Family String</label>
             <input type="text" class="ui-settings-input" id="ui-font-family" 
-                   value="${(theme.font && theme.font.family) || 'system-ui, -apple-system, sans-serif'}" 
-                   placeholder="system-ui, -apple-system, sans-serif">
+                   value="${currentFont}" 
+                   placeholder="e.g. 'Inter', sans-serif">
         `;
         familyGroup.querySelector('input').addEventListener('change', (e) => {
-            this.updateFontSetting('family', e.target.value);
+            const fontVal = e.target.value;
+            document.documentElement.style.setProperty('--ui-font-family', fontVal);
+            this.updateFontSetting('family', fontVal);
         });
         section.appendChild(familyGroup);
         
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
+    }
+
+    createFilterHighlightSection(targetParent) {
+        const section = document.createElement('div');
+        section.className = 'ui-settings-section';
+        
+        const title = document.createElement('h4');
+        title.className = 'ui-settings-section-title';
+        title.textContent = 'Filter Highlighting Options';
+        section.appendChild(title);
+        
+        // Ensure defaults in settings
+        if (!this.settings.effects) {
+            this.settings.effects = {};
+        }
+        if (!this.settings.effects.filterHighlight) {
+            this.settings.effects.filterHighlight = {
+                colorMode: 'status',
+                customColor: '#006FEE',
+                highlightStyle: 'solid',
+                highlightOpacity: 0.60,
+                ghostOpacity: 0.05,
+                pulseSpeed: 1.0
+            };
+        }
+        const fSettings = this.settings.effects.filterHighlight;
+        if (!fSettings.highlightStyle) {
+            fSettings.highlightStyle = 'solid';
+        }
+        
+        // 1. Color Mode Dropdown
+        const modeGroup = document.createElement('div');
+        modeGroup.className = 'ui-settings-group';
+        modeGroup.innerHTML = `
+            <label class="ui-settings-label">Highlight Color Mode</label>
+            <select class="ui-settings-input" id="filter-color-mode" style="width:100%; font-family:inherit; cursor:pointer;">
+                <option value="status" ${fSettings.colorMode === 'status' ? 'selected' : ''}>Dynamic Status Colors</option>
+                <option value="theme" ${fSettings.colorMode === 'theme' ? 'selected' : ''}>Solid UI Theme Color</option>
+                <option value="custom" ${fSettings.colorMode === 'custom' ? 'selected' : ''}>Custom Specific Color</option>
+            </select>
+        `;
+        section.appendChild(modeGroup);
+
+        // 1b. Highlight Style Dropdown
+        const styleGroup = document.createElement('div');
+        styleGroup.className = 'ui-settings-group';
+        styleGroup.innerHTML = `
+            <label class="ui-settings-label">Highlight Visual Style</label>
+            <select class="ui-settings-input" id="filter-highlight-style" style="width:100%; font-family:inherit; cursor:pointer;">
+                <option value="solid" ${fSettings.highlightStyle === 'solid' ? 'selected' : ''}>Solid Color Overlay</option>
+                <option value="outline" ${fSettings.highlightStyle === 'outline' ? 'selected' : ''}>Outlines Only</option>
+                <option value="glow" ${fSettings.highlightStyle === 'glow' ? 'selected' : ''}>Neon Emissive Glow</option>
+                <option value="solid-outline" ${fSettings.highlightStyle === 'solid-outline' ? 'selected' : ''}>Solid Fill + Outlines</option>
+            </select>
+        `;
+        styleGroup.querySelector('select').addEventListener('change', (e) => {
+            fSettings.highlightStyle = e.target.value;
+            this.saveSettings();
+            window.dispatchEvent(new CustomEvent('updateFilterSettingsOnly'));
+        });
+        section.appendChild(styleGroup);
+        
+        // 2. Custom Color Picker
+        const customColorGroup = document.createElement('div');
+        customColorGroup.id = 'filter-custom-color-group';
+        customColorGroup.className = 'ui-settings-group';
+        customColorGroup.style.display = fSettings.colorMode === 'custom' ? 'block' : 'none';
+        
+        customColorGroup.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label class="ui-settings-label" style="margin:0;">Custom Highlight Color</label>
+                <input type="color" id="filter-custom-color" value="${fSettings.customColor || '#006FEE'}" style="background:none; border:none; width:40px; height:24px; cursor:pointer; padding:0; margin:0;">
+            </div>
+        `;
+        section.appendChild(customColorGroup);
+        
+        // Toggle Custom Color display on mode change
+        modeGroup.querySelector('select').addEventListener('change', (e) => {
+            const val = e.target.value;
+            fSettings.colorMode = val;
+            customColorGroup.style.display = val === 'custom' ? 'block' : 'none';
+            this.saveSettings();
+            
+            // Re-trigger highlighting in 3D viewer
+            window.dispatchEvent(new CustomEvent('updateFilterSettingsOnly'));
+        });
+        
+        customColorGroup.querySelector('input').addEventListener('input', (e) => {
+            fSettings.customColor = e.target.value;
+            this.saveSettings();
+            window.dispatchEvent(new CustomEvent('updateFilterSettingsOnly'));
+        });
+        
+        // 3. Highlighted Opacity Slider
+        const hOpacityGroup = document.createElement('div');
+        hOpacityGroup.className = 'ui-settings-group';
+        hOpacityGroup.innerHTML = `
+            <label class="ui-settings-label">Highlight Opacity: <span class="ui-settings-value" id="filter-highlight-opacity-val">${Math.round(fSettings.highlightOpacity * 100)}%</span></label>
+            <input type="range" class="ui-settings-slider" id="filter-highlight-opacity" min="0.1" max="1.0" step="0.05" value="${fSettings.highlightOpacity}">
+        `;
+        hOpacityGroup.querySelector('input').addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            document.getElementById('filter-highlight-opacity-val').textContent = `${Math.round(val * 100)}%`;
+            fSettings.highlightOpacity = val;
+            this.saveSettings();
+            window.dispatchEvent(new CustomEvent('updateFilterSettingsOnly'));
+        });
+        section.appendChild(hOpacityGroup);
+        
+        // 4. Ghost / Unmatched Opacity Slider
+        const gOpacityGroup = document.createElement('div');
+        gOpacityGroup.className = 'ui-settings-group';
+        gOpacityGroup.innerHTML = `
+            <label class="ui-settings-label">Unmatched Opacity (Ghost): <span class="ui-settings-value" id="filter-ghost-opacity-val">${Math.round(fSettings.ghostOpacity * 100)}%</span></label>
+            <input type="range" class="ui-settings-slider" id="filter-ghost-opacity" min="0.0" max="0.5" step="0.01" value="${fSettings.ghostOpacity}">
+        `;
+        gOpacityGroup.querySelector('input').addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            document.getElementById('filter-ghost-opacity-val').textContent = `${Math.round(val * 100)}%`;
+            fSettings.ghostOpacity = val;
+            this.saveSettings();
+            window.dispatchEvent(new CustomEvent('updateFilterSettingsOnly'));
+        });
+        section.appendChild(gOpacityGroup);
+        
+        // 5. Breathing Pulse Speed Slider
+        const speedGroup = document.createElement('div');
+        speedGroup.className = 'ui-settings-group';
+        speedGroup.innerHTML = `
+            <label class="ui-settings-label">Breathing Pulse Speed: <span class="ui-settings-value" id="filter-pulse-speed-val">${fSettings.pulseSpeed.toFixed(1)}x</span></label>
+            <input type="range" class="ui-settings-slider" id="filter-pulse-speed" min="0.0" max="5.0" step="0.1" value="${fSettings.pulseSpeed}">
+        `;
+        speedGroup.querySelector('input').addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            document.getElementById('filter-pulse-speed-val').textContent = `${val.toFixed(1)}x`;
+            fSettings.pulseSpeed = val;
+            this.saveSettings();
+        });
+        section.appendChild(speedGroup);
+        
+        (targetParent || this.content).appendChild(section);
     }
     
-    createBlurSection() {
+    createBlurSection(targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -546,19 +1372,19 @@ class UISettingsPanel {
             <label class="ui-settings-toggle-label">Enable Blur</label>
             <label class="ui-settings-switch">
                 <input type="checkbox" id="ui-blur-enabled" 
-                       ${window.uiSettings.getSetting('ui', 'blurEnabled') ? 'checked' : ''}>
+                       ${this.getSetting('ui', 'blurEnabled') ? 'checked' : ''}>
                 <span class="ui-settings-switch-slider"></span>
             </label>
         `;
         enabledGroup.querySelector('input').addEventListener('change', (e) => {
-            window.uiSettings.updateSetting('ui', 'blurEnabled', e.target.checked);
+            this.updateSetting('ui', 'blurEnabled', e.target.checked);
         });
         section.appendChild(enabledGroup);
         
         // Blur Intensity
         const intensityGroup = document.createElement('div');
         intensityGroup.className = 'ui-settings-group';
-        const blurIntensity = window.uiSettings.getSetting('ui', 'blurIntensity') || 15;
+        const blurIntensity = this.getSetting('ui', 'blurIntensity') || 15;
         intensityGroup.innerHTML = `
             <label class="ui-settings-label">Blur Intensity: <span class="ui-settings-value" id="blur-intensity-value">${blurIntensity}px</span></label>
             <input type="range" class="ui-settings-slider" id="ui-blur-intensity" 
@@ -567,14 +1393,14 @@ class UISettingsPanel {
         intensityGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
             document.getElementById('blur-intensity-value').textContent = `${value}px`;
-            window.uiSettings.updateSetting('ui', 'blurIntensity', value);
+            this.updateSetting('ui', 'blurIntensity', value);
         });
         section.appendChild(intensityGroup);
         
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
     
-    createPerformanceSection() {
+    createPerformanceSection(targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -601,14 +1427,14 @@ class UISettingsPanel {
             <label class="ui-settings-toggle-label">Light Mode (Low CPU/RAM)</label>
             <label class="ui-settings-switch">
                 <input type="checkbox" id="light-mode-toggle" 
-                       ${window.uiSettings.getSetting('performance', 'lightMode') ? 'checked' : ''}>
+                       ${this.getSetting('performance', 'lightMode') ? 'checked' : ''}>
                 <span class="ui-settings-switch-slider"></span>
             </label>
         `;
         
         toggleGroup.querySelector('input').addEventListener('change', (e) => {
             window.uiSettings.setSetting('performance', 'lightMode', e.target.checked);
-            window.uiSettings.saveSettings();
+            this.saveSettings();
             // Reload page to apply changes
             if (confirm('Light mode setting changed. Reload page to apply changes?')) {
                 window.location.reload();
@@ -622,10 +1448,10 @@ class UISettingsPanel {
         lightModeGroup.appendChild(toggleGroup);
         section.appendChild(lightModeGroup);
         
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
     
-    createControlsSection() {
+    createControlsSection(targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -638,7 +1464,7 @@ class UISettingsPanel {
         const scrubGroup = document.createElement('div');
         scrubGroup.className = 'ui-settings-group';
         
-        const scrubSpeed = window.uiSettings.getSetting('controls', 'scrubSpeed') || 16;
+        const scrubSpeed = this.getSetting('controls', 'scrubSpeed') || 16;
         
         scrubGroup.innerHTML = `
             <label class="ui-settings-label">Scrub Speed: <span class="ui-settings-value" id="scrub-speed-value">${scrubSpeed}</span></label>
@@ -650,17 +1476,17 @@ class UISettingsPanel {
         scrubGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseInt(e.target.value);
             document.getElementById('scrub-speed-value').textContent = value;
-            window.uiSettings.updateSetting('controls', 'scrubSpeed', value);
+            this.updateSetting('controls', 'scrubSpeed', value);
             if (window.productViewer) {
                 window.productViewer.sensitivity = Math.max(1, 31 - value);
             }
         });
         
         section.appendChild(scrubGroup);
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
     
-    createTooltipSection() {
+    createTooltipSection(targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -673,7 +1499,7 @@ class UISettingsPanel {
         const scaleGroup = document.createElement('div');
         scaleGroup.className = 'ui-settings-group';
         
-        const tooltipScale = window.uiSettings.getSetting('ui', 'tooltipScale') || 1.0;
+        const tooltipScale = this.getSetting('ui', 'tooltipScale') || 1.0;
         
         scaleGroup.innerHTML = `
             <label class="ui-settings-label">Tooltip Size: <span class="ui-settings-value" id="tooltip-scale-value">${(tooltipScale * 100).toFixed(0)}%</span></label>
@@ -684,17 +1510,17 @@ class UISettingsPanel {
         scaleGroup.querySelector('input').addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             document.getElementById('tooltip-scale-value').textContent = `${(value * 100).toFixed(0)}%`;
-            window.uiSettings.updateSetting('ui', 'tooltipScale', value);
+            this.updateSetting('ui', 'tooltipScale', value);
             if (window.viewer3D && window.viewer3D.tooltip && window.viewer3D.tooltip.style.display === 'block') {
                 window.viewer3D.tooltip.style.transform = `scale(${value})`;
             }
         });
         
         section.appendChild(scaleGroup);
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
     
-    createBoxParticlesSection() {
+    createBoxParticlesSection(targetParent) {
         const section = document.createElement('div');
         section.className = 'ui-settings-section';
         
@@ -704,8 +1530,8 @@ class UISettingsPanel {
         section.appendChild(title);
         
         // Get current settings (support both keys, prefer boxParticles)
-        const particleSettings = window.uiSettings.settings.effects?.boxParticles || 
-                               window.uiSettings.settings.effects?.oscillatingParticles || {};
+        const particleSettings = this.settings.effects?.boxParticles || 
+                               this.settings.effects?.oscillatingParticles || {};
         
         // Master Enable/Disable Toggle
         const masterToggle = document.createElement('div');
@@ -747,7 +1573,7 @@ class UISettingsPanel {
         this.createParticleLayerSection(section, 'medium', 'Medium Particles (Layer 2)', particleSettings.medium || {});
         this.createParticleLayerSection(section, 'light', 'Light Particles (Layer 3)', particleSettings.light || {});
         
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
     
     createParticleLayerSection(parentSection, layerKey, layerTitle, layerSettings) {
@@ -1096,14 +1922,14 @@ class UISettingsPanel {
     }
     
     updateBoxParticleSetting(key, value) {
-        if (!window.uiSettings.settings.effects) {
-            window.uiSettings.settings.effects = {};
+        if (!this.settings.effects) {
+            this.settings.effects = {};
         }
         // Write to boxParticles
-        if (!window.uiSettings.settings.effects.boxParticles) {
-            window.uiSettings.settings.effects.boxParticles = {};
+        if (!this.settings.effects.boxParticles) {
+            this.settings.effects.boxParticles = {};
         }
-        window.uiSettings.settings.effects.boxParticles[key] = value;
+        this.settings.effects.boxParticles[key] = value;
         
         // Update CONFIG_3D
         if (typeof CONFIG_3D !== 'undefined') {
@@ -1120,20 +1946,20 @@ class UISettingsPanel {
             window.viewer3D.boxParticles.updateSettings(newSettings);
         }
         
-        window.uiSettings.saveSettings();
+        this.saveSettings();
     }
     
     updateBoxParticleLayerSetting(layer, key, value) {
-        if (!window.uiSettings.settings.effects) {
-            window.uiSettings.settings.effects = {};
+        if (!this.settings.effects) {
+            this.settings.effects = {};
         }
-        if (!window.uiSettings.settings.effects.boxParticles) {
-            window.uiSettings.settings.effects.boxParticles = {};
+        if (!this.settings.effects.boxParticles) {
+            this.settings.effects.boxParticles = {};
         }
-        if (!window.uiSettings.settings.effects.boxParticles[layer]) {
-            window.uiSettings.settings.effects.boxParticles[layer] = {};
+        if (!this.settings.effects.boxParticles[layer]) {
+            this.settings.effects.boxParticles[layer] = {};
         }
-        window.uiSettings.settings.effects.boxParticles[layer][key] = value;
+        this.settings.effects.boxParticles[layer][key] = value;
         
         // Update CONFIG_3D
         if (typeof CONFIG_3D !== 'undefined') {
@@ -1155,12 +1981,12 @@ class UISettingsPanel {
         // Update particle system
         if (window.viewer3D && window.viewer3D.boxParticles) {
             const newSettings = {};
-            newSettings[layer] = { ...window.uiSettings.settings.effects.boxParticles[layer] };
+            newSettings[layer] = { ...this.settings.effects.boxParticles[layer] };
             window.viewer3D.boxParticles.updateSettings(newSettings);
         }
         
-        window.uiSettings.saveSettings();
-        window.uiSettings.saveSettings();
+        this.saveSettings();
+        this.saveSettings();
     }
 
     // Sync saved settings to viewer3D particles
@@ -1172,7 +1998,7 @@ class UISettingsPanel {
         }
 
         console.log('[UI Settings] Syncing stored particle settings to Viewer3D...');
-        const settings = window.uiSettings.settings.effects || {};
+        const settings = this.settings.effects || {};
         
         // Sync Ambient
         if (settings.ambientParticles) {
@@ -1216,7 +2042,7 @@ class UISettingsPanel {
         section.appendChild(title);
         
         // Get current settings
-        const settings = window.uiSettings.settings.effects?.ambientParticles || {};
+        const settings = this.settings.effects?.ambientParticles || {};
         
         // Enabled Toggle
         const enableToggle = document.createElement('div');
@@ -1607,11 +2433,11 @@ class UISettingsPanel {
     }
 
     updateAmbientParticleLayerSetting(layer, key, value) {
-        if (!window.uiSettings.settings.effects) window.uiSettings.settings.effects = {};
-        if (!window.uiSettings.settings.effects.ambientParticles) window.uiSettings.settings.effects.ambientParticles = {};
-        if (!window.uiSettings.settings.effects.ambientParticles[layer]) window.uiSettings.settings.effects.ambientParticles[layer] = {};
+        if (!this.settings.effects) this.settings.effects = {};
+        if (!this.settings.effects.ambientParticles) this.settings.effects.ambientParticles = {};
+        if (!this.settings.effects.ambientParticles[layer]) this.settings.effects.ambientParticles[layer] = {};
         
-        window.uiSettings.settings.effects.ambientParticles[layer][key] = value;
+        this.settings.effects.ambientParticles[layer][key] = value;
         
         // Update CONFIG_3D if needed
         if (typeof CONFIG_3D !== 'undefined') {
@@ -1628,17 +2454,17 @@ class UISettingsPanel {
             window.viewer3D.ambientParticles.updateSettings(updateObj);
         }
         
-        window.uiSettings.saveSettings();
+        this.saveSettings();
     }
 
     updateAmbientParticleSetting(key, value) {
-        if (!window.uiSettings.settings.effects) {
-            window.uiSettings.settings.effects = {};
+        if (!this.settings.effects) {
+            this.settings.effects = {};
         }
-        if (!window.uiSettings.settings.effects.ambientParticles) {
-            window.uiSettings.settings.effects.ambientParticles = {};
+        if (!this.settings.effects.ambientParticles) {
+            this.settings.effects.ambientParticles = {};
         }
-        window.uiSettings.settings.effects.ambientParticles[key] = value;
+        this.settings.effects.ambientParticles[key] = value;
         
         // Update CONFIG_3D
         if (typeof CONFIG_3D !== 'undefined') {
@@ -1655,7 +2481,7 @@ class UISettingsPanel {
             window.viewer3D.ambientParticles.updateSettings(newSettings);
         }
         
-        window.uiSettings.saveSettings();
+        this.saveSettings();
     }
     
     createCursorParticlesSection() {
@@ -1667,7 +2493,7 @@ class UISettingsPanel {
         title.textContent = 'Cursor Particles (CC Model)';
         section.appendChild(title);
         
-        const settings = window.uiSettings.settings.effects?.cursorParticles || {};
+        const settings = this.settings.effects?.cursorParticles || {};
         
         // Helper to create a control
         const createControl = (label, key, min, max, step, defaultValue, suffix='') => {
@@ -1977,17 +2803,17 @@ class UISettingsPanel {
         // Gradient Bias
         section.appendChild(createControl('Gradient Shift (Bias)', 'gradientBias', 0.1, 5.0, 0.1, 1.0));
 
-        this.content.appendChild(section);
+        (targetParent || this.content).appendChild(section);
     }
     
     updateCursorParticleSetting(key, value) {
-        if (!window.uiSettings.settings.effects) {
-            window.uiSettings.settings.effects = {};
+        if (!this.settings.effects) {
+            this.settings.effects = {};
         }
-        if (!window.uiSettings.settings.effects.cursorParticles) {
-            window.uiSettings.settings.effects.cursorParticles = {};
+        if (!this.settings.effects.cursorParticles) {
+            this.settings.effects.cursorParticles = {};
         }
-        window.uiSettings.settings.effects.cursorParticles[key] = value;
+        this.settings.effects.cursorParticles[key] = value;
         
         // Update CONFIG_3D
         if (typeof CONFIG_3D !== 'undefined') {
@@ -2004,7 +2830,7 @@ class UISettingsPanel {
             window.viewer3D.cursorParticles.setSettings(updateObj);
         }
         
-        window.uiSettings.saveSettings();
+        this.saveSettings();
     }
     
 
@@ -2050,70 +2876,70 @@ class UISettingsPanel {
     
     // Update methods
     updateColorSetting(key, value) {
-        if (!window.uiSettings.settings.ui.theme) {
-            window.uiSettings.settings.ui.theme = {};
+        if (!this.settings.ui.theme) {
+            this.settings.ui.theme = {};
         }
         
         if (key === 'ui-primary-500') {
-            if (!window.uiSettings.settings.ui.theme.primary) {
-                window.uiSettings.settings.ui.theme.primary = {};
+            if (!this.settings.ui.theme.primary) {
+                this.settings.ui.theme.primary = {};
             }
-            window.uiSettings.settings.ui.theme.primary['500'] = value;
+            this.settings.ui.theme.primary['500'] = value;
         } else {
-            window.uiSettings.settings.ui.theme[key.replace('ui-', '')] = value;
+            this.settings.ui.theme[key.replace('ui-', '')] = value;
         }
         
-        window.uiSettings.applyTheme(window.uiSettings.settings.ui.theme);
-        window.uiSettings.saveSettings();
+        this.applyTheme(this.settings.ui.theme);
+        this.saveSettings();
     }
     
     updateBackgroundSetting(key, value) {
-        if (!window.uiSettings.settings.ui.theme.background) {
-            window.uiSettings.settings.ui.theme.background = {};
+        if (!this.settings.ui.theme.background) {
+            this.settings.ui.theme.background = {};
         }
-        window.uiSettings.settings.ui.theme.background[key] = this.colorToRgba(value);
-        window.uiSettings.applyTheme(window.uiSettings.settings.ui.theme);
-        window.uiSettings.saveSettings();
+        this.settings.ui.theme.background[key] = this.colorToRgba(value);
+        this.applyTheme(this.settings.ui.theme);
+        this.saveSettings();
     }
     
     updateTextSetting(key, value) {
-        if (!window.uiSettings.settings.ui.theme.text) {
-            window.uiSettings.settings.ui.theme.text = {};
+        if (!this.settings.ui.theme.text) {
+            this.settings.ui.theme.text = {};
         }
-        window.uiSettings.settings.ui.theme.text[key] = this.colorToRgba(value);
-        window.uiSettings.applyTheme(window.uiSettings.settings.ui.theme);
-        window.uiSettings.saveSettings();
+        this.settings.ui.theme.text[key] = this.colorToRgba(value);
+        this.applyTheme(this.settings.ui.theme);
+        this.saveSettings();
     }
     
     updateBorderSetting(key, value) {
-        if (!window.uiSettings.settings.ui.theme.border) {
-            window.uiSettings.settings.ui.theme.border = {};
+        if (!this.settings.ui.theme.border) {
+            this.settings.ui.theme.border = {};
         }
         if (key === 'color' || key === 'toolbar') {
-            window.uiSettings.settings.ui.theme.border[key] = this.colorToRgba(value);
+            this.settings.ui.theme.border[key] = this.colorToRgba(value);
         } else {
-            window.uiSettings.settings.ui.theme.border[key] = value;
+            this.settings.ui.theme.border[key] = value;
         }
-        window.uiSettings.applyTheme(window.uiSettings.settings.ui.theme);
-        window.uiSettings.saveSettings();
+        this.applyTheme(this.settings.ui.theme);
+        this.saveSettings();
     }
     
     updateSpacingSetting(key, value) {
-        if (!window.uiSettings.settings.ui.theme.spacing) {
-            window.uiSettings.settings.ui.theme.spacing = {};
+        if (!this.settings.ui.theme.spacing) {
+            this.settings.ui.theme.spacing = {};
         }
-        window.uiSettings.settings.ui.theme.spacing[key] = value;
-        window.uiSettings.applyTheme(window.uiSettings.settings.ui.theme);
-        window.uiSettings.saveSettings();
+        this.settings.ui.theme.spacing[key] = value;
+        this.applyTheme(this.settings.ui.theme);
+        this.saveSettings();
     }
     
     updateFontSetting(key, value) {
-        if (!window.uiSettings.settings.ui.theme.font) {
-            window.uiSettings.settings.ui.theme.font = {};
+        if (!this.settings.ui.theme.font) {
+            this.settings.ui.theme.font = {};
         }
-        window.uiSettings.settings.ui.theme.font[key] = value;
-        window.uiSettings.applyTheme(window.uiSettings.settings.ui.theme);
-        window.uiSettings.saveSettings();
+        this.settings.ui.theme.font[key] = value;
+        this.applyTheme(this.settings.ui.theme);
+        this.saveSettings();
     }
     
     colorToRgba(hex) {

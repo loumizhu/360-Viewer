@@ -523,12 +523,12 @@
 
         .modal-content {
             background-color: var(--ui-bg-panel);
-            margin: 5vh auto;
+            margin: 3vh auto;
             padding: 20px;
             border: 1px solid var(--ui-border-color);
-            width: 90%;
-            max-width: 1200px;
-            height: 90vh;
+            width: 96%;
+            max-width: 1800px;
+            height: 94vh;
             border-radius: var(--ui-border-radius-lg);
             display: flex;
             flex-direction: column;
@@ -689,6 +689,12 @@
                 <h2 style="color:var(--ui-text-primary); margin:0;">Database Manager (Units) <span id="db-record-count"
                         style="font-size:0.6em; opacity:0.7"></span></h2>
                 <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="control-btn" style="background: var(--ui-primary-600); border-color: var(--ui-primary-400); color: white;" onclick="autoRegisterMissingUnits()" title="Auto-register physical unit folders found in scanner that are missing from database">⚡ Auto-Register Scanned</button>
+                    <div style="display: flex; gap: 6px; background: rgba(0, 0, 0, 0.3); padding: 4px; border-radius: 8px; border: 1px solid var(--ui-border-color); align-items: center;">
+                        <span style="font-size: 11px; color: var(--ui-text-disabled); padding: 0 4px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Export:</span>
+                        <button class="control-btn" style="border:none; margin:0; padding: 6px 12px; font-size: 12px; border-radius: 6px;" onclick="downloadDbCSV()">📥 CSV</button>
+                        <button class="control-btn" style="border:none; margin:0; padding: 6px 12px; font-size: 12px; border-radius: 6px;" onclick="downloadDbExcel()">📊 Excel</button>
+                    </div>
                     <button class="control-btn" onclick="refreshDbTable()">🔄 Refresh</button>
                     <button class="close-btn" onclick="closeDbModal()">&times;</button>
                 </div>
@@ -832,6 +838,47 @@
                         </table>
                     </div>
                     
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client Settings Customizer Modal -->
+    <div id="client-settings-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px; height: auto; min-height: 400px; margin: 15vh auto; background: var(--ui-bg-panel); border: 1px solid var(--ui-border-color); border-radius: var(--ui-border-radius-lg); padding: 20px;">
+            <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--ui-border-color); padding-bottom:12px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <h2 style="color:var(--ui-text-primary); margin:0; display: flex; align-items: center; gap: 10px; font-size:18px;">
+                        <span>⚙️ Customize Client Settings</span> 
+                        <span id="settings-client-tag" style="background: rgba(0, 111, 238, 0.15); color: var(--ui-primary-400); border: 1px solid rgba(0, 111, 238, 0.3); font-size: 13px; padding: 2px 10px; border-radius: 99px; font-weight: 600;">CLTXXXXXX</span>
+                    </h2>
+                    <p style="margin: 0; font-size: 12px; color: var(--ui-text-secondary);">Configure client-level visual identity and integration assets.</p>
+                </div>
+                <button class="close-btn" style="background:none; border:none; color:var(--ui-text-secondary); font-size:24px; cursor:pointer;" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body" style="padding: 20px 0; display: flex; flex-direction: column; gap: 15px;">
+                <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
+                    <label style="color: var(--ui-text-secondary); font-size: 13px; font-weight: 600;">🎨 Project Logo URL / Local Path</label>
+                    <input type="text" id="setting-logo-path" class="editable-cell" style="width:100%; padding:8px 12px; background:rgba(0,0,0,0.3); border:1px solid var(--ui-border-color); border-radius:6px; color:#fff;" placeholder="e.g. img/logo.png or clientID/logo.png">
+                    <span style="font-size:11px; color:var(--ui-text-disabled);">Path relative to the root folder, or a secure external image URL.</span>
+                </div>
+                
+                <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
+                    <label style="color: var(--ui-text-secondary); font-size: 13px; font-weight: 600;">🌐 Virtual Visit URL</label>
+                    <input type="text" id="setting-visit-url" class="editable-cell" style="width:100%; padding:8px 12px; background:rgba(0,0,0,0.3); border:1px solid var(--ui-border-color); border-radius:6px; color:#fff;" placeholder="e.g. https://my.matterport.com/show/?m=...">
+                    <span style="font-size:11px; color:var(--ui-text-disabled);">External virtual tour URL to overwrite Virtual Visit tab link.</span>
+                </div>
+
+                <div class="form-group" style="display:flex; flex-direction:column; gap:6px;">
+                    <label style="color: var(--ui-text-secondary); font-size: 13px; font-weight: 600;">📍 Google Maps Address / Embed Link</label>
+                    <input type="text" id="setting-location-url" class="editable-cell" style="width:100%; padding:8px 12px; background:rgba(0,0,0,0.3); border:1px solid var(--ui-border-color); border-radius:6px; color:#fff;" placeholder="e.g. 123 Avenue des Champs-Élysées, Paris or Iframe URL">
+                    <span style="font-size:11px; color:var(--ui-text-disabled);">Plain text address (converted dynamically) or maps iframe source.</span>
+                </div>
+                
+                <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+                    <button class="control-btn" style="background:rgba(255,255,255,0.05); border:1px solid var(--ui-border-color); padding: 8px 16px; border-radius: 6px; color:#fff; cursor:pointer;" onclick="closeSettingsModal()">Cancel</button>
+                    <button class="control-btn" style="background:var(--ui-primary-600); border:1px solid var(--ui-primary-400); padding: 8px 16px; border-radius: 6px; color:#fff; font-weight:600; cursor:pointer;" onclick="saveClientSettings()">💾 Save Settings</button>
                 </div>
             </div>
         </div>
@@ -985,9 +1032,12 @@
                     ${renderOptionalChip('Contact', client.features['Contact'], client.id)}
                 </div>
                 
-                <div class="build-section">
-                    <button class="launch-btn" style="background: var(--ui-primary-600); width: 100%; justify-content: center; font-weight: 600;" onclick="openAuditModal('${client.id}')">
-                        🔍 Audit Assets & Units
+                <div class="build-section" style="display: flex; gap: 8px;">
+                    <button class="launch-btn" style="background: var(--ui-primary-600); flex: 1; justify-content: center; font-weight: 600;" onclick="openAuditModal('${client.id}')">
+                        🔍 Audit
+                    </button>
+                    <button class="launch-btn" style="background: rgba(255, 255, 255, 0.05); border-color: var(--ui-border-color); flex: 1; justify-content: center; font-weight: 600;" onclick="openSettingsModal('${client.id}')">
+                        ⚙️ Settings
                     </button>
                 </div>
             `;
@@ -1131,6 +1181,7 @@
                 }
 
                 const units = await window.db.fetchUnits();
+                window.currentDbUnits = units;
                 renderDbTable(units);
             } catch (e) {
                 console.error(e);
@@ -1186,7 +1237,14 @@
 
             // Header
             let thead = '<tr>';
-            columns.forEach(col => thead += `<th>${col}</th>`);
+            columns.forEach(col => {
+                const isPk = (col === pkColumn || col === 'ID' || col === 'id' || col === 'uuid');
+                if (isPk) {
+                    thead += `<th style="position: relative;" title="Primary Key column (Unique identifier)">${col} 🔑</th>`;
+                } else {
+                    thead += `<th onclick="bulkFillColumn('${col}', '${pkColumn}')" style="cursor: pointer; position: relative; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(0,111,238,0.15)'" onmouseout="this.style.backgroundColor=''" title="Bulk update: Click to fill this entire column with the same value for all rows.">${col} ⚡</th>`;
+                }
+            });
             thead += '</tr>';
             table.querySelector('thead').innerHTML = thead;
 
@@ -1404,8 +1462,87 @@
         function closeAuditModal() {
             const modal = document.getElementById('audit-modal');
             modal.style.display = 'none';
-            currentClientID = null;
-            auditData = [];
+        }
+
+        let activeSettingsClientID = null;
+        let activeClientSettings = {};
+
+        async function openSettingsModal(clientID) {
+            activeSettingsClientID = clientID;
+            document.getElementById('settings-client-tag').textContent = clientID;
+            
+            // Clear input fields
+            document.getElementById('setting-logo-path').value = '';
+            document.getElementById('setting-visit-url').value = '';
+            document.getElementById('setting-location-url').value = '';
+            
+            // Load settings file from client folder
+            try {
+                const response = await fetch(`${clientID}/settings.json`).catch(() => null);
+                if (response && response.ok) {
+                    activeClientSettings = await response.json();
+                } else {
+                    activeClientSettings = {};
+                }
+            } catch (e) {
+                console.warn('Error reading settings.json:', e);
+                activeClientSettings = {};
+            }
+
+            // Hydrate fields
+            if (activeClientSettings.ui) {
+                document.getElementById('setting-logo-path').value = activeClientSettings.ui.logoPath || '';
+                document.getElementById('setting-visit-url').value = activeClientSettings.ui.visitUrl || '';
+                document.getElementById('setting-location-url').value = activeClientSettings.ui.locationUrl || '';
+            }
+
+            document.getElementById('client-settings-modal').style.display = 'block';
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('client-settings-modal').style.display = 'none';
+            activeSettingsClientID = null;
+        }
+
+        async function saveClientSettings() {
+            if (!activeSettingsClientID) return;
+
+            const logoPath = document.getElementById('setting-logo-path').value.trim();
+            const visitUrl = document.getElementById('setting-visit-url').value.trim();
+            const locationUrl = document.getElementById('setting-location-url').value.trim();
+
+            if (!activeClientSettings.ui) activeClientSettings.ui = {};
+            
+            activeClientSettings.ui.logoPath = logoPath || undefined;
+            activeClientSettings.ui.visitUrl = visitUrl || undefined;
+            activeClientSettings.ui.locationUrl = locationUrl || undefined;
+
+            const filename = `${activeSettingsClientID}/settings.json`;
+            const content = JSON.stringify(activeClientSettings, null, 2);
+
+            try {
+                const response = await fetch('/api/save-file', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        filename: filename,
+                        content: content
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('✅ Client settings saved successfully!', 'success');
+                    closeSettingsModal();
+                    // Reload client card statuses
+                    setTimeout(() => fetchClients(), 500);
+                } else {
+                    showToast('❌ Failed to save client settings.', 'error');
+                }
+            } catch (error) {
+                showToast(`❌ Error: ${error.message}`, 'error');
+            }
         }
 
         async function runUnitAudit(clientID) {
@@ -2145,6 +2282,260 @@
             downloadAnchor.click();
             downloadAnchor.remove();
             showToast('📥 JSON Audit Report downloaded!', 'success');
+        }
+
+        // ==========================================
+        // DATABASE EXPORT UTILITIES & BULK TOOLS
+        // ==========================================
+        
+        function downloadDbCSV() {
+            if (!window.currentDbUnits || window.currentDbUnits.length === 0) {
+                showToast('No database data available to export', 'error');
+                return;
+            }
+            const units = window.currentDbUnits;
+            const columns = Object.keys(units[0]);
+            
+            let csvContent = '\uFEFF'; // Add UTF-8 BOM for Excel compliance
+            
+            // Header row
+            csvContent += columns.map(col => `"${col.replace(/"/g, '""')}"`).join(',') + '\n';
+            
+            // Data rows
+            units.forEach(unit => {
+                const row = columns.map(col => {
+                    let val = unit[col];
+                    if (typeof val === 'object' && val !== null) {
+                        val = JSON.stringify(val);
+                    }
+                    val = val === null || val === undefined ? '' : String(val);
+                    return `"${val.replace(/"/g, '""')}"`;
+                });
+                csvContent += row.join(',') + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `database_export_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('📥 CSV file downloaded successfully', 'success');
+        }
+
+        function downloadDbExcel() {
+            if (!window.currentDbUnits || window.currentDbUnits.length === 0) {
+                showToast('No database data available to export', 'error');
+                return;
+            }
+            const units = window.currentDbUnits;
+            const columns = Object.keys(units[0]);
+            
+            // Generate clean HTML Table format that Excel reads with native styles
+            let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">`;
+            html += `<head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Units Database</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>`;
+            html += `<table style="border-collapse: collapse; font-family: sans-serif; font-size: 13px;">`;
+            
+            // Header
+            html += '<tr>';
+            columns.forEach(col => {
+                html += `<th style="background-color: #006fee; color: #ffffff; font-weight: bold; border: 1px solid #dddddd; padding: 10px; text-align: left;">${col}</th>`;
+            });
+            html += '</tr>';
+            
+            // Rows
+            units.forEach(unit => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    let val = unit[col];
+                    if (typeof val === 'object' && val !== null) {
+                        val = JSON.stringify(val);
+                    }
+                    val = val === null || val === undefined ? '' : String(val);
+                    val = val.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    html += `<td style="border: 1px solid #dddddd; padding: 8px; color: #333333;">${val}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</table></body></html>';
+            
+            const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `database_export_${new Date().toISOString().split('T')[0]}.xls`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('📥 Excel file downloaded successfully', 'success');
+        }
+
+        async function bulkFillColumn(colName, pkColumn) {
+            if (!window.currentDbUnits || window.currentDbUnits.length === 0) {
+                showToast('No data available to update', 'error');
+                return;
+            }
+
+            const isPk = (colName === pkColumn || colName === 'ID' || colName === 'id' || colName === 'uuid');
+            if (isPk) {
+                showToast('Primary Key columns cannot be bulk-updated', 'error');
+                return;
+            }
+
+            const newValue = prompt(`⚡ BULK UPDATE COLUMN: "${colName}"\n\nThis will set the value of "${colName}" for ALL records in the database.\n\nEnter the new value:`);
+            
+            if (newValue === null) return; // User cancelled
+            
+            const spinner = document.getElementById('db-loading');
+            const table = document.getElementById('units-table');
+            
+            table.style.opacity = '0.5';
+            spinner.style.display = 'block';
+            
+            try {
+                const needsQuotes = (col) => col.includes(' ') || /[A-Z]/.test(col);
+                const fieldKey = colName;
+                const pkColName = needsQuotes(pkColumn) ? `"${pkColumn}"` : pkColumn;
+                
+                // Perform a bulk update on the Units table in Supabase
+                const { data, error } = await window.db.client
+                    .from('Units')
+                    .update({ [fieldKey]: newValue })
+                    .not(pkColName, 'is', null);
+                
+                if (error) throw error;
+                
+                showToast(`Successfully set "${colName}" to "${newValue}" for all rows`, 'success');
+                await refreshDbTable(); // Reload data
+            } catch (err) {
+                console.error('[Bulk Update Error]', err);
+                showToast('Bulk update failed: ' + err.message, 'error');
+            } finally {
+                table.style.opacity = '1';
+                spinner.style.display = 'none';
+            }
+        }
+
+        async function autoRegisterMissingUnits() {
+            const spinner = document.getElementById('db-loading');
+            const table = document.getElementById('units-table');
+            
+            table.style.opacity = '0.5';
+            spinner.style.display = 'block';
+            
+            try {
+                if (!window.db || !window.db.client) {
+                    throw new Error("Supabase client not ready");
+                }
+                
+                // 1. Resolve unit column name
+                const unitColumn = await window.db.resolveUnitColumn();
+                
+                // 2. Fetch current database units
+                const dbUnits = await window.db.fetchUnits();
+                const existingKeys = new Set(dbUnits.map(u => {
+                    const unitNum = String(u[unitColumn] || '').trim().toLowerCase();
+                    const cid = String(u.ClientID || u.client_id || '').trim().toLowerCase();
+                    return `${cid}:${unitNum}`;
+                }));
+                
+                // 3. Scan all client folders
+                const scanRes = await fetch('/api/scan-clients', { method: 'POST' });
+                if (!scanRes.ok) throw new Error('Failed to scan client folders');
+                const scanData = await scanRes.json();
+                
+                if (!scanData.success || !scanData.clients) {
+                    throw new Error(scanData.message || 'Client scanning failed');
+                }
+                
+                const clients = scanData.clients;
+                let missingRecords = [];
+                let totalScannedUnits = 0;
+                
+                showToast('Scanning physical folder assets to find missing database rows...', 'success');
+                
+                // 4. Audit each client folder
+                for (const client of clients) {
+                    const auditRes = await fetch('/api/audit-client-assets', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ clientID: client.id })
+                    });
+                    
+                    if (!auditRes.ok) continue;
+                    const auditData = await auditRes.json();
+                    if (!auditData.success) continue;
+                    
+                    const report = auditData.report;
+                    
+                    // Gather all units found in physical folders
+                    const folderUnitNums = new Set();
+                    if (report.plans_2d) Object.keys(report.plans_2d).forEach(k => folderUnitNums.add(k));
+                    if (report.plans_3d_single) Object.keys(report.plans_3d_single).forEach(k => folderUnitNums.add(k));
+                    if (report.plans_3d_sequences) Object.keys(report.plans_3d_sequences).forEach(k => folderUnitNums.add(k));
+                    if (report.photos) Object.keys(report.photos).forEach(k => folderUnitNums.add(k));
+                    
+                    folderUnitNums.forEach(unitNum => {
+                        const cleanNum = unitNum.trim();
+                        if (!cleanNum) return;
+                        
+                        totalScannedUnits++;
+                        const compositeKey = `${client.id.toLowerCase()}:${cleanNum.toLowerCase()}`;
+                        
+                        if (!existingKeys.has(compositeKey)) {
+                            const newRecord = {
+                                [unitColumn]: cleanNum
+                            };
+                            
+                            const columns = dbUnits.length > 0 ? Object.keys(dbUnits[0]) : [];
+                            if (columns.includes('ClientID')) {
+                                newRecord['ClientID'] = client.id;
+                            } else if (columns.includes('client_id')) {
+                                newRecord['client_id'] = client.id;
+                            } else {
+                                newRecord['ClientID'] = client.id;
+                            }
+                            
+                            if (columns.includes('Status') || columns.includes('status')) {
+                                const statusCol = columns.includes('Status') ? 'Status' : 'status';
+                                newRecord[statusCol] = 'Available';
+                            }
+                            
+                            missingRecords.push(newRecord);
+                        }
+                    });
+                }
+                
+                if (missingRecords.length === 0) {
+                    showToast('🎉 All local unit folders are already registered in the database!', 'success');
+                    return;
+                }
+                
+                const confirmSync = confirm(`⚡ AUTO-REGISTER MISSING DATABASE RECORDS\n\n` +
+                    `Total units found in folder scans: ${totalScannedUnits}\n` +
+                    `Units missing from database: ${missingRecords.length}\n\n` +
+                    `Do you want to automatically create database rows for these ${missingRecords.length} physical units?`);
+                    
+                if (!confirmSync) return;
+                
+                const { error } = await window.db.client
+                    .from('Units')
+                    .insert(missingRecords);
+                    
+                if (error) throw error;
+                
+                showToast(`🎉 Successfully registered ${missingRecords.length} physical units in Supabase!`, 'success');
+                await refreshDbTable();
+            } catch (err) {
+                console.error('[Sync Error]', err);
+                showToast('Failed to auto-register units: ' + err.message, 'error');
+            } finally {
+                table.style.opacity = '1';
+                spinner.style.display = 'none';
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
