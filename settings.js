@@ -225,8 +225,13 @@ class UISettingsManager {
             
             // Deep merge specific objects if they exist
             fileSettings.ui = { ...this.settings.ui, ...(rootData.ui || {}), ...(clientData.ui || {}) };
-            if (fileSettings.ui.theme) {
-                 fileSettings.ui.theme = { ...this.settings.ui.theme, ...(rootData.ui?.theme || rootData.theme || {}), ...(clientData.ui?.theme || clientData.theme || {}) };
+            // Migration logic for old JSON files that had .theme instead of .themes
+            if (fileSettings.ui.theme && !fileSettings.ui.themes) {
+                fileSettings.ui.themes = { dark: fileSettings.ui.theme, light: {} };
+                delete fileSettings.ui.theme;
+            }
+            if (fileSettings.ui.themes) {
+                 fileSettings.ui.themes = { ...this.settings.ui.themes, ...(rootData.ui?.themes || {}), ...(clientData.ui?.themes || {}) };
             }
             if (fileSettings.ui.toolbar) {
                  fileSettings.ui.toolbar = { ...this.settings.ui.toolbar, ...(rootData.ui?.toolbar || {}), ...(clientData.ui?.toolbar || {}) };
@@ -322,7 +327,7 @@ class UISettingsManager {
         // 2. Apply Toolbar & Layout settings
         if (uiSettings.toolbar) {
             const tb = uiSettings.toolbar;
-            const root = document.documentElement;
+            const root = document.body;
             
             // Spacing / gaps
             if (tb.gap !== undefined) {
@@ -449,7 +454,7 @@ class UISettingsManager {
         
         // Apply blur settings
         if (uiSettings.blurEnabled !== undefined) {
-             document.documentElement.style.setProperty('--blur-intensity', `${uiSettings.blurIntensity || 15}px`);
+             document.body.style.setProperty('--blur-intensity', `${uiSettings.blurIntensity || 15}px`);
              
              // Update all elements with backdrop-filter
              const elementsWithBlur = document.querySelectorAll('#controls, #loading, #debug-panel, #ui-settings-panel, #plan-image-panel, .control-btn, .effect-dropdown, .debug-close-btn, .effect-control-group, #top-toolbar, .showcase-overlay');
@@ -558,10 +563,13 @@ class UISettingsManager {
     }
     
     // Apply theme settings to CSS variables
-    applyTheme(theme) {
+    applyTheme(overrideTheme) {
+        const mode = this.settings.ui?.themeMode || 'dark';
+        const themes = this.settings.ui?.themes || {};
+        const theme = overrideTheme || themes[mode] || this.settings.ui?.theme || {};
         if (!theme) return;
 
-        const root = document.documentElement;
+        const root = document.body;
         
         // Colors
         if (theme.primary) {

@@ -409,7 +409,7 @@
         .rich-tooltip {
             visibility: hidden;
             width: 320px;
-            background-color: var(--ui-bg-panel);
+            background: ;
             color: var(--ui-text-primary);
             text-align: left;
             border-radius: var(--ui-border-radius-md);
@@ -522,7 +522,7 @@
         }
 
         .modal-content {
-            background-color: var(--ui-bg-panel);
+            background: ;
             margin: 3vh auto;
             padding: 20px;
             border: 1px solid var(--ui-border-color);
@@ -1064,14 +1064,14 @@
             const tooltipEl = document.getElementById('db-tooltip');
 
             try {
-                if (!window.db || !window.db.client) {
+                if (!window.AppData || !window.AppData.client) {
                     throw new Error('Supabase client was not initialized. This usually means the script at "supabase-client.js" failed to load or has an invalid configuration.');
                 }
 
                 const start = performance.now();
                 
                 // We perform a light head request to check connectivity and auth
-                const { count, error, status } = await window.db.client
+                const { count, error, status } = await window.AppData.client
                     .from('Units')
                     .select('*', { count: 'exact', head: true });
 
@@ -1109,7 +1109,7 @@
                 statusEl.className = 'db-status offline';
                 statusText.textContent = 'Database Connection Failed';
                 
-                const projectId = window.db.client.supabaseUrl ? window.db.client.supabaseUrl.split('.')[0].split('//')[1] : 'exxkpokuewxvpixrmofo';
+                const projectId = window.AppData.client.supabaseUrl ? window.AppData.client.supabaseUrl.split('.')[0].split('//')[1] : 'exxkpokuewxvpixrmofo';
                 const dashboardUrl = `https://supabase.com/dashboard/project/${projectId}`;
                 
                 let title = '❌ Connection Failed';
@@ -1176,11 +1176,11 @@
 
             try {
                 // Ensure we have the function available
-                if (!window.db || !window.db.fetchUnits) {
+                if (!window.AppData || !window.AppData.fetchUnits) {
                     throw new Error("Database client not ready");
                 }
 
-                const units = await window.db.fetchUnits();
+                const units = await window.AppData.fetchUnits();
                 window.currentDbUnits = units;
                 renderDbTable(units);
             } catch (e) {
@@ -1334,7 +1334,7 @@
                 const updatePK = needsQuotes(pkColumn) ? `"${pkColumn}"` : pkColumn;
 
                 // --- DIAGNOSTIC STEP 1: Verify Row Exists (Read) ---
-                let checkQuery = window.db.client
+                let checkQuery = window.AppData.client
                     .from('Units')
                     .select(updatePK); // Just select ID
 
@@ -1352,7 +1352,7 @@
                 }
 
                 // --- STEP 2: Perform Update (Write) ---
-                let query = window.db.client
+                let query = window.AppData.client
                     .from('Units')
                     .update({ [updateFieldKey]: value })
                     .eq(updatePK, id);
@@ -1550,12 +1550,12 @@
             tableBody.innerHTML = '';
             
             try {
-                const unitColumn = await window.db.resolveUnitColumn();
+                const unitColumn = await window.AppData.resolveUnitColumn();
                 console.log('[Audit] Using unit column:', unitColumn);
                 
                 let dbUnits = [];
                 try {
-                    const allUnits = await window.db.fetchUnits();
+                    const allUnits = await window.AppData.fetchUnits();
                     dbUnits = allUnits.filter(u => {
                         const cid = String(u.ClientID || u.client_id || '').trim();
                         return cid.toLowerCase() === clientID.toLowerCase();
@@ -2401,7 +2401,7 @@
                 const pkColName = needsQuotes(pkColumn) ? `"${pkColumn}"` : pkColumn;
                 
                 // Perform a bulk update on the Units table in Supabase
-                const { data, error } = await window.db.client
+                const { data, error } = await window.AppData.client
                     .from('Units')
                     .update({ [fieldKey]: newValue })
                     .not(pkColName, 'is', null);
@@ -2427,15 +2427,15 @@
             spinner.style.display = 'block';
             
             try {
-                if (!window.db || !window.db.client) {
+                if (!window.AppData || !window.AppData.client) {
                     throw new Error("Supabase client not ready");
                 }
                 
                 // 1. Resolve unit column name
-                const unitColumn = await window.db.resolveUnitColumn();
+                const unitColumn = await window.AppData.resolveUnitColumn();
                 
                 // 2. Fetch current database units
-                const dbUnits = await window.db.fetchUnits();
+                const dbUnits = await window.AppData.fetchUnits();
                 const existingKeys = new Set(dbUnits.map(u => {
                     const unitNum = String(u[unitColumn] || '').trim().toLowerCase();
                     const cid = String(u.ClientID || u.client_id || '').trim().toLowerCase();
@@ -2521,7 +2521,7 @@
                     
                 if (!confirmSync) return;
                 
-                const { error } = await window.db.client
+                const { error } = await window.AppData.client
                     .from('Units')
                     .insert(missingRecords);
                     

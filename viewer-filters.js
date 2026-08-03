@@ -220,9 +220,9 @@
         await loadCustomLogo();
 
         // Resolve dynamic unit column identifier from metadata
-        if (window.db && window.db.resolveUnitColumn) {
+        if (window.AppData && window.AppData.resolveUnitColumn) {
             try {
-                unitCol = await window.db.resolveUnitColumn();
+                unitCol = await window.AppData.resolveUnitColumn();
                 console.log('[Filters] Dynamic unit column resolved in filters:', unitCol);
             } catch (e) {
                 console.warn('[Filters] Failed to resolve dynamic column:', e);
@@ -422,13 +422,13 @@
     // Sync filters with the fetched Supabase Database cache
     async function syncFiltersWithDatabase() {
         try {
-            if (!window.db) {
-                console.warn('[Filters] window.db not initialized yet, retrying...');
+            if (!window.AppData) {
+                console.warn('[Filters] window.AppData not initialized yet, retrying...');
                 setTimeout(syncFiltersWithDatabase, 300);
                 return;
             }
 
-            const units = await window.db.fetchUnits();
+            const units = await window.AppData.fetchUnits();
             if (!units || units.length === 0) {
                 console.warn('[Filters] Fetched zero units from database.');
                 return;
@@ -840,8 +840,8 @@
         }
 
         // 3. Load DB details and dispatch event
-        if (window.db && window.db.getUnitDetails) {
-            window.db.getUnitDetails(unitName).then(unitData => {
+        if (window.AppData && window.AppData.getUnitDetails) {
+            window.AppData.getUnitDetails(unitName).then(unitData => {
                 if (unitData) {
                     console.log('[Filters] Auto-loaded details for suggestion:', unitData);
                     window.currentUnitData = unitData;

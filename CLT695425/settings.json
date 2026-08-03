@@ -11,7 +11,7 @@
     "visitUrl": "",
     "locationUrl": "42.1158762,12.7758299",
     "contact": {
-      "title": "VARA Headquarters",
+      "title": "VARA Residency",
       "address": "123 Premium Real Estate Ave, Suite 500, Paris, France",
       "phone": "+33 1 23 45 67 89",
       "email": "sales@vara3d.com"
@@ -28,49 +28,15 @@
       "infoPanelViewport": "popup",
       "defaultLanguage": "en"
     },
-    "theme": {
-      "mode": "dark",
-      "primary": {
-        "500": "#006FEE"
+    "locationAddress": "123 Premium Real Estate Ave, Paris, France",
+    "themes": {
+      "light": {
+        "background": {
+          "default": "rgba(214, 87, 87, 1)"
+        }
       },
-      "secondary": {
-        "500": "#66AAF9"
-      },
-      "success": "#00C851",
-      "warning": "#FFBB33",
-      "danger": "#FF4444",
-      "background": {
-        "panel": "rgba(NaN, 10, 24, 1)",
-        "card": "rgba(18, 18, 18, 0.94)",
-        "default": "rgba(130, 130, 130, 1)"
-      },
-      "text": {
-        "primary": "#FFFFFF",
-        "secondary": "rgba(255, 255, 255, 0.7)",
-        "disabled": "rgba(255, 255, 255, 0.4)"
-      },
-      "border": {
-        "color": "#005BC4"
-      },
-      "spacing": {
-        "xs": "4px",
-        "sm": "8px",
-        "md": "12px",
-        "lg": "16px",
-        "xl": "24px",
-        "2xl": "32px"
-      },
-      "shadow": {
-        "sm": "0 2px 4px rgba(0, 0, 0, 0.2)",
-        "md": "0 4px 8px rgba(0, 0, 0, 0.3)",
-        "lg": "0 8px 16px rgba(0, 0, 0, 0.4)",
-        "xl": "0 12px 24px rgba(0, 0, 0, 0.5)"
-      },
-      "font": {
-        "family": "system-ui, -apple-system, sans-serif"
-      }
-    },
-    "locationAddress": "123 Premium Real Estate Ave, Paris, France"
+      "dark": {}
+    }
   },
   "performance": {
     "lightMode": false

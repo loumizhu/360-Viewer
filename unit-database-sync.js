@@ -265,7 +265,7 @@
         // 2. Fetch data from Supabase
         // We assume the 'units' table has a column 'ClientID' (PascalCase) based on schema inspection
         try {
-            const { data, error } = await window.db.client
+            const { data, error } = await window.AppData.client
                 .from('Units')
                 .select('*')
                 .eq('ClientID', clientID) // Use exact match on ClientID only
@@ -715,8 +715,8 @@
     async function populateUnitDropdown(selectEl, currentUnit) {
         if (!allUnitsCache) {
             try {
-                if (window.db && window.db.fetchUnits) {
-                    allUnitsCache = await window.db.fetchUnits();
+                if (window.AppData && window.AppData.fetchUnits) {
+                    allUnitsCache = await window.AppData.fetchUnits();
                 }
             } catch (e) { console.error(e); }
         }
@@ -778,7 +778,7 @@
 
         // 1. Fetch details
         try {
-            const data = await window.db.getUnitDetails(unitId);
+            const data = await window.AppData.getUnitDetails(unitId);
             if (data) {
                  // 2. Update UI
                  await updateUI(data);
@@ -829,7 +829,7 @@
 
         // 3. Fallback: If viewer3d isn't active, fetch manually
         setTimeout(() => {
-            if (!window.currentUnitData && window.db && window.db.client) {
+            if (!window.currentUnitData && window.AppData && window.AppData.client) {
                 syncUnitInfo();
             }
         }, 2000);

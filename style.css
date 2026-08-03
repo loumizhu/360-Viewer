@@ -329,7 +329,7 @@
 body {
     font-family: var(--ui-font-family);
     overflow: hidden;
-    background-color: #000;
+    background: var(--ui-bg-default, #000);
 }
 
 #container {
@@ -1923,7 +1923,7 @@ body {
 }
 
 .ui-settings-switch input:checked+.ui-settings-switch-slider {
-    background-color: var(--ui-primary-500);
+    background: ;
     border-color: var(--ui-primary-400);
 }
 
@@ -1983,7 +1983,7 @@ body {
 }
 
 .toggle-switch input:checked+.toggle-switch-slider {
-    background-color: var(--ui-primary-500);
+    background: ;
     border-color: var(--ui-primary-400);
 }
 
@@ -3146,7 +3146,7 @@ body {
 
 .range-input::-webkit-slider-thumb:hover {
     transform: scale(1.2);
-    background-color: var(--ui-primary-500, #006FEE);
+    background: ;
 }
 
 .range-input::-moz-range-thumb {
@@ -3163,7 +3163,7 @@ body {
 
 .range-input::-moz-range-thumb:hover {
     transform: scale(1.2);
-    background-color: var(--ui-primary-500, #006FEE);
+    background: ;
 }
 
 /* Reset Button */
@@ -3921,6 +3921,7 @@ body.light-mode {
     /* Main Variables Override */
     --ui-bg-default: rgba(240, 243, 246, 0.85);
     --ui-bg-panel: rgba(255, 255, 255, 0.95);
+    --ui-bg-overlay: rgba(255, 255, 255, 0.96);
     --ui-bg-card: rgba(248, 250, 252, 0.98);
     --ui-bg-hover: rgba(0, 111, 238, 0.08);
     --ui-text-primary: #0f172a;

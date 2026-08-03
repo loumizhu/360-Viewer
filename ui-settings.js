@@ -169,7 +169,9 @@ class UISettingsPanel {
             return;
         }
         
-        const theme = this.getSetting('ui', 'theme') || {};
+        const themeMode = this.getSetting('ui', 'themeMode') || 'dark';
+        const themes = this.getSetting('ui', 'themes') || {};
+        const theme = themes[themeMode] || this.getSetting('ui', 'theme') || {};
 
         // 1. Tab Page: Themes & Presets
         this.createThemesAndPresetsSection();
@@ -181,6 +183,7 @@ class UISettingsPanel {
             this.createFontSection(theme, stylingPage);
             this.createColorsSection(theme, stylingPage);
             this.createBackgroundSection(theme, stylingPage);
+            this.createTextSection(theme, stylingPage);
             this.createBorderSection(theme, stylingPage);
             this.createSpacingSection(theme, stylingPage);
         }
@@ -268,6 +271,7 @@ class UISettingsPanel {
         let c1 = '#000000', c2 = '#ffffff';
         let direction = 'to right';
         let solidColor = '#000000';
+        let opacity = 1;
 
         if (rgbaValue && rgbaValue.includes('linear-gradient')) {
             isGradient = true;
@@ -280,6 +284,12 @@ class UISettingsPanel {
             }
         } else {
             solidColor = this.parseColorToHex(rgbaValue) || '#000000';
+            if (rgbaValue && rgbaValue.startsWith('rgba')) {
+                const opMatch = rgbaValue.match(/rgba\([^,]+,\s*[^,]+,\s*[^,]+,\s*([\d.]+)\)/);
+                if (opMatch) {
+                    opacity = parseFloat(opMatch[1]);
+                }
+            }
         }
         
         // Header Row (Label + Type Toggle)
@@ -316,9 +326,19 @@ class UISettingsPanel {
         solidInput.type = 'color';
         solidInput.className = 'ui-settings-color-input';
         solidInput.value = solidColor;
-        solidInput.style.flex = '1';
+        solidInput.style.flex = '0 0 50px';
+        
+        const opacityInput = document.createElement('input');
+        opacityInput.type = 'range';
+        opacityInput.className = 'ui-settings-slider';
+        opacityInput.min = '0';
+        opacityInput.max = '1';
+        opacityInput.step = '0.01';
+        opacityInput.value = opacity;
+        opacityInput.style.flex = '1';
         
         solidContainer.appendChild(solidInput);
+        solidContainer.appendChild(opacityInput);
         group.appendChild(solidContainer);
         
         // Gradient Container
@@ -362,7 +382,11 @@ class UISettingsPanel {
         // Event Listeners
         const triggerChange = () => {
             if (typeSelect.value === 'solid') {
-                onChange(solidInput.value);
+                const hex = solidInput.value;
+                const r = parseInt(hex.slice(1, 3), 16) || 0;
+                const g = parseInt(hex.slice(3, 5), 16) || 0;
+                const b = parseInt(hex.slice(5, 7), 16) || 0;
+                onChange(`rgba(${r}, ${g}, ${b}, ${opacityInput.value})`);
             } else {
                 onChange(`linear-gradient(${dirSelect.value}, ${c1Input.value}, ${c2Input.value})`);
             }
@@ -380,6 +404,7 @@ class UISettingsPanel {
         });
         
         solidInput.addEventListener('input', triggerChange);
+        opacityInput.addEventListener('input', triggerChange);
         dirSelect.addEventListener('change', triggerChange);
         c1Input.addEventListener('input', triggerChange);
         c2Input.addEventListener('input', triggerChange);
@@ -415,13 +440,11 @@ class UISettingsPanel {
         title.textContent = '🎨 Curated Theme Presets';
         section.appendChild(title);
 
-        const grid = document.createElement('div');
-        grid.className = 'theme-presets-grid';
-
         const PRESET_THEMES = [
             {
                 id: 'midnight-neon',
                 name: 'Midnight Neon',
+                mode: 'dark',
                 primary: '#006FEE',
                 secondary: '#66AAF9',
                 bg: 'rgba(18, 18, 18, 0.94)',
@@ -431,6 +454,7 @@ class UISettingsPanel {
             {
                 id: 'cyberpunk-gold',
                 name: 'Cyberpunk Gold',
+                mode: 'dark',
                 primary: '#FFB300',
                 secondary: '#FFE082',
                 bg: 'rgba(20, 15, 6, 0.95)',
@@ -440,6 +464,7 @@ class UISettingsPanel {
             {
                 id: 'emerald-luxury',
                 name: 'Emerald Luxury',
+                mode: 'dark',
                 primary: '#00C851',
                 secondary: '#00E676',
                 bg: 'rgba(6, 24, 16, 0.94)',
@@ -449,6 +474,7 @@ class UISettingsPanel {
             {
                 id: 'sunset-coral',
                 name: 'Sunset Coral',
+                mode: 'dark',
                 primary: '#FF4444',
                 secondary: '#FF8888',
                 bg: 'rgba(28, 12, 16, 0.94)',
@@ -458,6 +484,7 @@ class UISettingsPanel {
             {
                 id: 'nord-frost',
                 name: 'Nord Frost',
+                mode: 'dark',
                 primary: '#38BDF8',
                 secondary: '#7DD3FC',
                 bg: 'rgba(15, 23, 42, 0.94)',
@@ -467,6 +494,7 @@ class UISettingsPanel {
             {
                 id: 'obsidian-violet',
                 name: 'Obsidian Violet',
+                mode: 'dark',
                 primary: '#A855F7',
                 secondary: '#C084FC',
                 bg: 'rgba(19, 14, 28, 0.94)',
@@ -476,6 +504,7 @@ class UISettingsPanel {
             {
                 id: 'light-clean',
                 name: 'Light Clean',
+                mode: 'light',
                 primary: '#006FEE',
                 secondary: '#005BC4',
                 bg: 'rgba(248, 250, 252, 0.96)',
@@ -496,48 +525,75 @@ class UISettingsPanel {
 
         const allPresets = [...PRESET_THEMES, ...customPresets];
 
-        allPresets.forEach(preset => {
-            const card = document.createElement('div');
-            card.className = 'theme-preset-card';
+        const darkThemes = allPresets.filter(p => p.mode === 'dark' || (!p.mode && !p.id.includes('light')));
+        const lightThemes = allPresets.filter(p => p.mode === 'light' || (!p.mode && p.id.includes('light')));
 
-            const cardTitle = document.createElement('div');
-            cardTitle.className = 'preset-card-title';
-            cardTitle.innerHTML = `<span>${preset.name}</span>`;
+        const createGrid = (themes, gridTitleText) => {
+            if (themes.length === 0) return null;
+            
+            const container = document.createElement('div');
+            container.style.marginBottom = '20px';
+            
+            const gridTitle = document.createElement('h5');
+            gridTitle.className = 'ui-settings-subsection-title';
+            gridTitle.textContent = gridTitleText;
+            gridTitle.style.marginBottom = '10px';
+            gridTitle.style.opacity = '0.8';
+            container.appendChild(gridTitle);
+            
+            const grid = document.createElement('div');
+            grid.className = 'theme-presets-grid';
+            
+            themes.forEach(preset => {
+                const card = document.createElement('div');
+                card.className = 'theme-preset-card';
 
-            if (preset.isCustom) {
-                const delBtn = document.createElement('button');
-                delBtn.className = 'preset-delete-btn';
-                delBtn.innerHTML = '🗑️';
-                delBtn.title = 'Delete custom preset';
-                delBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.deleteCustomPreset(preset.id);
+                const cardTitle = document.createElement('div');
+                cardTitle.className = 'preset-card-title';
+                cardTitle.innerHTML = `<span>${preset.name}</span>`;
+
+                if (preset.isCustom) {
+                    const delBtn = document.createElement('button');
+                    delBtn.className = 'preset-delete-btn';
+                    delBtn.innerHTML = '🗑️';
+                    delBtn.title = 'Delete custom preset';
+                    delBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.deleteCustomPreset(preset.id);
+                    });
+                    cardTitle.appendChild(delBtn);
+                }
+
+                const swatches = document.createElement('div');
+                swatches.className = 'preset-color-swatches';
+                swatches.innerHTML = `
+                    <div class="swatch-item" style="background:${preset.primary}"></div>
+                    <div class="swatch-item" style="background:${preset.secondary || preset.primary}"></div>
+                    <div class="swatch-item" style="background:${preset.bg}"></div>
+                    <div class="swatch-item" style="background:${preset.border}"></div>
+                `;
+
+                card.appendChild(swatches);
+                card.appendChild(cardTitle);
+
+                card.addEventListener('click', () => {
+                    this.applyPresetTheme(preset);
+                    section.querySelectorAll('.theme-preset-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
                 });
-                cardTitle.appendChild(delBtn);
-            }
 
-            const swatches = document.createElement('div');
-            swatches.className = 'preset-color-swatches';
-            swatches.innerHTML = `
-                <div class="swatch-item" style="background:${preset.primary}"></div>
-                <div class="swatch-item" style="background:${preset.secondary || preset.primary}"></div>
-                <div class="swatch-item" style="background:${preset.bg}"></div>
-                <div class="swatch-item" style="background:${preset.border}"></div>
-            `;
-
-            card.appendChild(swatches);
-            card.appendChild(cardTitle);
-
-            card.addEventListener('click', () => {
-                this.applyPresetTheme(preset);
-                grid.querySelectorAll('.theme-preset-card').forEach(c => c.classList.remove('active'));
-                card.classList.add('active');
+                grid.appendChild(card);
             });
+            
+            container.appendChild(grid);
+            return container;
+        };
 
-            grid.appendChild(card);
-        });
-
-        section.appendChild(grid);
+        const lightGridEl = createGrid(lightThemes, '☀️ Light Themes');
+        const darkGridEl = createGrid(darkThemes, '🌙 Dark Themes');
+        
+        if (lightGridEl) section.appendChild(lightGridEl);
+        if (darkGridEl) section.appendChild(darkGridEl);
 
         // Custom Preset Saver Form
         const saveBox = document.createElement('div');
@@ -595,14 +651,23 @@ class UISettingsPanel {
         }
 
         if (window.uiSettings) {
-            this.updateSetting('ui', 'theme', {
-                mode: preset.id && preset.id.includes('light') ? 'light' : 'dark',
+            const mode = preset.mode || (preset.id && preset.id.includes('light') ? 'light' : 'dark');
+            this.updateSetting('ui', 'themeMode', mode);
+            
+            const currentThemes = window.uiSettings.settings.ui.themes || { dark: {}, light: {} };
+            currentThemes[mode] = {
+                ...currentThemes[mode],
+                mode: mode,
                 primary: { '500': preset.primary },
                 secondary: { '500': preset.secondary || preset.primary },
                 background: { panel: preset.bg, card: preset.bg },
                 border: { color: preset.border },
                 font: { family: preset.font }
-            });
+            };
+            this.updateSetting('ui', 'themes', currentThemes);
+            if (window.uiSettings.settings.ui.theme) {
+                this.updateSetting('ui', 'theme', undefined);
+            }
         }
     }
 
@@ -691,6 +756,9 @@ class UISettingsPanel {
         `;
         themeModeGroup.querySelector('select').addEventListener('change', (e) => {
             uiSettings.themeMode = e.target.value;
+            this.applySettings(); // Save to JSON instantly
+            this.buildSettingsUI(); // Reload UI inputs for the new theme
+            this.applyTheme(this.getActiveTheme()); // Apply new theme CSS vars instantly
             this.applySettings();
             this.saveSettings();
         });
@@ -1155,10 +1223,7 @@ class UISettingsPanel {
         this.saveSettings();
     }
     
-    colorToRgba(hex) {
-        // This method is now legacy or used for fallback, as our controls emit valid RGBA strings directly
-        return hex;
-    }
+
     
     createSpacingSection(theme, targetParent) {
         const section = document.createElement('div');
@@ -2236,7 +2301,7 @@ class UISettingsPanel {
         this.createAmbientLayerSection(section, 'medium', 'Layer 2 (Medium)', settings.medium || {enabled: true, count: 1000, size: 400});
         this.createAmbientLayerSection(section, 'light', 'Layer 3 (Light)', settings.light || {enabled: true, count: 500, size: 200});
         
-        this.content.appendChild(section);
+        return section;
     }
     
     // Create UI for a single ambient particle layer
@@ -2650,7 +2715,12 @@ class UISettingsPanel {
         };
 
         // Load Custom Presets
-        const storedPresets = JSON.parse(localStorage.getItem('cursor_particle_presets') || '{}');
+        let storedPresets = {};
+        try {
+            storedPresets = JSON.parse(localStorage.getItem('cursor_particle_presets') || '{}');
+        } catch (e) {
+            console.warn('[UI Settings] Error parsing cursor_particle_presets:', e);
+        }
         Object.keys(storedPresets).forEach(key => {
             presets[key] = storedPresets[key];
             const opt = document.createElement('option');
@@ -2668,7 +2738,7 @@ class UISettingsPanel {
                 // Capture current settings (clone)
                 // We want to skip 'enabled' usually, but user asked for all controls.
                 // We typically filter out unused keys or system keys.
-                const current = JSON.parse(JSON.stringify(this.settings.cursorParticles));
+                const current = JSON.parse(JSON.stringify(this.settings.effects?.cursorParticles || {}));
                 delete current.enabled; // Don't save enabled state usually? Or yes? User choice. Let's keep it pure data.
                 
                 presets[safeName] = current;
@@ -2698,8 +2768,7 @@ class UISettingsPanel {
                 });
                 
                 // Reload UI
-                this.content.innerHTML = '';
-                this.content.appendChild(this.createCursorParticlesSection());
+                this.buildSettingsUI();
             }
         });
 
@@ -2836,7 +2905,7 @@ class UISettingsPanel {
         // Gradient Bias
         section.appendChild(createControl('Gradient Shift (Bias)', 'gradientBias', 0.1, 5.0, 0.1, 1.0));
 
-        (targetParent || this.content).appendChild(section);
+        return section;
     }
     
     updateCursorParticleSetting(key, value) {
@@ -2908,70 +2977,98 @@ class UISettingsPanel {
     }
     
     // Update methods
+
+    getActiveTheme() {
+        const mode = this.settings.ui.themeMode || 'dark';
+        if (!this.settings.ui.themes) {
+            // Migrate legacy theme if present
+            this.settings.ui.themes = {
+                dark: this.settings.ui.theme || {},
+                light: {}
+            };
+        }
+        if (!this.settings.ui.themes[mode]) {
+            this.settings.ui.themes[mode] = {};
+        }
+        return this.settings.ui.themes[mode];
+    }
+
     updateColorSetting(key, value) {
-        if (!this.settings.ui.theme) {
-            this.settings.ui.theme = {};
+        const activeTheme = this.getActiveTheme();
+
+        if (!activeTheme) {
+            activeTheme = {};
         }
         
         if (key === 'ui-primary-500') {
-            if (!this.settings.ui.theme.primary) {
-                this.settings.ui.theme.primary = {};
+            if (!activeTheme.primary) {
+                activeTheme.primary = {};
             }
-            this.settings.ui.theme.primary['500'] = value;
+            activeTheme.primary['500'] = value;
         } else {
-            this.settings.ui.theme[key.replace('ui-', '')] = value;
+            activeTheme[key.replace('ui-', '')] = value;
         }
         
-        this.applyTheme(this.settings.ui.theme);
+        this.applyTheme(activeTheme);
         this.saveSettings();
     }
     
     updateBackgroundSetting(key, value) {
-        if (!this.settings.ui.theme.background) {
-            this.settings.ui.theme.background = {};
+        const activeTheme = this.getActiveTheme();
+
+        if (!activeTheme.background) {
+            activeTheme.background = {};
         }
-        this.settings.ui.theme.background[key] = this.colorToRgba(value);
-        this.applyTheme(this.settings.ui.theme);
+        activeTheme.background[key] = this.colorToRgba(value);
+        this.applyTheme(activeTheme);
         this.saveSettings();
     }
     
     updateTextSetting(key, value) {
-        if (!this.settings.ui.theme.text) {
-            this.settings.ui.theme.text = {};
+        const activeTheme = this.getActiveTheme();
+
+        if (!activeTheme.text) {
+            activeTheme.text = {};
         }
-        this.settings.ui.theme.text[key] = this.colorToRgba(value);
-        this.applyTheme(this.settings.ui.theme);
+        activeTheme.text[key] = this.colorToRgba(value);
+        this.applyTheme(activeTheme);
         this.saveSettings();
     }
     
     updateBorderSetting(key, value) {
-        if (!this.settings.ui.theme.border) {
-            this.settings.ui.theme.border = {};
+        const activeTheme = this.getActiveTheme();
+
+        if (!activeTheme.border) {
+            activeTheme.border = {};
         }
         if (key === 'color' || key === 'toolbar') {
-            this.settings.ui.theme.border[key] = this.colorToRgba(value);
+            activeTheme.border[key] = this.colorToRgba(value);
         } else {
-            this.settings.ui.theme.border[key] = value;
+            activeTheme.border[key] = value;
         }
-        this.applyTheme(this.settings.ui.theme);
+        this.applyTheme(activeTheme);
         this.saveSettings();
     }
     
     updateSpacingSetting(key, value) {
-        if (!this.settings.ui.theme.spacing) {
-            this.settings.ui.theme.spacing = {};
+        const activeTheme = this.getActiveTheme();
+
+        if (!activeTheme.spacing) {
+            activeTheme.spacing = {};
         }
-        this.settings.ui.theme.spacing[key] = value;
-        this.applyTheme(this.settings.ui.theme);
+        activeTheme.spacing[key] = value;
+        this.applyTheme(activeTheme);
         this.saveSettings();
     }
     
     updateFontSetting(key, value) {
-        if (!this.settings.ui.theme.font) {
-            this.settings.ui.theme.font = {};
+        const activeTheme = this.getActiveTheme();
+
+        if (!activeTheme.font) {
+            activeTheme.font = {};
         }
-        this.settings.ui.theme.font[key] = value;
-        this.applyTheme(this.settings.ui.theme);
+        activeTheme.font[key] = value;
+        this.applyTheme(activeTheme);
         this.saveSettings();
     }
     
@@ -2989,40 +3086,7 @@ class UISettingsPanel {
         return val;
     }
 
-    createShowcaseContentSection(theme, targetParent) {
-        const section = document.createElement('div');
-        section.className = 'ui-settings-section';
-        section.innerHTML = '<h4 class="ui-settings-section-title">Branding & Info</h4><p style="color:#aaa; font-size:12px;">More showcase branding settings coming soon.</p>';
-        targetParent.appendChild(section);
-    }
 
-    createBlurSection(targetParent) {
-        const section = document.createElement('div');
-        section.className = 'ui-settings-section';
-        section.innerHTML = '<h4 class="ui-settings-section-title">Blur Effects</h4><p style="color:#aaa; font-size:12px;">Blur settings coming soon.</p>';
-        targetParent.appendChild(section);
-    }
-
-    createPerformanceSection(targetParent) {
-        const section = document.createElement('div');
-        section.className = 'ui-settings-section';
-        section.innerHTML = '<h4 class="ui-settings-section-title">Performance</h4><p style="color:#aaa; font-size:12px;">Performance settings coming soon.</p>';
-        targetParent.appendChild(section);
-    }
-
-    createTooltipSection(targetParent) {
-        const section = document.createElement('div');
-        section.className = 'ui-settings-section';
-        section.innerHTML = '<h4 class="ui-settings-section-title">Tooltips</h4><p style="color:#aaa; font-size:12px;">Tooltip settings coming soon.</p>';
-        targetParent.appendChild(section);
-    }
-
-    createControlsSection(targetParent) {
-        const section = document.createElement('div');
-        section.className = 'ui-settings-section';
-        section.innerHTML = '<h4 class="ui-settings-section-title">Controls</h4><p style="color:#aaa; font-size:12px;">Controls settings coming soon.</p>';
-        targetParent.appendChild(section);
-    }
 }
 
 // Initialize UI settings panel when DOM is ready

@@ -4,6 +4,9 @@
 > **Target Audience**: AI Coding Assistants & Developers maintainers  
 > **Last Updated**: July 2026
 
+> [!IMPORTANT]
+> **RULE**: Whenever you modify the architecture, add a new file, or change module boundaries, you MUST update these `.agents` files to keep them strictly up to date.
+
 ---
 
 ## 1. Executive Summary & Purpose
@@ -53,7 +56,7 @@ Key Capabilities:
 
 ## 3. Module Responsibilities & Architecture
 
-### 3.1 3D WebGL Engine (`viewer3d.js`)
+### 3.1 3D WebGL Engine (`window.App3D` via `viewer3d.js`)
 - **Three.js Scene Setup**: Initializes renderer, perspective cameras, ambient & directional lights, and post-processing bloom shaders.
 - **Raycasting & Hover Selection**: Listens for pointer move/click events on 3D meshes. Computes intersections to highlight units and open information cards.
 - **Particle Systems**: Coordinates with `ambient-particles.js` and `box-particles.js` for atmospheric effects.
@@ -64,14 +67,14 @@ Key Capabilities:
 - **Matrix Transformations**: Controls pan (`translateX`, `translateY`) and scale/zoom with smooth interpolation and bounds clamping.
 - **Hotspot Manager**: Renders interactive unit markers with status badges.
 
-### 3.3 Filters, Search & Multilingual System (`viewer-filters.js`)
+### 3.3 Filters, UI & Search (`window.AppUI` via `viewer-filters.js`)
 - **Localization Dictionary**: Contains `TRANSLATIONS` object supporting `en`, `fr`, and `ar`.
 - **RTL Support**: Toggles `dir="rtl"` and `.rtl` CSS rules when switching to Arabic.
 - **Double Range Sliders**: Custom range controls for Surface Area ($m^2$) and Floor Levels.
 - **Fuzzy Search**: Implements alphanumeric fuzzy matching for unit names and numbers.
 - **Showcase Overlays**: Manages sliding drawer overlays for Virtual Visit, Location Map, and Contact Form.
 
-### 3.4 Configuration & Customization (`ui-settings.js` & `settings.js`)
+### 3.4 Data & Configuration (`window.AppData` via `ui-settings.js` & `settings.js`)
 - **Settings Hierarchy**: Client-specific `CLTXXXXXX/settings.json` overrides root `settings.json`.
 - **Theme Engine**: Dynamic CSS custom properties (`--ui-primary-*`, `--ui-bg-*`, `--ui-border-*`) supporting Dark Mode and Light Mode.
 - **Feature Flags**: Dynamically enables/disables Virtual Visit, Location Map, and Contact tabs.
@@ -116,6 +119,8 @@ graph TD
 ## 6. Guidelines for AI Agents Modifying This Codebase
 
 1. **Vanilla Stack Rule**: Avoid introducing heavy frameworks (React, Vue, Tailwind). Keep components modular in pure JavaScript and CSS.
-2. **Localization Rule**: When adding new UI text, always add keys to `TRANSLATIONS` in `viewer-filters.js` for `en`, `fr`, and `ar`, and wire them in `setLanguage()`.
+2. **Event Bus Rule**: Do not call methods across module namespaces (e.g., UI calling 3D directly). Dispatch and listen to Custom Events (e.g., `document.dispatchEvent`).
+3. **Testing Rule**: Before marking a task as complete, you MUST run `node run_tests.js` to verify your changes haven't broken the module boundaries or public APIs. Do not rely on assumptions.
+4. **Localization Rule**: When adding new UI text, always add keys to `TRANSLATIONS` in `viewer-filters.js` for `en`, `fr`, and `ar`, and wire them in `setLanguage()`.
 3. **Multi-Tenant Safeguard**: Always test changes with explicit `clientID` parameters (`?clientID=CLT695425`).
 4. **Git Operations**: Use `git-commit.bat` for local commits and `git-push.bat` to sync with GitHub.

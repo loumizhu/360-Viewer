@@ -150,8 +150,8 @@ async function loadViewerSettings() {
             
         // Load Supabase Data (if available)
         let supabaseSettingsPromise = Promise.resolve(null);
-        if (CLIENT_ID && window.db && window.db.client) {
-            supabaseSettingsPromise = window.db.client
+        if (CLIENT_ID && window.AppData && window.AppData.client) {
+            supabaseSettingsPromise = window.AppData.client
                 .from('Units')
                 .select('*')
                 .or(`client_id.eq.${CLIENT_ID},id.eq.${CLIENT_ID}`)
@@ -467,9 +467,9 @@ class Viewer3D {
         
         // Fetch DB info (using cleaned name search key for robust CRM mapping)
         let data = window.currentUnitDataCache && window.currentUnitDataCache[cleanName(text)];
-        if (!data && window.db && window.db.getUnitDetails) {
+        if (!data && window.AppData && window.AppData.getUnitDetails) {
             try {
-                data = await window.db.getUnitDetails(text);
+                data = await window.AppData.getUnitDetails(text);
                 if (!window.currentUnitDataCache) window.currentUnitDataCache = {};
                 if (data) window.currentUnitDataCache[cleanName(text)] = data;
                 
@@ -1879,10 +1879,10 @@ class Viewer3D {
                         this.showPlanImage(objectName);
 
                         // 2. Fetch Unit Info from Database
-                        if (window.db && window.db.getUnitDetails) {
+                        if (window.AppData && window.AppData.getUnitDetails) {
                             try {
                                 console.log(`[Viewer3D] Fetching details for unit: ${objectName}`);
-                                const unitData = await window.db.getUnitDetails(objectName);
+                                const unitData = await window.AppData.getUnitDetails(objectName);
                                 
                                 // Prevent race condition if user clicked another box while loading
                                 if (this.lastClickedObjName !== objectName) {
@@ -1917,7 +1917,7 @@ class Viewer3D {
                             }
                         } else {
                             console.error('=====================================================');
-                            console.error('[Viewer3D] ERROR: window.db is undefined!');
+                            console.error('[Viewer3D] ERROR: window.AppData is undefined!');
                             console.error('[Viewer3D] The database client (supabase-client.js) did not load correctly.');
                             console.error('=====================================================');
                             const loader = document.getElementById('image-loader-overlay');
